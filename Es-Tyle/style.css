@@ -1,0 +1,12 @@
+/* Classes de navegação ativa */
+.module-nav-active {
+  background-color: #15803d !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.subtab-active {
+  border-bottom-color: #16a34a !important;
+  color: #16a34a !important;
+  font-weight: 700;
+}
