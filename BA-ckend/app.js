@@ -1,7 +1,7 @@
 // =========================================================================
 // 1. CONFIGURAÇÃO DO SUPABASE
 // =========================================================================
-const SUPABASE_URL = "https://SEU_PROJETO.supabase.co"; // Substitua pela sua URL
+const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co"; // Substitua pela sua URL
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";        // Substitua pela sua Anon Key
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -118,7 +118,7 @@ async function handleFimRota(e) {
   const rotaId = document.getElementById('form-fim-rota-select').value;
   const kmFinal = parseFloat(document.getElementById('form-fim-km').value);
   const destino = document.getElementById('form-fim-destino').value;
-  
+
   const rota = rotas.find(r => r.id === rotaId);
   const veiculo = veiculos.find(v => v.id === rota.veiculo_id);
 
@@ -284,7 +284,7 @@ function renderFleetGrid() {
           </div>
           <div class="flex justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
             <span>Tanque: <b>${v.tanque} L</b></span>
-            <span>Méd: <b>${((Number(v.consumo_min) + Number(v.consumo_max))/2).toFixed(1)} km/L</b></span>
+            <span>Méd: <b>${((Number(v.consumo_min) + Number(v.consumo_max)) / 2).toFixed(1)} km/L</b></span>
           </div>
         </div>
 
@@ -297,10 +297,10 @@ function renderFleetGrid() {
       </div>
 
       <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
-        ${isEmUso ? 
-          `<button onclick="abrirFinalizacaoDireta('${v.id}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` : 
-          `<button onclick="abrirInicioDireto('${v.id}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
-        }
+        ${isEmUso ?
+        `<button onclick="abrirFinalizacaoDireta('${v.id}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` :
+        `<button onclick="abrirInicioDireto('${v.id}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
+      }
       </div>
     `;
     container.appendChild(card);
@@ -342,7 +342,7 @@ function selecionarRotaFim() {
   const detalhes = document.getElementById('fim-detalhes-viagem');
   if (rota) {
     const v = veiculos.find(item => item.id === rota.veiculo_id);
-    const medConsumo = ((Number(v.consumo_min) + Number(v.consumo_max))/2).toFixed(1);
+    const medConsumo = ((Number(v.consumo_min) + Number(v.consumo_max)) / 2).toFixed(1);
     document.getElementById('fim-info-veiculo').innerText = `${rota.veiculo_id} (${v.marca})`;
     document.getElementById('fim-info-condutor').innerText = rota.responsavel;
     document.getElementById('fim-info-kmsaida').innerText = `${Number(rota.km_saida).toLocaleString('pt-BR')} km`;
@@ -385,7 +385,7 @@ function calcularKmPercorrido() {
   } else {
     const delta = kmFinal - rota.km_saida;
     const v = veiculos.find(item => item.id === rota.veiculo_id);
-    const medConsumo = (Number(v.consumo_min) + Number(v.consumo_max))/2;
+    const medConsumo = (Number(v.consumo_min) + Number(v.consumo_max)) / 2;
     const litrosEst = (delta / medConsumo).toFixed(1);
     feedback.innerText = `Distância: ${delta} km (Consumo est.: ~${litrosEst} Litros)`;
     feedback.className = "text-[11px] text-brand-700 font-bold mt-1 block";
@@ -500,7 +500,7 @@ function setModule(mod) {
     document.getElementById('module-gestao').classList.add('hidden');
     document.getElementById('subnav-operacao').classList.remove('hidden');
     document.getElementById('subnav-gestao').classList.add('hidden');
-    
+
     document.getElementById('btn-mod-operacao').className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     document.getElementById('btn-mod-gestao').className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     setSubTab('operacao', 'saida');
@@ -509,7 +509,7 @@ function setModule(mod) {
     document.getElementById('module-gestao').classList.remove('hidden');
     document.getElementById('subnav-operacao').classList.add('hidden');
     document.getElementById('subnav-gestao').classList.remove('hidden');
-    
+
     document.getElementById('btn-mod-gestao').className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     document.getElementById('btn-mod-operacao').className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     setSubTab('gestao', 'dashboard');
