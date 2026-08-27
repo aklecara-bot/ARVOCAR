@@ -908,9 +908,13 @@ function renderHistorico() {
       <td class="py-3 px-3 font-mono font-bold text-slate-800">${r.id}</td>
       <td class="py-3 px-3 font-extrabold text-slate-700">${r.veiculo_id}</td>
       <td class="py-3 px-3 text-slate-600">${r.responsavel}</td>
-      <td class="py-3 px-3 font-medium text-xs">
-        <div>${r.origem} &rarr; ${r.destino || 'Em Trânsito'}</div>
-        <div class="text-[10px] text-slate-400 font-semibold">${r.finalidade || ''}</div>
+      <td class="py-3 px-3 font-medium">
+        ${r.origem} &rarr; ${r.destino || 'Em Trânsito'}
+      </td>
+      <td class="py-3 px-3 font-semibold text-slate-800">
+        <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] border border-slate-200">
+          ${r.finalidade || '-'}
+        </span>
       </td>
       <td class="py-3 px-3 font-mono text-[11px] text-slate-600">
         <div>${formatarDataHora(r.data_saida)}</div>

@@ -45,7 +45,7 @@
         </div>
         <div>
           <span class="text-xl font-black tracking-tight">ARVO</span>
-          <span class="text-brand-300 text-xs font-semibold uppercase tracking-wider block sm:inline sm:ml-2">Relatórios Gerenciais</span>
+          <span class="text-brand-300 text-xs font-semibold uppercase tracking-wider block sm:inline sm:ml-2">Relatórios e Métricas</span>
         </div>
       </div>
       <div class="flex items-center space-x-3">
@@ -57,39 +57,98 @@
     </div>
   </header>
 
-  <!-- Container -->
+  <!-- Container Principal -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-    <!-- Filtros de Agrupamento Temporal -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div>
-        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-          <i class="ph-bold ph-funnel text-brand-600"></i> Agrupamento Temporal da Quilometragem
-        </h2>
-        <p class="text-xs text-slate-500">Selecione a granularidade para a análise temporal de KM rodado</p>
+    <!-- Painel de Filtros Avançados -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <div class="p-2 bg-brand-50 text-brand-700 rounded-lg">
+            <i class="ph-bold ph-funnel text-lg"></i>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Filtros Dinâmicos</h2>
+            <p class="text-xs text-slate-400">Filtre as métricas simultaneamente por motoristas, projetos, locais e período</p>
+          </div>
+        </div>
+        <button onclick="limparFiltros()" class="text-xs text-slate-500 hover:text-brand-700 font-bold flex items-center gap-1">
+          <i class="ph-bold ph-arrow-counter-clockwise text-sm"></i> Limpar Filtros
+        </button>
       </div>
 
-      <div class="flex flex-wrap bg-slate-100 p-1.5 rounded-xl border border-slate-200 text-xs font-bold gap-1">
-        <button onclick="setPeriodo('dia')" id="btn-periodo-dia" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Dia</button>
-        <button onclick="setPeriodo('semana')" id="btn-periodo-semana" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Semana</button>
-        <button onclick="setPeriodo('mes')" id="btn-periodo-mes" class="px-3 py-1.5 rounded-lg bg-brand-700 text-white shadow transition">Mês</button>
-        <button onclick="setPeriodo('trimestre')" id="btn-periodo-trimestre" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Trimestre</button>
-        <button onclick="setPeriodo('ano')" id="btn-periodo-ano" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Ano</button>
+      <!-- Grid de Filtros Principais -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Motorista -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Motorista</label>
+          <select id="filtro-motorista" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-medium">
+            <option value="TODOS">Todos os Motoristas</option>
+          </select>
+        </div>
+
+        <!-- Finalidade -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Finalidade / Projeto</label>
+          <select id="filtro-finalidade" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-medium">
+            <option value="TODOS">Todas as Finalidades</option>
+          </select>
+        </div>
+
+        <!-- Origem -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Origem de Saída</label>
+          <select id="filtro-origem" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-medium">
+            <option value="TODOS">Todas as Origens</option>
+          </select>
+        </div>
+
+        <!-- Carro / Veículo -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Carro / Veículo</label>
+          <select id="filtro-veiculo" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-medium">
+            <option value="TODOS">Todos os Veículos</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Filtro de Datas e Escala Temporal -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-3 border-t border-slate-100 items-end">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Data Inicial</label>
+          <input type="date" id="filtro-data-inicio" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-medium" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Data Final</label>
+          <input type="date" id="filtro-data-fim" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-medium" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Escala Temporal do Gráfico</label>
+          <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1">
+            <button onclick="setPeriodo('dia')" id="btn-periodo-dia" class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center">Dia</button>
+            <button onclick="setPeriodo('semana')" id="btn-periodo-semana" class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center">Sem</button>
+            <button onclick="setPeriodo('mes')" id="btn-periodo-mes" class="flex-1 py-1.5 rounded-lg bg-brand-700 text-white shadow transition text-center">Mês</button>
+            <button onclick="setPeriodo('trimestre')" id="btn-periodo-trimestre" class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center">Trim</button>
+            <button onclick="setPeriodo('ano')" id="btn-periodo-ano" class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center">Ano</button>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Indicadores Gerais (KPIs) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">KM Total Concluído</span>
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">KM Total Filtrado</span>
           <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600"><i class="ph-bold ph-gauge text-lg"></i></div>
         </div>
         <p id="kpi-km-total" class="text-2xl font-black text-slate-800 mt-2">0 km</p>
-        <span class="text-[11px] text-slate-400">Soma acumulada de viagens</span>
+        <span class="text-[11px] text-slate-400">Total acumulado no filtro</span>
       </div>
 
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Média por Viagem</span>
           <div class="p-2 bg-blue-50 rounded-lg text-blue-600"><i class="ph-bold ph-arrows-left-right text-lg"></i></div>
@@ -98,7 +157,7 @@
         <span class="text-[11px] text-slate-400">Distância média por rota</span>
       </div>
 
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Duração Média</span>
           <div class="p-2 bg-amber-50 rounded-lg text-amber-600"><i class="ph-bold ph-clock text-lg"></i></div>
@@ -107,36 +166,36 @@
         <span id="kpi-tempo-dias" class="text-[11px] text-slate-400">0.0 dias</span>
       </div>
 
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Rotas Realizadas</span>
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Rotas Encontradas</span>
           <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600"><i class="ph-bold ph-road-horizon text-lg"></i></div>
         </div>
         <p id="kpi-qtd-rotas" class="text-2xl font-black text-slate-800 mt-2">0</p>
-        <span class="text-[11px] text-slate-400">Viagens registradas</span>
+        <span class="text-[11px] text-slate-400">Viagens correspondentes</span>
       </div>
     </div>
 
-    <!-- Painel de Gráficos -->
+    <!-- Gráficos Principais -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-      <!-- 1. KM por Período (Dia / Semana / Mês / Trimestre / Ano) -->
+      <!-- 1. KM por Período (Dia, Semana, Mês, Trimestre, Ano) -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
         <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-          <i class="ph-bold ph-chart-line text-brand-600"></i> KM por Período Temporal
+          <i class="ph-bold ph-chart-line text-brand-600"></i> Quilometragem por Período
         </h3>
-        <p class="text-xs text-slate-400 mb-4">Total de quilômetros na escala selecionada</p>
+        <p class="text-xs text-slate-400 mb-4">Total de quilômetros agrupados na escala temporal selecionada</p>
         <div class="relative h-64">
           <canvas id="chartEvolucaoKm"></canvas>
         </div>
       </div>
 
-      <!-- 2. KM por Veículo -->
+      <!-- 2. KM por Carro -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
         <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
           <i class="ph-bold ph-car text-brand-600"></i> Quilometragem por Carro
         </h3>
-        <p class="text-xs text-slate-400 mb-4">Total de KM acumulado por veículo</p>
+        <p class="text-xs text-slate-400 mb-4">KM percorrido por cada veículo no período filtrado</p>
         <div class="relative h-64">
           <canvas id="chartKmPorCarro"></canvas>
         </div>
@@ -147,29 +206,29 @@
         <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
           <i class="ph-bold ph-user-check text-brand-600"></i> Quilometragem por Motorista
         </h3>
-        <p class="text-xs text-slate-400 mb-4">Total de KM rodado por condutor</p>
+        <p class="text-xs text-slate-400 mb-4">Uso da frota por condutor</p>
         <div class="relative h-64">
           <canvas id="chartKmPorMotorista"></canvas>
         </div>
       </div>
 
-      <!-- 4. Média de KM por Finalidade -->
+      <!-- 4. Média de KM por Finalidade / Projeto -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
         <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
           <i class="ph-bold ph-briefcase text-brand-600"></i> Média de KM por Finalidade
         </h3>
-        <p class="text-xs text-slate-400 mb-4">Média de distância por projeto/finalidade</p>
+        <p class="text-xs text-slate-400 mb-4">Distância média das viagens por projeto</p>
         <div class="relative h-64">
           <canvas id="chartMediaPorFinalidade"></canvas>
         </div>
       </div>
 
-      <!-- 5. Duração das Rotas (Horas e Dias) -->
+      <!-- 5. Tempo de Duração das Rotas (Horas) -->
       <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
         <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-          <i class="ph-bold ph-hourglass-high text-brand-600"></i> Tempo de Duração por Rota (Horas)
+          <i class="ph-bold ph-hourglass-high text-brand-600"></i> Duração das Viagens (Horas) por Rota
         </h3>
-        <p class="text-xs text-slate-400 mb-4">Tempo decorrido entre a saída e o retorno das rotas recentes</p>
+        <p class="text-xs text-slate-400 mb-4">Tempo decorrido entre a saída e devolução das rotas</p>
         <div class="relative h-72">
           <canvas id="chartDuracaoRotas"></canvas>
         </div>
@@ -177,13 +236,14 @@
 
     </div>
 
-    <!-- Tabela Analítica de Duração e Trajetos -->
+    <!-- Tabela Analítica -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       <div class="p-4 border-b border-slate-100 flex items-center justify-between">
         <div>
-          <h3 class="text-sm font-bold text-slate-800">Extrato Analítico das Rotas</h3>
-          <p class="text-xs text-slate-400">Lista detalhada com quilometragem, tempo em horas e dias</p>
+          <h3 class="text-sm font-bold text-slate-800">Extrato Analítico das Rotas Filtradas</h3>
+          <p class="text-xs text-slate-400">Detalhamento individual de quilometragem e tempos de trânsito</p>
         </div>
+        <span id="badge-total-filtradas" class="text-xs bg-brand-50 text-brand-700 font-bold px-3 py-1 rounded-full border border-brand-200">0 rotas</span>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs text-slate-600">
@@ -192,6 +252,7 @@
               <th class="py-3 px-4">ID Rota</th>
               <th class="py-3 px-4">Carro</th>
               <th class="py-3 px-4">Motorista</th>
+              <th class="py-3 px-4">Origem</th>
               <th class="py-3 px-4">Finalidade</th>
               <th class="py-3 px-4 text-center">Distância</th>
               <th class="py-3 px-4">Saída</th>
@@ -213,7 +274,8 @@
 
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    let rotas = [];
+    let todasRotas = [];
+    let rotasFiltradas = [];
     let periodoAtual = 'mes';
 
     let chartTempo = null;
@@ -236,25 +298,92 @@
           .order('data_saida', { ascending: true });
 
         if (error) throw error;
-        rotas = data || [];
+        todasRotas = data || [];
 
-        renderizarKPIs();
-        renderizarGraficos();
-        renderizarTabela();
+        povoarOpcoesFiltros();
+        aplicarFiltrosEAtualizar();
       } catch (err) {
         console.error("Erro ao carregar dados:", err);
         alert("Erro ao carregar dados do Supabase.");
       }
     }
 
+    // Povoa os selects dinamicamente com dados existentes no banco
+    function povoarOpcoesFiltros() {
+      const motoristas = [...new Set(todasRotas.map(r => r.responsavel).filter(Boolean))].sort();
+      const finalidades = [...new Set(todasRotas.map(r => r.finalidade).filter(Boolean))].sort();
+      const origens = [...new Set(todasRotas.map(r => r.origem).filter(Boolean))].sort();
+      const veiculos = [...new Set(todasRotas.map(r => r.veiculo_id).filter(Boolean))].sort();
+
+      const selMot = document.getElementById('filtro-motorista');
+      motoristas.forEach(m => selMot.innerHTML += `<option value="${m}">${m}</option>`);
+
+      const selFin = document.getElementById('filtro-finalidade');
+      finalidades.forEach(f => selFin.innerHTML += `<option value="${f}">${f}</option>`);
+
+      const selOri = document.getElementById('filtro-origem');
+      origens.forEach(o => selOri.innerHTML += `<option value="${o}">${o}</option>`);
+
+      const selVei = document.getElementById('filtro-veiculo');
+      veiculos.forEach(v => selVei.innerHTML += `<option value="${v}">${v}</option>`);
+    }
+
+    // Aplicação simultânea de todos os filtros
+    function aplicarFiltrosEAtualizar() {
+      const mot = document.getElementById('filtro-motorista').value;
+      const fin = document.getElementById('filtro-finalidade').value;
+      const ori = document.getElementById('filtro-origem').value;
+      const vei = document.getElementById('filtro-veiculo').value;
+      const dtIni = document.getElementById('filtro-data-inicio').value;
+      const dtFim = document.getElementById('filtro-data-fim').value;
+
+      rotasFiltradas = todasRotas.filter(r => {
+        if (mot !== 'TODOS' && r.responsavel !== mot) return false;
+        if (fin !== 'TODOS' && r.finalidade !== fin) return false;
+        if (ori !== 'TODOS' && r.origem !== ori) return false;
+        if (vei !== 'TODOS' && r.veiculo_id !== vei) return false;
+
+        if (dtIni && r.data_saida) {
+          const dSaida = new Date(r.data_saida);
+          const dFiltroIni = new Date(`${dtIni}T00:00:00`);
+          if (dSaida < dFiltroIni) return false;
+        }
+
+        if (dtFim && r.data_saida) {
+          const dSaida = new Date(r.data_saida);
+          const dFiltroFim = new Date(`${dtFim}T23:59:59`);
+          if (dSaida > dFiltroFim) return false;
+        }
+
+        return true;
+      });
+
+      renderizarKPIs();
+      renderizarGraficos();
+      renderizarTabela();
+    }
+
+    function limparFiltros() {
+      document.getElementById('filtro-motorista').value = 'TODOS';
+      document.getElementById('filtro-finalidade').value = 'TODOS';
+      document.getElementById('filtro-origem').value = 'TODOS';
+      document.getElementById('filtro-veiculo').value = 'TODOS';
+      document.getElementById('filtro-data-inicio').value = '';
+      document.getElementById('filtro-data-fim').value = '';
+      setPeriodo('mes');
+      aplicarFiltrosEAtualizar();
+    }
+
     function setPeriodo(p) {
       periodoAtual = p;
       ['dia', 'semana', 'mes', 'trimestre', 'ano'].forEach(btn => {
         const item = document.getElementById(`btn-periodo-${btn}`);
-        if (btn === p) {
-          item.className = "px-3 py-1.5 rounded-lg bg-brand-700 text-white shadow transition";
-        } else {
-          item.className = "px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
+        if (item) {
+          if (btn === p) {
+            item.className = "flex-1 py-1.5 rounded-lg bg-brand-700 text-white shadow transition text-center";
+          } else {
+            item.className = "flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center";
+          }
         }
       });
       renderizarGraficoEvolucao();
@@ -270,13 +399,13 @@
     }
 
     function renderizarKPIs() {
-      const rotasConcluidas = rotas.filter(r => r.status === 'Concluida' || Number(r.km_total) > 0);
-      const totalKm = rotasConcluidas.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
-      const mediaKm = rotasConcluidas.length > 0 ? (totalKm / rotasConcluidas.length).toFixed(1) : 0;
+      const rotasValidas = rotasFiltradas.filter(r => r.status === 'Concluida' || Number(r.km_total) > 0);
+      const totalKm = rotasValidas.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
+      const mediaKm = rotasValidas.length > 0 ? (totalKm / rotasValidas.length).toFixed(1) : 0;
 
       let somaHoras = 0;
       let countComTempo = 0;
-      rotasConcluidas.forEach(r => {
+      rotasValidas.forEach(r => {
         const h = calcularDuracaoHoras(r.data_saida, r.data_retorno);
         if (h !== null && h >= 0) {
           somaHoras += h;
@@ -291,7 +420,8 @@
       document.getElementById('kpi-km-medio').innerText = `${mediaKm} km`;
       document.getElementById('kpi-tempo-medio').innerText = `${mediaHoras}h`;
       document.getElementById('kpi-tempo-dias').innerText = `~${mediaDias} dias por rota`;
-      document.getElementById('kpi-qtd-rotas').innerText = rotasConcluidas.length;
+      document.getElementById('kpi-qtd-rotas').innerText = rotasFiltradas.length;
+      document.getElementById('badge-total-filtradas').innerText = `${rotasFiltradas.length} rotas`;
     }
 
     function renderizarGraficos() {
@@ -302,12 +432,12 @@
       renderizarGraficoDuracao();
     }
 
-    // 1. Gráfico de Evolução (Dia, Semana, Mês, Trimestre, Ano)
+    // 1. Gráfico de Evolução (Dia / Semana / Mês / Trimestre / Ano)
     function renderizarGraficoEvolucao() {
       const ctx = document.getElementById('chartEvolucaoKm').getContext('2d');
       const agrupado = {};
 
-      rotas.forEach(r => {
+      rotasFiltradas.forEach(r => {
         if (!r.data_saida) return;
         const d = new Date(r.data_saida);
         let chave = '';
@@ -363,7 +493,7 @@
       const ctx = document.getElementById('chartKmPorCarro').getContext('2d');
       const porCarro = {};
 
-      rotas.forEach(r => {
+      rotasFiltradas.forEach(r => {
         const c = r.veiculo_id || 'Indefinido';
         porCarro[c] = (porCarro[c] || 0) + (Number(r.km_total) || 0);
       });
@@ -397,7 +527,7 @@
       const ctx = document.getElementById('chartKmPorMotorista').getContext('2d');
       const porMotorista = {};
 
-      rotas.forEach(r => {
+      rotasFiltradas.forEach(r => {
         const m = (r.responsavel || 'Desconhecido').split('@')[0];
         porMotorista[m] = (porMotorista[m] || 0) + (Number(r.km_total) || 0);
       });
@@ -427,13 +557,13 @@
       });
     }
 
-    // 4. Gráfico Média por Finalidade
+    // 4. Média de KM por Finalidade
     function renderizarGraficoFinalidade() {
       const ctx = document.getElementById('chartMediaPorFinalidade').getContext('2d');
       const totalFin = {};
       const countFin = {};
 
-      rotas.forEach(r => {
+      rotasFiltradas.forEach(r => {
         const f = r.finalidade || 'Outros';
         const km = Number(r.km_total) || 0;
         totalFin[f] = (totalFin[f] || 0) + km;
@@ -463,10 +593,10 @@
       });
     }
 
-    // 5. Gráfico de Duração (Horas)
+    // 5. Duração das Rotas (Horas)
     function renderizarGraficoDuracao() {
       const ctx = document.getElementById('chartDuracaoRotas').getContext('2d');
-      const ultimas = rotas.slice(-15);
+      const ultimas = rotasFiltradas.slice(-15);
       const labels = [];
       const horas = [];
 
@@ -505,7 +635,7 @@
       const tbody = document.getElementById('tabelaRelatorioRotas');
       tbody.innerHTML = '';
 
-      rotas.slice().reverse().forEach(r => {
+      rotasFiltradas.slice().reverse().forEach(r => {
         const duracaoHoras = calcularDuracaoHoras(r.data_saida, r.data_retorno);
         const duracaoDias = duracaoHoras !== null ? (duracaoHoras / 24).toFixed(2) : '-';
 
@@ -515,6 +645,7 @@
           <td class="py-3 px-4 font-mono font-bold text-slate-800">${r.id}</td>
           <td class="py-3 px-4 font-extrabold text-slate-700">${r.veiculo_id}</td>
           <td class="py-3 px-4 text-slate-600">${r.responsavel}</td>
+          <td class="py-3 px-4 font-medium text-slate-700">${r.origem || '-'}</td>
           <td class="py-3 px-4 font-medium text-slate-800">${r.finalidade || '-'}</td>
           <td class="py-3 px-4 text-center font-mono font-bold text-brand-700">${Number(r.km_total || 0).toLocaleString('pt-BR')} km</td>
           <td class="py-3 px-4 text-[11px] font-mono text-slate-500">${r.data_saida ? new Date(r.data_saida).toLocaleString('pt-BR') : '-'}</td>
