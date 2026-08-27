@@ -1,49 +1,180 @@
 // =========================================================================
-// 1. CONFIGURAÇÃO DO SUPABASE
+// 1. CONFIGURAÇÃO DO SUPABASE E ESTADOS GLOBAIS
 // =========================================================================
-const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co"; // Substitua pela sua URL
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";        // Substitua pela sua Anon Key
+const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Estados em memória sincronizados exclusivamente com o Supabase
+const ADMIN_EMAIL = "admin@arvo.tec.br";
+
 let usuarios = [];
 let veiculos = [];
 let rotas = [];
 let currentUserIndex = 0;
 
 // =========================================================================
-// 2. FUNÇÕES DE BUSCA (SELECT) NO SUPABASE
+// 2. CONTROLE DE SESSÃO, PERMISSÕES E LOGOUT
+// =========================================================================
+
+function verificarSessaoUsuario() {
+  const sessao = localStorage.getItem('arvo_usuario_logado');
+  if (!sessao) {
+    window.location.href = "login.html";
+    return null;
+  }
+  return JSON.parse(sessao);
+}
+
+function fazerLogout() {
+  const confirmacao = confirm("Tem certeza que deseja encerrar a sessão?");
+  if (confirmacao) {
+    localStorage.removeItem('arvo_usuario_logado');
+    window.location.href = "login.html";
+  }
+}
+
+function aplicarPermissoesUsuario() {
+  const sessao = verificarSessaoUsuario();
+  if (!sessao) return;
+
+  const btnGestao = document.getElementById('btn-mod-gestao');
+  const ehAdmin = sessao.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+
+  if (btnGestao) {
+    if (ehAdmin) {
+      btnGestao.classList.remove('hidden');
+    } else {
+      btnGestao.classList.add('hidden');
+      const modGestao = document.getElementById('module-gestao');
+      if (modGestao && !modGestao.classList.contains('hidden')) {
+        setModule('operacao');
+      }
+    }
+  }
+}
+
+function atualizarUsuarioNoCabecalho() {
+  if (usuarios.length === 0) return;
+  const u = usuarios[currentUserIndex];
+  
+  const display = document.getElementById('topUserDisplay');
+  const cnh = document.getElementById('topUserCnh');
+  const inputCondutor = document.getElementById('form-inicio-condutor');
+
+  if (display) display.innerText = `${u.nome} (${u.email})`;
+  if (cnh) cnh.innerText = `CNH: ${u.cnh}`;
+  if (inputCondutor) inputCondutor.value = `${u.nome} <${u.email}>`;
+}
+
+function alternarUsuarioLogado() {
+  if (usuarios.length === 0) return;
+  currentUserIndex = (currentUserIndex + 1) % usuarios.length;
+  atualizarUsuarioNoCabecalho();
+}
+
+// =========================================================================
+// 3. NAVEGAÇÃO ENTRE MÓDULOS E SUB-ABAS
+// =========================================================================
+
+function setModule(mod) {
+  const sessao = verificarSessaoUsuario();
+  const ehAdmin = sessao && sessao.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+
+  if (mod === 'gestao' && !ehAdmin) {
+    alert("Acesso restrito: Apenas o administrador (admin@arvo.tec.br) pode acessar o Painel de Gestão.");
+    return;
+  }
+
+  if (mod === 'operacao') {
+    document.getElementById('module-operacao').classList.remove('hidden');
+    document.getElementById('module-gestao').classList.add('hidden');
+    document.getElementById('subnav-operacao').classList.remove('hidden');
+    document.getElementById('subnav-gestao').classList.add('hidden');
+    
+    document.getElementById('btn-mod-operacao').className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
+    const btnG = document.getElementById('btn-mod-gestao');
+    if (btnG) btnG.className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
+    setSubTab('operacao', 'saida');
+  } else {
+    document.getElementById('module-operacao').classList.add('hidden');
+    document.getElementById('module-gestao').classList.remove('hidden');
+    document.getElementById('subnav-operacao').classList.add('hidden');
+    document.getElementById('subnav-gestao').classList.remove('hidden');
+    
+    const btnG = document.getElementById('btn-mod-gestao');
+    if (btnG) btnG.className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
+    document.getElementById('btn-mod-operacao').className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
+    setSubTab('gestao', 'dashboard');
+  }
+}
+
+function setSubTab(moduleName, tab) {
+  if (moduleName === 'operacao') {
+    ['saida', 'retorno', 'minhas-rotas'].forEach(t => {
+      const el = document.getElementById(`view-${t}`);
+      const btn = document.getElementById(`subtab-${t}`);
+      if (el) el.classList.add('hidden');
+      if (btn) {
+        btn.classList.remove('border-brand-600', 'text-brand-600', 'font-bold');
+        btn.classList.add('border-transparent', 'text-slate-500');
+      }
+    });
+    const activeView = document.getElementById(`view-${tab}`);
+    const activeBtn = document.getElementById(`subtab-${tab}`);
+    if (activeView) activeView.classList.remove('hidden');
+    if (activeBtn) {
+      activeBtn.classList.remove('border-transparent', 'text-slate-500');
+      activeBtn.classList.add('border-brand-600', 'text-brand-600', 'font-bold');
+    }
+  } else {
+    ['dashboard', 'cad-veiculos', 'cad-usuarios'].forEach(t => {
+      const el = document.getElementById(`view-${t}`);
+      const btn = document.getElementById(`subtab-${t}`);
+      if (el) el.classList.add('hidden');
+      if (btn) {
+        btn.classList.remove('border-brand-600', 'text-brand-600', 'font-bold');
+        btn.classList.add('border-transparent', 'text-slate-500');
+      }
+    });
+    const activeView = document.getElementById(`view-${tab}`);
+    const activeBtn = document.getElementById(`subtab-${tab}`);
+    if (activeView) activeView.classList.remove('hidden');
+    if (activeBtn) {
+      activeBtn.classList.remove('border-transparent', 'text-slate-500');
+      activeBtn.classList.add('border-brand-600', 'text-brand-600', 'font-bold');
+    }
+  }
+}
+
+// =========================================================================
+// 4. CARREGAMENTO GERAL DE DADOS (SUPABASE)
 // =========================================================================
 
 async function carregarTodosDadosDoBanco() {
+  const usuarioSessao = verificarSessaoUsuario();
+  if (!usuarioSessao) return;
+
   try {
-    // 1. Buscar Veículos
-    const { data: dadosVeiculos, error: errV } = await db
-      .from('veiculos')
-      .select('*')
-      .order('id');
+    const { data: dadosVeiculos, error: errV } = await db.from('veiculos').select('*').order('id');
     if (errV) throw errV;
     veiculos = dadosVeiculos || [];
 
-    // 2. Buscar Usuários
-    const { data: dadosUsuarios, error: errU } = await db
-      .from('usuarios')
-      .select('*')
-      .order('nome');
+    const { data: dadosUsuarios, error: errU } = await db.from('usuarios').select('*').order('nome');
     if (errU) throw errU;
     usuarios = dadosUsuarios || [];
 
-    // 3. Buscar Rotas (as mais recentes primeiro)
-    const { data: dadosRotas, error: errR } = await db
-      .from('rotas')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data: dadosRotas, error: errR } = await db.from('rotas').select('*').order('created_at', { ascending: false });
     if (errR) throw errR;
     rotas = dadosRotas || [];
 
-    // Atualizar Interface com os dados do banco
+    const userIndex = usuarios.findIndex(u => u.email.toLowerCase() === usuarioSessao.email.toLowerCase());
+    if (userIndex !== -1) {
+      currentUserIndex = userIndex;
+    }
+
     atualizarUsuarioNoCabecalho();
+    aplicarPermissoesUsuario();
     renderAll();
   } catch (error) {
     console.error("Erro ao carregar dados do Supabase:", error);
@@ -52,10 +183,39 @@ async function carregarTodosDadosDoBanco() {
 }
 
 // =========================================================================
-// 3. OPERAÇÃO DE ROTAS (INSERT E UPDATE)
+// 5. OPERAÇÕES DE ROTAS (CHECK-OUT E CHECK-IN)
 // =========================================================================
 
-// Iniciar Rota (Check-out)
+function toggleOutroOrigem(valor) {
+  const inputTexto = document.getElementById('form-inicio-origem-texto');
+  if (inputTexto) {
+    if (valor === 'OUTRO') {
+      inputTexto.classList.remove('hidden');
+      inputTexto.required = true;
+      inputTexto.focus();
+    } else {
+      inputTexto.classList.add('hidden');
+      inputTexto.required = false;
+      inputTexto.value = '';
+    }
+  }
+}
+
+function toggleOutroDestino(valor) {
+  const inputTexto = document.getElementById('form-fim-destino-texto');
+  if (inputTexto) {
+    if (valor === 'OUTRO') {
+      inputTexto.classList.remove('hidden');
+      inputTexto.required = true;
+      inputTexto.focus();
+    } else {
+      inputTexto.classList.add('hidden');
+      inputTexto.required = false;
+      inputTexto.value = '';
+    }
+  }
+}
+
 async function handleInicioRota(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-submit-inicio');
@@ -68,16 +228,32 @@ async function handleInicioRota(e) {
     return;
   }
 
-  btn.disabled = true;
-  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Gravando...`;
+  const selectOrigem = document.getElementById('form-inicio-origem').value;
+  const textoOrigem = document.getElementById('form-inicio-origem-texto')?.value.trim().toUpperCase() || '';
+  const origemFinal = selectOrigem === 'OUTRO' ? textoOrigem : selectOrigem;
+
+  if (!origemFinal) {
+    alert("Por favor, digite o local de saída.");
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Gravando...`;
+  }
+
+  // DATA E HORA DE SAÍDA GERADA AUTOMATICAMENTE NO MOMENTO DO CLIQUE
+  const dataHoraSaidaAtual = new Date().toISOString();
 
   const novaRota = {
     id: `ROTA-2026-${String(rotas.length + 261).padStart(4, '0')}`,
     veiculo_id: veiculoId,
     responsavel: user.email,
-    origem: document.getElementById('form-inicio-origem').value,
+    origem: origemFinal,
     destino: null,
     finalidade: document.getElementById('form-inicio-finalidade').value,
+    data_saida: dataHoraSaidaAtual, // <-- Gravado automaticamente
+    data_retorno: null,
     km_saida: Number(veiculo.km_atual),
     km_retorno: null,
     km_total: 0,
@@ -87,37 +263,40 @@ async function handleInicioRota(e) {
   };
 
   try {
-    // 1. Insere nova rota
     const { error: erroRota } = await db.from('rotas').insert([novaRota]);
     if (erroRota) throw erroRota;
 
-    // 2. Atualiza status do veículo para 'Em Uso'
-    const { error: erroVeiculo } = await db
-      .from('veiculos')
-      .update({ status: 'Em Uso' })
-      .eq('id', veiculoId);
+    const { error: erroVeiculo } = await db.from('veiculos').update({ status: 'Em Uso' }).eq('id', veiculoId);
     if (erroVeiculo) throw erroVeiculo;
 
     e.target.reset();
-    alert(`Rota ${novaRota.id} iniciada com sucesso para o veículo ${veiculoId}!`);
+    toggleOutroOrigem('');
+    alert(`Rota ${novaRota.id} iniciada com sucesso às ${formatarDataHora(dataHoraSaidaAtual)}!`);
     await carregarTodosDadosDoBanco();
     setSubTab('operacao', 'minhas-rotas');
   } catch (err) {
     console.error("Erro ao iniciar rota:", err);
-    alert("Erro ao gravar no Supabase: " + err.message);
+    alert("Erro: " + err.message);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<i class="ph-bold ph-check-circle text-lg"></i> Confirmar Saída no Supabase`;
+    btn.innerHTML = `<i class="ph-bold ph-check-circle text-lg"></i> Confirmar Saída`;
   }
 }
 
-// Finalizar Rota (Check-in)
 async function handleFimRota(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-submit-fim');
   const rotaId = document.getElementById('form-fim-rota-select').value;
   const kmFinal = parseFloat(document.getElementById('form-fim-km').value);
-  const destino = document.getElementById('form-fim-destino').value;
+  
+  const selectDestino = document.getElementById('form-fim-destino').value;
+  const textoDestino = document.getElementById('form-fim-destino-texto')?.value.trim().toUpperCase() || '';
+  const destinoFinal = selectDestino === 'OUTRO' ? textoDestino : selectDestino;
+
+  if (!destinoFinal) {
+    alert("Por favor, digite o local de devolução.");
+    return;
+  }
 
   const rota = rotas.find(r => r.id === rotaId);
   const veiculo = veiculos.find(v => v.id === rota.veiculo_id);
@@ -137,54 +316,66 @@ async function handleFimRota(e) {
   const medConsumo = (Number(veiculo.consumo_min) + Number(veiculo.consumo_max)) / 2;
   const litrosEst = Number((deltaKm / medConsumo).toFixed(2));
 
+  // DATA E HORA DE RETORNO GERADA AUTOMATICAMENTE
+  const dataHoraRetornoAtual = new Date().toISOString();
+
   try {
-    // 1. Atualiza a rota no banco
-    const { error: erroRota } = await db
-      .from('rotas')
-      .update({
-        km_retorno: kmFinal,
-        km_total: deltaKm,
-        consumo_litros: litrosEst,
-        destino: destino,
-        status: 'Concluida',
-        anomalia: anomaliaTexto,
-        data_retorno: new Date().toISOString()
-      })
-      .eq('id', rotaId);
+    const { error: erroRota } = await db.from('rotas').update({
+      km_retorno: kmFinal,
+      km_total: deltaKm,
+      consumo_litros: litrosEst,
+      destino: destinoFinal,
+      status: 'Concluida',
+      anomalia: anomaliaTexto,
+      data_retorno: dataHoraRetornoAtual // <-- Gravado automaticamente
+    }).eq('id', rotaId);
     if (erroRota) throw erroRota;
 
-    // 2. Atualiza o hodômetro e disponibilidade do carro
-    const { error: erroVeiculo } = await db
-      .from('veiculos')
-      .update({
-        km_atual: kmFinal,
-        status: 'Disponivel',
-        anomalias: anomaliaTexto || veiculo.anomalias
-      })
-      .eq('id', veiculo.id);
+    const { error: erroVeiculo } = await db.from('veiculos').update({
+      km_atual: kmFinal,
+      status: 'Disponivel',
+      anomalias: anomaliaTexto || veiculo.anomalias
+    }).eq('id', veiculo.id);
     if (erroVeiculo) throw erroVeiculo;
 
     e.target.reset();
+    toggleOutroDestino('');
     document.getElementById('fim-detalhes-viagem').classList.add('hidden');
     toggleAnomaliaInput(false);
 
-    alert(`Rota ${rotaId} encerrada! KM Rodado: ${deltaKm} km (Consumo est.: ~${litrosEst} L).`);
+    alert(`Rota ${rotaId} encerrada às ${formatarDataHora(dataHoraRetornoAtual)}! Distância: ${deltaKm} km.`);
     await carregarTodosDadosDoBanco();
     setSubTab('operacao', 'minhas-rotas');
   } catch (err) {
     console.error("Erro ao encerrar rota:", err);
-    alert("Erro ao gravar no Supabase: " + err.message);
+    alert("Erro: " + err.message);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<i class="ph-bold ph-check text-lg"></i> Finalizar Rota e Gravar no Supabase`;
+    btn.innerHTML = `<i class="ph-bold ph-check text-lg"></i> Finalizar Rota`;
   }
 }
 
 // =========================================================================
-// 4. CADASTROS (GESTÃO)
+// FORMATADOR AUXILIAR DE DATA E HORA (PT-BR)
+// =========================================================================
+function formatarDataHora(dataIso) {
+  if (!dataIso) return '-';
+  const data = new Date(dataIso);
+  if (isNaN(data.getTime())) return dataIso;
+  
+  return data.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+// =========================================================================
+// 6. GESTÃO DE VEÍCULOS (CADASTRO, EDIÇÃO E EXCLUSÃO)
 // =========================================================================
 
-// Cadastrar Veículo
 async function handleCadVeiculo(e) {
   e.preventDefault();
   const novoCarro = {
@@ -204,20 +395,174 @@ async function handleCadVeiculo(e) {
     if (error) throw error;
 
     e.target.reset();
-    alert(`Veículo ${novoCarro.id} salvo no Supabase com sucesso!`);
+    alert(`Veículo ${novoCarro.id} cadastrado com sucesso!`);
     await carregarTodosDadosDoBanco();
   } catch (err) {
-    console.error("Erro ao cadastrar veículo:", err);
-    alert("Erro ao cadastrar: " + err.message);
+    alert("Erro ao cadastrar veículo: " + err.message);
   }
 }
 
-// Cadastrar Usuário
+function abrirModalEditVeiculo(veiculoId) {
+  const v = veiculos.find(item => item.id === veiculoId);
+  if (!v) return;
+
+  document.getElementById('edit-v-id').value = v.id;
+  document.getElementById('modal-edit-v-title').innerText = v.id;
+  document.getElementById('edit-v-placa').value = v.placa;
+  document.getElementById('edit-v-marca').value = v.marca;
+  document.getElementById('edit-v-tanque').value = v.tanque;
+  document.getElementById('edit-v-consumomin').value = v.consumo_min;
+  document.getElementById('edit-v-consumomax').value = v.consumo_max;
+  document.getElementById('edit-v-kmatual').value = v.km_atual;
+  document.getElementById('edit-v-status').value = v.status;
+  document.getElementById('edit-v-anomalias').value = v.anomalias || '';
+
+  document.getElementById('modal-edit-veiculo').classList.remove('hidden');
+}
+
+function fecharModalEditVeiculo() {
+  document.getElementById('modal-edit-veiculo').classList.add('hidden');
+}
+
+async function handleSalvarEditVeiculo(e) {
+  e.preventDefault();
+  const id = document.getElementById('edit-v-id').value;
+
+  const dadosAtualizados = {
+    placa: document.getElementById('edit-v-placa').value.toUpperCase().trim(),
+    marca: document.getElementById('edit-v-marca').value.trim(),
+    tanque: parseFloat(document.getElementById('edit-v-tanque').value),
+    consumo_min: parseFloat(document.getElementById('edit-v-consumomin').value),
+    consumo_max: parseFloat(document.getElementById('edit-v-consumomax').value),
+    km_atual: parseFloat(document.getElementById('edit-v-kmatual').value),
+    status: document.getElementById('edit-v-status').value,
+    anomalias: document.getElementById('edit-v-anomalias').value.trim()
+  };
+
+  try {
+    const { error } = await db.from('veiculos').update(dadosAtualizados).eq('id', id);
+    if (error) throw error;
+
+    fecharModalEditVeiculo();
+    alert(`Veículo ${id} atualizado com sucesso!`);
+    await carregarTodosDadosDoBanco();
+  } catch (err) {
+    alert("Erro ao atualizar veículo: " + err.message);
+  }
+}
+
+async function handleApagarVeiculo(veiculoId) {
+  const confirmacao = confirm(`Tem certeza que deseja APAGAR o veículo ${veiculoId}? Esta ação não pode ser desfeita.`);
+  if (!confirmacao) return;
+
+  try {
+    const { error } = await db.from('veiculos').delete().eq('id', veiculoId);
+    if (error) throw error;
+
+    alert(`Veículo ${veiculoId} removido com sucesso!`);
+    await carregarTodosDadosDoBanco();
+  } catch (err) {
+    alert("Erro ao excluir veículo (verifique se há rotas associadas): " + err.message);
+  }
+}
+
+// =========================================================================
+// 7. GESTÃO DE USUÁRIOS (CADASTRO, EDIÇÃO COM SENHA VISÍVEL E EXCLUSÃO)
+// =========================================================================
+
+// Função de mostrar/ocultar senha
+    function toggleVerSenha() {
+      const input = document.getElementById('login-senha');
+      const icone = document.getElementById('icone-senha');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icone.classList.remove('ph-eye');
+        icone.classList.add('ph-eye-slash');
+      } else {
+        input.type = 'password';
+        icone.classList.remove('ph-eye-slash');
+        icone.classList.add('ph-eye');
+      }
+    }
+
+    // Processamento do Login
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-login');
+      const erroBox = document.getElementById('erro-login');
+      const erroMsg = document.getElementById('erro-login-msg');
+      
+      const email = document.getElementById('login-email').value.trim().toLowerCase();
+      const senha = document.getElementById('login-senha').value.trim();
+
+      erroBox.classList.add('hidden');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Autenticando...`;
+
+      try {
+        const { data, error } = await db
+          .from('usuarios')
+          .select('*')
+          .eq('email', email)
+          .single();
+
+        if (error || !data) {
+          throw new Error("Usuário não cadastrado.");
+        }
+
+        if (data.senha !== senha) {
+          throw new Error("Senha incorreta. Verifique suas credenciais.");
+        }
+
+        if (data.status === 'Inativo') {
+          throw new Error("Este usuário está inativo no sistema.");
+        }
+
+        // Salva a sessão localmente
+        localStorage.setItem('arvo_usuario_logado', JSON.stringify({
+          id: data.id,
+          nome: data.nome,
+          email: data.email,
+          cnh: data.cnh
+        }));
+
+        // Redireciona para o index.html (ou paginainicial.html)
+        window.location.href = "index.html";
+
+      } catch (err) {
+        console.error("Falha no login:", err);
+        erroMsg.innerText = err.message || "E-mail ou senha inválidos.";
+        erroBox.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Entrar no Sistema</span> <i class="ph-bold ph-arrow-right text-base"></i>`;
+      }
+    }
+
+function toggleVerSenhaEdicao() {
+  const input = document.getElementById('edit-u-senha');
+  const icone = document.getElementById('icone-senha-edit');
+  if (input.type === 'text') {
+    input.type = 'password';
+    if (icone) {
+      icone.classList.remove('ph-eye');
+      icone.classList.add('ph-eye-slash');
+    }
+  } else {
+    input.type = 'text';
+    if (icone) {
+      icone.classList.remove('ph-eye-slash');
+      icone.classList.add('ph-eye');
+    }
+  }
+}
+
 async function handleCadUsuario(e) {
   e.preventDefault();
   const novoUsuario = {
     nome: document.getElementById('cad-u-nome').value.trim(),
     email: document.getElementById('cad-u-email').value.trim().toLowerCase(),
+    senha: document.getElementById('cad-u-senha').value.trim(),
     cnh: document.getElementById('cad-u-cnh').value.trim(),
     status: 'Ativo'
   };
@@ -227,16 +572,83 @@ async function handleCadUsuario(e) {
     if (error) throw error;
 
     e.target.reset();
-    alert(`Usuário ${novoUsuario.nome} registrado no Supabase!`);
+    alert(`Usuário ${novoUsuario.nome} cadastrado com sucesso!`);
     await carregarTodosDadosDoBanco();
   } catch (err) {
-    console.error("Erro ao cadastrar usuário:", err);
     alert("Erro ao cadastrar usuário: " + err.message);
   }
 }
 
+function abrirModalEditUsuario(usuarioId) {
+  const u = usuarios.find(item => item.id === usuarioId);
+  if (!u) return;
+
+  document.getElementById('edit-u-id').value = u.id;
+  document.getElementById('edit-u-nome').value = u.nome;
+  document.getElementById('edit-u-email').value = u.email;
+  
+  const inputSenha = document.getElementById('edit-u-senha');
+  if (inputSenha) {
+    inputSenha.type = 'text';
+    inputSenha.value = u.senha || '';
+  }
+  
+  const icone = document.getElementById('icone-senha-edit');
+  if (icone) {
+    icone.className = 'ph-bold ph-eye text-base';
+  }
+
+  document.getElementById('edit-u-cnh').value = u.cnh;
+  document.getElementById('edit-u-status').value = u.status || 'Ativo';
+
+  document.getElementById('modal-edit-usuario').classList.remove('hidden');
+}
+
+function fecharModalEditUsuario() {
+  document.getElementById('modal-edit-usuario').classList.add('hidden');
+}
+
+async function handleSalvarEditUsuario(e) {
+  e.preventDefault();
+  const id = document.getElementById('edit-u-id').value;
+
+  const dadosAtualizados = {
+    nome: document.getElementById('edit-u-nome').value.trim(),
+    email: document.getElementById('edit-u-email').value.trim().toLowerCase(),
+    senha: document.getElementById('edit-u-senha').value.trim(),
+    cnh: document.getElementById('edit-u-cnh').value.trim(),
+    status: document.getElementById('edit-u-status').value
+  };
+
+  try {
+    const { error } = await db.from('usuarios').update(dadosAtualizados).eq('id', id);
+    if (error) throw error;
+
+    fecharModalEditUsuario();
+    alert("Condutor e senha atualizados com sucesso!");
+    await carregarTodosDadosDoBanco();
+  } catch (err) {
+    alert("Erro ao atualizar usuário: " + err.message);
+  }
+}
+
+async function handleApagarUsuario(usuarioId, nome) {
+  const confirmacao = confirm(`Deseja realmente APAGAR o usuário "${nome}"?`);
+  if (!confirmacao) return;
+
+  try {
+    const { error } = await db.from('usuarios').delete().eq('id', usuarioId);
+    if (error) throw error;
+
+    alert(`Usuário ${nome} removido com sucesso!`);
+    await carregarTodosDadosDoBanco();
+  } catch (err) {
+    alert("Erro ao excluir usuário: " + err.message);
+  }
+}
+
 // =========================================================================
-// 5. RENDERIZAÇÃO E INTERFACE (DOM)
+// 8. RENDERIZAÇÃO DE TABELAS E COMPONENTES
 // =========================================================================
 
 function renderAll() {
@@ -250,14 +662,20 @@ function renderAll() {
 }
 
 function renderDashboardKPIs() {
-  document.getElementById('kpi-total-veiculos').innerText = veiculos.length;
-  document.getElementById('kpi-em-rota').innerText = veiculos.filter(v => v.status === 'Em Uso').length;
-  document.getElementById('kpi-disponiveis').innerText = veiculos.filter(v => v.status === 'Disponivel').length;
-  document.getElementById('kpi-anomalias').innerText = veiculos.filter(v => v.anomalias && v.anomalias.trim() !== '').length;
+  const elTotal = document.getElementById('kpi-total-veiculos');
+  const elEmRota = document.getElementById('kpi-em-rota');
+  const elDisp = document.getElementById('kpi-disponiveis');
+  const elAnom = document.getElementById('kpi-anomalias');
+
+  if (elTotal) elTotal.innerText = veiculos.length;
+  if (elEmRota) elEmRota.innerText = veiculos.filter(v => v.status === 'Em Uso').length;
+  if (elDisp) elDisp.innerText = veiculos.filter(v => v.status === 'Disponivel').length;
+  if (elAnom) elAnom.innerText = veiculos.filter(v => v.anomalias && v.anomalias.trim() !== '').length;
 }
 
 function renderFleetGrid() {
   const container = document.getElementById('fleetGrid');
+  if (!container) return;
   container.innerHTML = '';
 
   veiculos.forEach(v => {
@@ -284,7 +702,7 @@ function renderFleetGrid() {
           </div>
           <div class="flex justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
             <span>Tanque: <b>${v.tanque} L</b></span>
-            <span>Méd: <b>${((Number(v.consumo_min) + Number(v.consumo_max)) / 2).toFixed(1)} km/L</b></span>
+            <span>Méd: <b>${((Number(v.consumo_min) + Number(v.consumo_max))/2).toFixed(1)} km/L</b></span>
           </div>
         </div>
 
@@ -297,144 +715,24 @@ function renderFleetGrid() {
       </div>
 
       <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
-        ${isEmUso ?
-        `<button onclick="abrirFinalizacaoDireta('${v.id}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` :
-        `<button onclick="abrirInicioDireto('${v.id}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
-      }
+        ${isEmUso ? 
+          `<button onclick="abrirFinalizacaoDireta('${v.id}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` : 
+          `<button onclick="abrirInicioDireto('${v.id}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
+        }
       </div>
     `;
     container.appendChild(card);
   });
 }
 
-function renderSelectVeiculosInicio() {
-  const select = document.getElementById('form-inicio-veiculo');
-  select.innerHTML = '<option value="">Selecione um carro da frota...</option>';
-  veiculos.filter(v => v.status === 'Disponivel').forEach(v => {
-    select.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}] (${Number(v.km_atual).toLocaleString('pt-BR')} km)</option>`;
-  });
-}
-
-function atualizarKmInicialPreenchido() {
-  const vId = document.getElementById('form-inicio-veiculo').value;
-  const v = veiculos.find(item => item.id === vId);
-  document.getElementById('form-inicio-km').value = v ? v.km_atual : '';
-}
-
-function abrirInicioDireto(vId) {
-  setModule('operacao');
-  setSubTab('operacao', 'saida');
-  document.getElementById('form-inicio-veiculo').value = vId;
-  atualizarKmInicialPreenchido();
-}
-
-function renderSelectRotasFim() {
-  const select = document.getElementById('form-fim-rota-select');
-  select.innerHTML = '<option value="">Selecione uma viagem em trânsito...</option>';
-  rotas.filter(r => r.status === 'Em Uso').forEach(r => {
-    select.innerHTML += `<option value="${r.id}">${r.id} | ${r.veiculo_id} (${r.responsavel})</option>`;
-  });
-}
-
-function selecionarRotaFim() {
-  const rotaId = document.getElementById('form-fim-rota-select').value;
-  const rota = rotas.find(r => r.id === rotaId);
-  const detalhes = document.getElementById('fim-detalhes-viagem');
-  if (rota) {
-    const v = veiculos.find(item => item.id === rota.veiculo_id);
-    const medConsumo = ((Number(v.consumo_min) + Number(v.consumo_max)) / 2).toFixed(1);
-    document.getElementById('fim-info-veiculo').innerText = `${rota.veiculo_id} (${v.marca})`;
-    document.getElementById('fim-info-condutor').innerText = rota.responsavel;
-    document.getElementById('fim-info-kmsaida').innerText = `${Number(rota.km_saida).toLocaleString('pt-BR')} km`;
-    document.getElementById('fim-info-consumo-est').innerText = `Média de ${medConsumo} km/L`;
-    detalhes.classList.remove('hidden');
-
-    document.getElementById('form-fim-km').min = rota.km_saida;
-    document.getElementById('form-fim-km').value = rota.km_saida;
-    calcularKmPercorrido();
-  } else {
-    detalhes.classList.add('hidden');
-  }
-}
-
-function abrirFinalizacaoDireta(vId) {
-  const rota = rotas.find(r => r.veiculo_id === vId && r.status === 'Em Uso');
-  if (rota) {
-    setModule('operacao');
-    setSubTab('operacao', 'retorno');
-    document.getElementById('form-fim-rota-select').value = rota.id;
-    selecionarRotaFim();
-  }
-}
-
-function calcularKmPercorrido() {
-  const rotaId = document.getElementById('form-fim-rota-select').value;
-  const rota = rotas.find(r => r.id === rotaId);
-  const kmFinal = parseFloat(document.getElementById('form-fim-km').value);
-  const feedback = document.getElementById('km-calc-feedback');
-
-  if (!rota || isNaN(kmFinal)) {
-    feedback.innerText = "Insira o KM do painel.";
-    feedback.className = "text-[11px] text-slate-500 mt-1 block";
-    return;
-  }
-
-  if (kmFinal < rota.km_saida) {
-    feedback.innerText = `Erro: KM Final (${kmFinal}) menor que Saída (${rota.km_saida})!`;
-    feedback.className = "text-[11px] text-rose-600 font-bold mt-1 block";
-  } else {
-    const delta = kmFinal - rota.km_saida;
-    const v = veiculos.find(item => item.id === rota.veiculo_id);
-    const medConsumo = (Number(v.consumo_min) + Number(v.consumo_max)) / 2;
-    const litrosEst = (delta / medConsumo).toFixed(1);
-    feedback.innerText = `Distância: ${delta} km (Consumo est.: ~${litrosEst} Litros)`;
-    feedback.className = "text-[11px] text-brand-700 font-bold mt-1 block";
-  }
-}
-
-function toggleAnomaliaInput(show) {
-  const box = document.getElementById('box-anomalia');
-  if (show) box.classList.remove('hidden');
-  else box.classList.add('hidden');
-}
-
-function renderHistorico() {
-  const tbody = document.getElementById('tabelaHistorico');
-  tbody.innerHTML = '';
-  rotas.forEach(r => {
-    const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50 transition";
-    tr.innerHTML = `
-      <td class="py-3 px-4 font-mono font-bold text-slate-800">${r.id}</td>
-      <td class="py-3 px-4 font-extrabold text-slate-700">${r.veiculo_id}</td>
-      <td class="py-3 px-4 text-slate-600">${r.responsavel}</td>
-      <td class="py-3 px-4 font-medium">${r.origem} &rarr; ${r.destino || 'Em Trânsito'}</td>
-      <td class="py-3 px-4 font-mono">${Number(r.km_saida).toLocaleString('pt-BR')}</td>
-      <td class="py-3 px-4 font-mono">${r.km_retorno ? Number(r.km_retorno).toLocaleString('pt-BR') : '-'}</td>
-      <td class="py-3 px-4 text-center font-mono font-bold ${r.km_total > 0 ? 'text-brand-700' : 'text-slate-400'}">
-        ${r.status === 'Concluida' ? `${r.km_total} km` : '-'}
-      </td>
-      <td class="py-3 px-4 text-center font-mono text-slate-600">${r.consumo_litros ? `${r.consumo_litros} L` : '-'}</td>
-      <td class="py-3 px-4 max-w-xs">
-        ${r.anomalia ? `<span class="text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded text-[11px] font-medium">${r.anomalia}</span>` : '<span class="text-slate-400">-</span>'}
-      </td>
-      <td class="py-3 px-4 text-center">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Concluida' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}">
-          ${r.status}
-        </span>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
 function renderTabelaVeiculosCad() {
   const tbody = document.getElementById('tabelaVeiculosCadastrados');
+  if (!tbody) return;
   tbody.innerHTML = '';
   veiculos.forEach(v => {
     const isEmUso = v.status === 'Em Uso';
     const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50";
+    tr.className = "hover:bg-slate-50 transition";
     tr.innerHTML = `
       <td class="py-3 px-3 font-extrabold text-slate-900">${v.id}</td>
       <td class="py-3 px-3 font-mono font-bold text-slate-700">${v.placa}</td>
@@ -447,100 +745,209 @@ function renderTabelaVeiculosCad() {
           ${v.status}
         </span>
       </td>
+      <td class="py-3 px-3 text-center">
+        <div class="flex items-center justify-center gap-2">
+          <button onclick="abrirModalEditVeiculo('${v.id}')" title="Editar Veículo" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+            <i class="ph-bold ph-pencil-simple text-sm"></i>
+          </button>
+          <button onclick="handleApagarVeiculo('${v.id}')" title="Apagar Veículo" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition">
+            <i class="ph-bold ph-trash text-sm"></i>
+          </button>
+        </div>
+      </td>
     `;
     tbody.appendChild(tr);
   });
-  document.getElementById('badge-total-carros').innerText = `${veiculos.length} carros`;
+  const b = document.getElementById('badge-total-carros');
+  if (b) b.innerText = `${veiculos.length} carros`;
 }
 
 function renderTabelaUsuariosCad() {
   const tbody = document.getElementById('tabelaUsuariosCadastrados');
+  if (!tbody) return;
   tbody.innerHTML = '';
   usuarios.forEach(u => {
     const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50";
+    tr.className = "hover:bg-slate-50 transition";
     tr.innerHTML = `
       <td class="py-3 px-4 font-bold text-slate-800">${u.nome}</td>
       <td class="py-3 px-4 text-slate-600">${u.email}</td>
       <td class="py-3 px-4 font-mono font-semibold text-brand-700">${u.cnh}</td>
       <td class="py-3 px-4 text-center">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">${u.status || 'Ativo'}</span>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${u.status === 'Inativo' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-800'}">
+          ${u.status || 'Ativo'}
+        </span>
+      </td>
+      <td class="py-3 px-4 text-center">
+        <div class="flex items-center justify-center gap-2">
+          <button onclick="abrirModalEditUsuario('${u.id}')" title="Editar Usuário" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+            <i class="ph-bold ph-pencil-simple text-sm"></i>
+          </button>
+          <button onclick="handleApagarUsuario('${u.id}', '${u.nome}')" title="Apagar Usuário" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition">
+            <i class="ph-bold ph-trash text-sm"></i>
+          </button>
+        </div>
       </td>
     `;
     tbody.appendChild(tr);
   });
-  document.getElementById('badge-total-users').innerText = `${usuarios.length} condutores`;
+  const b = document.getElementById('badge-total-users');
+  if (b) b.innerText = `${usuarios.length} condutores`;
 }
 
-function atualizarUsuarioNoCabecalho() {
-  if (usuarios.length === 0) return;
-  const u = usuarios[currentUserIndex];
-  document.getElementById('topUserDisplay').innerText = `${u.nome} (${u.email})`;
-  document.getElementById('topUserCnh').innerText = `CNH: ${u.cnh}`;
-  document.getElementById('form-inicio-condutor').value = `${u.nome} <${u.email}>`;
+function renderSelectVeiculosInicio() {
+  const select = document.getElementById('form-inicio-veiculo');
+  if (!select) return;
+  select.innerHTML = '<option value="">Selecione um carro da frota...</option>';
+  veiculos.filter(v => v.status === 'Disponivel').forEach(v => {
+    select.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}] (${Number(v.km_atual).toLocaleString('pt-BR')} km)</option>`;
+  });
 }
 
-function alternarUsuarioLogado() {
-  if (usuarios.length === 0) return;
-  currentUserIndex = (currentUserIndex + 1) % usuarios.length;
-  atualizarUsuarioNoCabecalho();
+function atualizarKmInicialPreenchido() {
+  const vId = document.getElementById('form-inicio-veiculo')?.value;
+  const v = veiculos.find(item => item.id === vId);
+  const inputKm = document.getElementById('form-inicio-km');
+  if (inputKm) inputKm.value = v ? v.km_atual : '';
+}
+
+function abrirInicioDireto(vId) {
+  setModule('operacao');
+  setSubTab('operacao', 'saida');
+  const select = document.getElementById('form-inicio-veiculo');
+  if (select) select.value = vId;
+  atualizarKmInicialPreenchido();
+}
+
+function renderSelectRotasFim() {
+  const select = document.getElementById('form-fim-rota-select');
+  if (!select) return;
+  select.innerHTML = '<option value="">Selecione uma viagem em trânsito...</option>';
+  rotas.filter(r => r.status === 'Em Uso').forEach(r => {
+    select.innerHTML += `<option value="${r.id}">${r.id} | ${r.veiculo_id} (${r.responsavel})</option>`;
+  });
+}
+
+function selecionarRotaFim() {
+  const rotaId = document.getElementById('form-fim-rota-select')?.value;
+  const rota = rotas.find(r => r.id === rotaId);
+  const detalhes = document.getElementById('fim-detalhes-viagem');
+  if (rota) {
+    const v = veiculos.find(item => item.id === rota.veiculo_id);
+    const medConsumo = ((Number(v.consumo_min) + Number(v.consumo_max))/2).toFixed(1);
+    document.getElementById('fim-info-veiculo').innerText = `${rota.veiculo_id} (${v.marca})`;
+    document.getElementById('fim-info-condutor').innerText = rota.responsavel;
+    document.getElementById('fim-info-kmsaida').innerText = `${Number(rota.km_saida).toLocaleString('pt-BR')} km`;
+    document.getElementById('fim-info-consumo-est').innerText = `Média de ${medConsumo} km/L`;
+    if (detalhes) detalhes.classList.remove('hidden');
+
+    const inputKm = document.getElementById('form-fim-km');
+    if (inputKm) {
+      inputKm.min = rota.km_saida;
+      inputKm.value = rota.km_saida;
+    }
+    calcularKmPercorrido();
+  } else {
+    if (detalhes) detalhes.classList.add('hidden');
+  }
+}
+
+function abrirFinalizacaoDireta(vId) {
+  const rota = rotas.find(r => r.veiculo_id === vId && r.status === 'Em Uso');
+  if (rota) {
+    setModule('operacao');
+    setSubTab('operacao', 'retorno');
+    const select = document.getElementById('form-fim-rota-select');
+    if (select) select.value = rota.id;
+    selecionarRotaFim();
+  }
+}
+
+function calcularKmPercorrido() {
+  const rotaId = document.getElementById('form-fim-rota-select')?.value;
+  const rota = rotas.find(r => r.id === rotaId);
+  const kmFinal = parseFloat(document.getElementById('form-fim-km')?.value);
+  const feedback = document.getElementById('km-calc-feedback');
+
+  if (!rota || isNaN(kmFinal) || !feedback) return;
+
+  if (kmFinal < rota.km_saida) {
+    feedback.innerText = `Erro: KM Final (${kmFinal}) menor que Saída (${rota.km_saida})!`;
+    feedback.className = "text-[11px] text-rose-600 font-bold mt-1 block";
+  } else {
+    const delta = kmFinal - rota.km_saida;
+    const v = veiculos.find(item => item.id === rota.veiculo_id);
+    const medConsumo = (Number(v.consumo_min) + Number(v.consumo_max))/2;
+    const litrosEst = (delta / medConsumo).toFixed(1);
+    feedback.innerText = `Distância: ${delta} km (Consumo est.: ~${litrosEst} Litros)`;
+    feedback.className = "text-[11px] text-brand-700 font-bold mt-1 block";
+  }
+}
+
+function toggleAnomaliaInput(show) {
+  const box = document.getElementById('box-anomalia');
+  if (box) {
+    if (show) box.classList.remove('hidden');
+    else box.classList.add('hidden');
+  }
+}
+
+// =========================================================================
+// RENDERIZAR TABELA DE HISTÓRICO COM DATA/HORA DE SAÍDA E RETORNO
+// =========================================================================
+
+function renderHistorico() {
+  const tbody = document.getElementById('tabelaHistorico');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  rotas.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.className = "hover:bg-slate-50 transition";
+    tr.innerHTML = `
+      <td class="py-3 px-3 font-mono font-bold text-slate-800">${r.id}</td>
+      <td class="py-3 px-3 font-extrabold text-slate-700">${r.veiculo_id}</td>
+      <td class="py-3 px-3 text-slate-600">${r.responsavel}</td>
+      <td class="py-3 px-3 font-medium text-xs">
+        <div>${r.origem} &rarr; ${r.destino || 'Em Trânsito'}</div>
+        <div class="text-[10px] text-slate-400 font-semibold">${r.finalidade || ''}</div>
+      </td>
+      <td class="py-3 px-3 font-mono text-[11px] text-slate-600">
+        <div>${formatarDataHora(r.data_saida)}</div>
+        <div class="text-slate-400 font-semibold">${Number(r.km_saida).toLocaleString('pt-BR')} km</div>
+      </td>
+      <td class="py-3 px-3 font-mono text-[11px] text-slate-600">
+        <div>${r.data_retorno ? formatarDataHora(r.data_retorno) : '<span class="text-amber-600 font-bold">Em trânsito</span>'}</div>
+        <div class="text-slate-400 font-semibold">${r.km_retorno ? `${Number(r.km_retorno).toLocaleString('pt-BR')} km` : '-'}</div>
+      </td>
+      <td class="py-3 px-3 text-center font-mono font-bold ${r.km_total > 0 ? 'text-brand-700' : 'text-slate-400'}">
+        ${r.status === 'Concluida' ? `${r.km_total} km` : '-'}
+      </td>
+      <td class="py-3 px-3 text-center font-mono text-slate-600 text-[11px]">
+        ${r.consumo_litros ? `${r.consumo_litros} L` : '-'}
+      </td>
+      <td class="py-3 px-3 max-w-xs">
+        ${r.anomalia ? `<span class="text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded text-[11px] font-medium">${r.anomalia}</span>` : '<span class="text-slate-400">-</span>'}
+      </td>
+      <td class="py-3 px-3 text-center">
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Concluida' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}">
+          ${r.status}
+        </span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 function filtrarHistorico() {
-  const q = document.getElementById('filtro-rotas').value.toLowerCase();
+  const q = document.getElementById('filtro-rotas')?.value.toLowerCase() || '';
   document.querySelectorAll('#tabelaHistorico tr').forEach(row => {
     row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
   });
 }
 
-// Navegação
-function setModule(mod) {
-  if (mod === 'operacao') {
-    document.getElementById('module-operacao').classList.remove('hidden');
-    document.getElementById('module-gestao').classList.add('hidden');
-    document.getElementById('subnav-operacao').classList.remove('hidden');
-    document.getElementById('subnav-gestao').classList.add('hidden');
 
-    document.getElementById('btn-mod-operacao').className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
-    document.getElementById('btn-mod-gestao').className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
-    setSubTab('operacao', 'saida');
-  } else {
-    document.getElementById('module-operacao').classList.add('hidden');
-    document.getElementById('module-gestao').classList.remove('hidden');
-    document.getElementById('subnav-operacao').classList.add('hidden');
-    document.getElementById('subnav-gestao').classList.remove('hidden');
 
-    document.getElementById('btn-mod-gestao').className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
-    document.getElementById('btn-mod-operacao').className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
-    setSubTab('gestao', 'dashboard');
-  }
-}
 
-function setSubTab(moduleName, tab) {
-  if (moduleName === 'operacao') {
-    ['saida', 'retorno', 'minhas-rotas'].forEach(t => {
-      document.getElementById(`view-${t}`).classList.add('hidden');
-      const btn = document.getElementById(`subtab-${t}`);
-      btn.classList.remove('border-brand-600', 'text-brand-600', 'font-bold');
-      btn.classList.add('border-transparent', 'text-slate-500');
-    });
-    document.getElementById(`view-${tab}`).classList.remove('hidden');
-    const active = document.getElementById(`subtab-${tab}`);
-    active.classList.remove('border-transparent', 'text-slate-500');
-    active.classList.add('border-brand-600', 'text-brand-600', 'font-bold');
-  } else {
-    ['dashboard', 'cad-veiculos', 'cad-usuarios'].forEach(t => {
-      document.getElementById(`view-${t}`).classList.add('hidden');
-      const btn = document.getElementById(`subtab-${t}`);
-      btn.classList.remove('border-brand-600', 'text-brand-600', 'font-bold');
-      btn.classList.add('border-transparent', 'text-slate-500');
-    });
-    document.getElementById(`view-${tab}`).classList.remove('hidden');
-    const active = document.getElementById(`subtab-${tab}`);
-    active.classList.remove('border-transparent', 'text-slate-500');
-    active.classList.add('border-brand-600', 'text-brand-600', 'font-bold');
-  }
-}
-
-// Inicialização
+// Inicialização automática ao carregar a página
 window.onload = carregarTodosDadosDoBanco;

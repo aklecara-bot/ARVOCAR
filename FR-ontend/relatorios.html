@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARVO - Relatórios e Análise de Frotas</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
+
+  <!-- Header -->
+  <header class="bg-brand-900 text-white shadow sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-brand-600 p-2 rounded-xl flex items-center justify-center text-white shadow">
+          <i class="ph-bold ph-chart-line-up text-xl"></i>
+        </div>
+        <div>
+          <span class="text-xl font-black tracking-tight">ARVO</span>
+          <span class="text-brand-300 text-xs font-semibold uppercase tracking-wider block sm:inline sm:ml-2">Relatórios Gerenciais</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <a href="paginainicial.html" class="flex items-center gap-1.5 text-xs bg-brand-800 hover:bg-brand-700 text-white px-3.5 py-2 rounded-xl border border-brand-700 transition font-bold shadow-sm">
+          <i class="ph-bold ph-arrow-left text-base"></i>
+          <span>Voltar ao Painel</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Filtros de Agrupamento Temporal -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+          <i class="ph-bold ph-funnel text-brand-600"></i> Agrupamento Temporal da Quilometragem
+        </h2>
+        <p class="text-xs text-slate-500">Selecione a granularidade para a análise temporal de KM rodado</p>
+      </div>
+
+      <div class="flex flex-wrap bg-slate-100 p-1.5 rounded-xl border border-slate-200 text-xs font-bold gap-1">
+        <button onclick="setPeriodo('dia')" id="btn-periodo-dia" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Dia</button>
+        <button onclick="setPeriodo('semana')" id="btn-periodo-semana" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Semana</button>
+        <button onclick="setPeriodo('mes')" id="btn-periodo-mes" class="px-3 py-1.5 rounded-lg bg-brand-700 text-white shadow transition">Mês</button>
+        <button onclick="setPeriodo('trimestre')" id="btn-periodo-trimestre" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Trimestre</button>
+        <button onclick="setPeriodo('ano')" id="btn-periodo-ano" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Ano</button>
+      </div>
+    </div>
+
+    <!-- Indicadores Gerais (KPIs) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">KM Total Concluído</span>
+          <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600"><i class="ph-bold ph-gauge text-lg"></i></div>
+        </div>
+        <p id="kpi-km-total" class="text-2xl font-black text-slate-800 mt-2">0 km</p>
+        <span class="text-[11px] text-slate-400">Soma acumulada de viagens</span>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Média por Viagem</span>
+          <div class="p-2 bg-blue-50 rounded-lg text-blue-600"><i class="ph-bold ph-arrows-left-right text-lg"></i></div>
+        </div>
+        <p id="kpi-km-medio" class="text-2xl font-black text-slate-800 mt-2">0 km</p>
+        <span class="text-[11px] text-slate-400">Distância média por rota</span>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Duração Média</span>
+          <div class="p-2 bg-amber-50 rounded-lg text-amber-600"><i class="ph-bold ph-clock text-lg"></i></div>
+        </div>
+        <p id="kpi-tempo-medio" class="text-2xl font-black text-amber-600 mt-2">0h</p>
+        <span id="kpi-tempo-dias" class="text-[11px] text-slate-400">0.0 dias</span>
+      </div>
+
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Rotas Realizadas</span>
+          <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600"><i class="ph-bold ph-road-horizon text-lg"></i></div>
+        </div>
+        <p id="kpi-qtd-rotas" class="text-2xl font-black text-slate-800 mt-2">0</p>
+        <span class="text-[11px] text-slate-400">Viagens registradas</span>
+      </div>
+    </div>
+
+    <!-- Painel de Gráficos -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- 1. KM por Período (Dia / Semana / Mês / Trimestre / Ano) -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
+          <i class="ph-bold ph-chart-line text-brand-600"></i> KM por Período Temporal
+        </h3>
+        <p class="text-xs text-slate-400 mb-4">Total de quilômetros na escala selecionada</p>
+        <div class="relative h-64">
+          <canvas id="chartEvolucaoKm"></canvas>
+        </div>
+      </div>
+
+      <!-- 2. KM por Veículo -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
+          <i class="ph-bold ph-car text-brand-600"></i> Quilometragem por Carro
+        </h3>
+        <p class="text-xs text-slate-400 mb-4">Total de KM acumulado por veículo</p>
+        <div class="relative h-64">
+          <canvas id="chartKmPorCarro"></canvas>
+        </div>
+      </div>
+
+      <!-- 3. KM por Motorista -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
+          <i class="ph-bold ph-user-check text-brand-600"></i> Quilometragem por Motorista
+        </h3>
+        <p class="text-xs text-slate-400 mb-4">Total de KM rodado por condutor</p>
+        <div class="relative h-64">
+          <canvas id="chartKmPorMotorista"></canvas>
+        </div>
+      </div>
+
+      <!-- 4. Média de KM por Finalidade -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
+          <i class="ph-bold ph-briefcase text-brand-600"></i> Média de KM por Finalidade
+        </h3>
+        <p class="text-xs text-slate-400 mb-4">Média de distância por projeto/finalidade</p>
+        <div class="relative h-64">
+          <canvas id="chartMediaPorFinalidade"></canvas>
+        </div>
+      </div>
+
+      <!-- 5. Duração das Rotas (Horas e Dias) -->
+      <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <h3 class="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
+          <i class="ph-bold ph-hourglass-high text-brand-600"></i> Tempo de Duração por Rota (Horas)
+        </h3>
+        <p class="text-xs text-slate-400 mb-4">Tempo decorrido entre a saída e o retorno das rotas recentes</p>
+        <div class="relative h-72">
+          <canvas id="chartDuracaoRotas"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tabela Analítica de Duração e Trajetos -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-800">Extrato Analítico das Rotas</h3>
+          <p class="text-xs text-slate-400">Lista detalhada com quilometragem, tempo em horas e dias</p>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-600">
+          <thead class="bg-slate-50 border-b border-slate-200 font-bold text-slate-700 uppercase tracking-wider">
+            <tr>
+              <th class="py-3 px-4">ID Rota</th>
+              <th class="py-3 px-4">Carro</th>
+              <th class="py-3 px-4">Motorista</th>
+              <th class="py-3 px-4">Finalidade</th>
+              <th class="py-3 px-4 text-center">Distância</th>
+              <th class="py-3 px-4">Saída</th>
+              <th class="py-3 px-4">Retorno</th>
+              <th class="py-3 px-4 text-center">Duração (Horas)</th>
+              <th class="py-3 px-4 text-center">Duração (Dias)</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaRelatorioRotas" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
+
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let rotas = [];
+    let periodoAtual = 'mes';
+
+    let chartTempo = null;
+    let chartCarro = null;
+    let chartMotorista = null;
+    let chartFinalidade = null;
+    let chartDuracao = null;
+
+    async function initRelatorio() {
+      const sessao = localStorage.getItem('arvo_usuario_logado');
+      if (!sessao) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      try {
+        const { data, error } = await db
+          .from('rotas')
+          .select('*')
+          .order('data_saida', { ascending: true });
+
+        if (error) throw error;
+        rotas = data || [];
+
+        renderizarKPIs();
+        renderizarGraficos();
+        renderizarTabela();
+      } catch (err) {
+        console.error("Erro ao carregar dados:", err);
+        alert("Erro ao carregar dados do Supabase.");
+      }
+    }
+
+    function setPeriodo(p) {
+      periodoAtual = p;
+      ['dia', 'semana', 'mes', 'trimestre', 'ano'].forEach(btn => {
+        const item = document.getElementById(`btn-periodo-${btn}`);
+        if (btn === p) {
+          item.className = "px-3 py-1.5 rounded-lg bg-brand-700 text-white shadow transition";
+        } else {
+          item.className = "px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
+        }
+      });
+      renderizarGraficoEvolucao();
+    }
+
+    function calcularDuracaoHoras(saida, retorno) {
+      if (!saida || !retorno) return null;
+      const d1 = new Date(saida);
+      const d2 = new Date(retorno);
+      const diffMs = d2 - d1;
+      if (isNaN(diffMs) || diffMs < 0) return 0;
+      return diffMs / (1000 * 60 * 60);
+    }
+
+    function renderizarKPIs() {
+      const rotasConcluidas = rotas.filter(r => r.status === 'Concluida' || Number(r.km_total) > 0);
+      const totalKm = rotasConcluidas.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
+      const mediaKm = rotasConcluidas.length > 0 ? (totalKm / rotasConcluidas.length).toFixed(1) : 0;
+
+      let somaHoras = 0;
+      let countComTempo = 0;
+      rotasConcluidas.forEach(r => {
+        const h = calcularDuracaoHoras(r.data_saida, r.data_retorno);
+        if (h !== null && h >= 0) {
+          somaHoras += h;
+          countComTempo++;
+        }
+      });
+
+      const mediaHoras = countComTempo > 0 ? (somaHoras / countComTempo).toFixed(1) : 0;
+      const mediaDias = (mediaHoras / 24).toFixed(2);
+
+      document.getElementById('kpi-km-total').innerText = `${totalKm.toLocaleString('pt-BR')} km`;
+      document.getElementById('kpi-km-medio').innerText = `${mediaKm} km`;
+      document.getElementById('kpi-tempo-medio').innerText = `${mediaHoras}h`;
+      document.getElementById('kpi-tempo-dias').innerText = `~${mediaDias} dias por rota`;
+      document.getElementById('kpi-qtd-rotas').innerText = rotasConcluidas.length;
+    }
+
+    function renderizarGraficos() {
+      renderizarGraficoEvolucao();
+      renderizarGraficoCarro();
+      renderizarGraficoMotorista();
+      renderizarGraficoFinalidade();
+      renderizarGraficoDuracao();
+    }
+
+    // 1. Gráfico de Evolução (Dia, Semana, Mês, Trimestre, Ano)
+    function renderizarGraficoEvolucao() {
+      const ctx = document.getElementById('chartEvolucaoKm').getContext('2d');
+      const agrupado = {};
+
+      rotas.forEach(r => {
+        if (!r.data_saida) return;
+        const d = new Date(r.data_saida);
+        let chave = '';
+
+        if (periodoAtual === 'dia') {
+          chave = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        } else if (periodoAtual === 'semana') {
+          const primeiroDia = new Date(d.setDate(d.getDate() - d.getDay()));
+          chave = `Sem ${primeiroDia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
+        } else if (periodoAtual === 'mes') {
+          chave = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        } else if (periodoAtual === 'trimestre') {
+          const trim = Math.floor((d.getMonth() + 3) / 3);
+          chave = `T${trim}/${d.getFullYear().toString().slice(-2)}`;
+        } else if (periodoAtual === 'ano') {
+          chave = `${d.getFullYear()}`;
+        }
+
+        agrupado[chave] = (agrupado[chave] || 0) + (Number(r.km_total) || 0);
+      });
+
+      if (chartTempo) chartTempo.destroy();
+      chartTempo = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: Object.keys(agrupado),
+          datasets: [{
+            label: 'KM Percorrido',
+            data: Object.values(agrupado),
+            borderColor: '#16a34a',
+            backgroundColor: 'rgba(22, 163, 74, 0.1)',
+            fill: true,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: '#15803d'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // 2. Gráfico por Veículo
+    function renderizarGraficoCarro() {
+      const ctx = document.getElementById('chartKmPorCarro').getContext('2d');
+      const porCarro = {};
+
+      rotas.forEach(r => {
+        const c = r.veiculo_id || 'Indefinido';
+        porCarro[c] = (porCarro[c] || 0) + (Number(r.km_total) || 0);
+      });
+
+      if (chartCarro) chartCarro.destroy();
+      chartCarro = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(porCarro),
+          datasets: [{
+            label: 'KM Acumulado',
+            data: Object.values(porCarro),
+            backgroundColor: '#0284c7',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // 3. Gráfico por Motorista
+    function renderizarGraficoMotorista() {
+      const ctx = document.getElementById('chartKmPorMotorista').getContext('2d');
+      const porMotorista = {};
+
+      rotas.forEach(r => {
+        const m = (r.responsavel || 'Desconhecido').split('@')[0];
+        porMotorista[m] = (porMotorista[m] || 0) + (Number(r.km_total) || 0);
+      });
+
+      if (chartMotorista) chartMotorista.destroy();
+      chartMotorista = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(porMotorista),
+          datasets: [{
+            label: 'KM Total',
+            data: Object.values(porMotorista),
+            backgroundColor: '#8b5cf6',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // 4. Gráfico Média por Finalidade
+    function renderizarGraficoFinalidade() {
+      const ctx = document.getElementById('chartMediaPorFinalidade').getContext('2d');
+      const totalFin = {};
+      const countFin = {};
+
+      rotas.forEach(r => {
+        const f = r.finalidade || 'Outros';
+        const km = Number(r.km_total) || 0;
+        totalFin[f] = (totalFin[f] || 0) + km;
+        countFin[f] = (countFin[f] || 0) + 1;
+      });
+
+      const labels = Object.keys(totalFin);
+      const medias = labels.map(f => (totalFin[f] / countFin[f]).toFixed(1));
+
+      if (chartFinalidade) chartFinalidade.destroy();
+      chartFinalidade = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: medias,
+            backgroundColor: ['#16a34a', '#0284c7', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6', '#64748b']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    // 5. Gráfico de Duração (Horas)
+    function renderizarGraficoDuracao() {
+      const ctx = document.getElementById('chartDuracaoRotas').getContext('2d');
+      const ultimas = rotas.slice(-15);
+      const labels = [];
+      const horas = [];
+
+      ultimas.forEach(r => {
+        const h = calcularDuracaoHoras(r.data_saida, r.data_retorno);
+        labels.push(`${r.id} (${r.veiculo_id})`);
+        horas.push(h !== null ? Number(h.toFixed(1)) : 0);
+      });
+
+      if (chartDuracao) chartDuracao.destroy();
+      chartDuracao = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Duração em Horas',
+            data: horas,
+            backgroundColor: '#f59e0b',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Horas' }, grid: { color: '#f1f5f9' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    // Tabela Analítica
+    function renderizarTabela() {
+      const tbody = document.getElementById('tabelaRelatorioRotas');
+      tbody.innerHTML = '';
+
+      rotas.slice().reverse().forEach(r => {
+        const duracaoHoras = calcularDuracaoHoras(r.data_saida, r.data_retorno);
+        const duracaoDias = duracaoHoras !== null ? (duracaoHoras / 24).toFixed(2) : '-';
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50";
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-mono font-bold text-slate-800">${r.id}</td>
+          <td class="py-3 px-4 font-extrabold text-slate-700">${r.veiculo_id}</td>
+          <td class="py-3 px-4 text-slate-600">${r.responsavel}</td>
+          <td class="py-3 px-4 font-medium text-slate-800">${r.finalidade || '-'}</td>
+          <td class="py-3 px-4 text-center font-mono font-bold text-brand-700">${Number(r.km_total || 0).toLocaleString('pt-BR')} km</td>
+          <td class="py-3 px-4 text-[11px] font-mono text-slate-500">${r.data_saida ? new Date(r.data_saida).toLocaleString('pt-BR') : '-'}</td>
+          <td class="py-3 px-4 text-[11px] font-mono text-slate-500">${r.data_retorno ? new Date(r.data_retorno).toLocaleString('pt-BR') : '<span class="text-amber-600 font-bold">Em trânsito</span>'}</td>
+          <td class="py-3 px-4 text-center font-mono font-bold text-amber-600">${duracaoHoras !== null ? `${duracaoHoras.toFixed(1)} h` : '-'}</td>
+          <td class="py-3 px-4 text-center font-mono text-slate-500">${duracaoDias !== '-' ? `${duracaoDias} d` : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    window.onload = initRelatorio;
+  </script>
+</body>
+</html>

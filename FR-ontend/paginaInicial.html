@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ARVO - Gestão e Operação de Frota</title>
   
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <script>
@@ -24,16 +27,17 @@
               900: '#14532d',
             }
           }
-        }
-      }
+        }      }
     }
   </script>
   
   <link rel="stylesheet" href="/Es-Tyle/style.css" />
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
-
+ 
+  <!-- Header -->
   <header class="bg-brand-900 text-white shadow sticky top-0 z-50">
+    
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       
       <div class="flex items-center space-x-3">
@@ -46,36 +50,41 @@
         </div>
       </div>
 
+      <!-- Módulos -->
       <div class="flex bg-brand-950/60 p-1 rounded-xl border border-brand-800 text-xs font-semibold">
         <button id="btn-mod-operacao" onclick="setModule('operacao')" class="module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
           <i class="ph-bold ph-paper-plane-tilt"></i> Operação de Rotas
         </button>
-        <button id="btn-mod-gestao" onclick="setModule('gestao')" class="text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
-          <i class="ph-bold ph-chart-pie-slice"></i> Painel de Gestão
+        <!-- Oculto por padrão via classe 'hidden' -->
+        <button id="btn-mod-gestao" onclick="setModule('gestao')" class="hidden text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+        <i class="ph-bold ph-chart-pie-slice"></i> Painel de Gestão
         </button>
       </div>
 
+      <!-- Usuário Ativo -->
       <div class="flex items-center space-x-3">
         <div class="hidden md:flex flex-col text-right">
           <span id="topUserDisplay" class="text-xs font-bold text-slate-100">ronald@arvo.tec.br</span>
           <span id="topUserCnh" class="text-[11px] text-brand-300">CNH: 05498231201</span>
         </div>
-        <button onclick="alternarUsuarioLogado()" title="Alternar Usuário" class="p-2 bg-brand-800 hover:bg-brand-700 rounded-lg border border-brand-700 text-brand-200 hover:text-white transition">
-          <i class="ph-bold ph-arrows-clockwise text-base"></i>
+        <button onclick="fazerLogout()" title="Terminar Sessão" class="flex items-center gap-1.5 text-xs bg-rose-600/80 hover:bg-rose-600 text-white px-3 py-2 rounded-lg border border-rose-500 font-bold transition shadow-sm">
+          <i class="ph-bold ph-sign-out text-base"></i>
+          <span class="hidden sm:inline">Sair</span>
         </button>
       </div>
 
     </div>
   </header>
 
+  <!-- Subnav Operação -->
   <div id="subnav-operacao" class="bg-white border-b border-slate-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <nav class="flex space-x-8 -mb-px">
         <button onclick="setSubTab('operacao', 'saida')" id="subtab-saida" class="subtab-active py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-brand-600 text-brand-600 flex items-center gap-2">
-          <i class="ph-bold ph-key text-base"></i> 1. Iniciar Rota (Check-out)
+          <i class="ph-bold ph-key text-base"></i> 1. Iniciar Rota (Check-int)
         </button>
         <button onclick="setSubTab('operacao', 'retorno')" id="subtab-retorno" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
-          <i class="ph-bold ph-map-pin-line text-base"></i> 2. Finalizar Rota (Check-in & Avarias)
+          <i class="ph-bold ph-map-pin-line text-base"></i> 2. Finalizar Rota (Check-out & Avarias)
         </button>
         <button onclick="setSubTab('operacao', 'minhas-rotas')" id="subtab-minhas-rotas" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
           <i class="ph-bold ph-clock-counter-clockwise text-base"></i> Log de Rotas
@@ -84,6 +93,7 @@
     </div>
   </div>
 
+  <!-- Subnav Gestão -->
   <div id="subnav-gestao" class="hidden bg-white border-b border-slate-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <nav class="flex space-x-8 -mb-px">
@@ -91,19 +101,28 @@
           <i class="ph-bold ph-gauge text-base"></i> Visão Geral da Frota
         </button>
         <button onclick="setSubTab('gestao', 'cad-veiculos')" id="subtab-cad-veiculos" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
-          <i class="ph-bold ph-car text-base"></i> Cadastro de Veículos
+          <i class="ph-bold ph-car text-base"></i> Gestão de Veículos
         </button>
         <button onclick="setSubTab('gestao', 'cad-usuarios')" id="subtab-cad-usuarios" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
-          <i class="ph-bold ph-users-three text-base"></i> Cadastro de Usuários / CNH
+          <i class="ph-bold ph-users-three text-base"></i> Gestão de Usuários / CNH
         </button>
       </nav>
+      <div class="py-2">
+      <a href="relatorios.html" class="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition">
+        <i class="ph-bold ph-chart-line-up text-base"></i>
+        <span>Relatórios e Gráficos</span>
+      </a>
+      </div>
     </div>
   </div>
 
+  <!-- Conteúdo Principal -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
+    <!-- MÓDULO OPERAÇÃO -->
     <div id="module-operacao" class="space-y-6">
 
+      <!-- Iniciar Rota -->
       <section id="view-saida" class="max-w-2xl mx-auto">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
           <div class="flex items-center gap-3 pb-5 border-b border-slate-100 mb-6">
@@ -118,14 +137,14 @@
 
           <form id="formInicioRota" onsubmit="handleInicioRota(event)" class="space-y-4">
             <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Condutor Autenticado</label>
-              <input type="text" id="form-inicio-condutor" readonly class="w-full bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-3.5 py-2 text-sm font-medium cursor-not-allowed" />
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Usuario Autenticado</label>
+              <input type="text" id="form-inicio-Usuario" readonly class="w-full bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-3.5 py-2 text-sm font-medium cursor-not-allowed" />
             </div>
 
             <div>
               <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Selecione o Veículo Disponível</label>
               <select id="form-inicio-veiculo" onchange="atualizarKmInicialPreenchido()" required class="w-full bg-white border border-slate-300 text-slate-800 rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
-                <option value="">Selecione um carro da frota...</option>
+                <option value="">Carregando veículos...</option>
               </select>
             </div>
 
@@ -145,8 +164,9 @@
                   <option value="ALEGRE">ALEGRE</option>
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
-                  <option value="CELINA">CELINA</option>
-                  <option value="CACHOEIRO">CACHOEIRO</option>
+                  <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
+                  <option value="LOCADORA CACHOEIRO">lOCADORA CACHOEIRO</option>
+                  <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
                 </select>
               </div>
             </div>
@@ -154,24 +174,27 @@
             <div>
               <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Finalidade / Projeto</label>
               <select id="form-inicio-finalidade" required class="w-full bg-white border border-slate-300 text-slate-800 rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
-                <option value="MONITORAMENTO">MONITORAMENTO</option>
-                <option value="PROJETO TÉCNICO E MONITORAMENTO">PROJETO TÉCNICO E MONITORAMENTO</option>
-                <option value="PREPARAÇÃO E MONITORAMENTO">PREPARAÇÃO E MONITORAMENTO</option>
+                <option value="RELACOES INSTITUCIONAIS">RELAÇÕES INSTITUCIONAIS</option>
                 <option value="REFLORESTAR">REFLORESTAR</option>
-                <option value="GESTÁGUA">GESTÁGUA</option>
+                <option value="PSA GESTAGUA">PSA GESTÁGUA</option>
+                <option value="PPC">PPC</option>
+                <option value="CO INVESTIMENTO WWF">CO INVESTIMENTO WWF</option>
+                <option value="REMINERALIZADOR">REMINERALIZADOR</option>
                 <option value="DEMANDAS INTERNAS">DEMANDAS INTERNAS</option>
+                <option value="DEMANDAS EXTERNAS">DEMANDAS EXTERNAS</option>
               </select>
             </div>
 
             <div class="pt-4">
-              <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2">
-                <i class="ph-bold ph-check-circle text-lg"></i> Confirmar Saída e Liberar Carro
+              <button id="btn-submit-inicio" type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2">
+                <i class="ph-bold ph-check-circle text-lg"></i> Confirmar Saída
               </button>
             </div>
           </form>
         </div>
       </section>
 
+      <!-- Finalizar Rota -->
       <section id="view-retorno" class="hidden max-w-2xl mx-auto">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
           <div class="flex items-center gap-3 pb-5 border-b border-slate-100 mb-6">
@@ -180,7 +203,7 @@
             </div>
             <div>
               <h2 class="text-xl font-bold text-slate-900">Finalizar Rota (Devolução)</h2>
-              <p class="text-xs text-slate-500">Cálculo de consumo e checklist de anomalias</p>
+              <p class="text-xs text-slate-500">Apuração de KM e avarias</p>
             </div>
           </div>
 
@@ -188,13 +211,13 @@
             <div>
               <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Selecionar Rota Ativa</label>
               <select id="form-fim-rota-select" onchange="selecionarRotaFim()" required class="w-full bg-white border border-slate-300 text-slate-800 rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                <option value="">Selecione uma viagem em trânsito...</option>
+                <option value="">Carregando rotas...</option>
               </select>
             </div>
 
             <div id="fim-detalhes-viagem" class="hidden p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-600">
               <div class="flex justify-between"><span>Veículo:</span> <b id="fim-info-veiculo" class="text-slate-800">-</b></div>
-              <div class="flex justify-between"><span>Condutor:</span> <b id="fim-info-condutor" class="text-slate-800">-</b></div>
+              <div class="flex justify-between"><span>Usuario:</span> <b id="fim-info-Usuario" class="text-slate-800">-</b></div>
               <div class="flex justify-between"><span>KM de Saída:</span> <b id="fim-info-kmsaida" class="text-slate-800 font-mono">-</b></div>
               <div class="flex justify-between"><span>Estimativa de Consumo:</span> <b id="fim-info-consumo-est" class="text-slate-800">-</b></div>
             </div>
@@ -215,12 +238,14 @@
                   <option value="ALEGRE">ALEGRE</option>
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
-                  <option value="CELINA">CELINA</option>
-                  <option value="CACHOEIRO">CACHOEIRO</option>
+                  <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
+                  <option value="LOCADORA CACHOEIRO">lOCADORA CACHOEIRO</option>
+                  <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
                 </select>
               </div>
             </div>
 
+            <!-- Anomalias -->
             <div class="border-t border-slate-100 pt-4 space-y-3">
               <div class="flex items-center justify-between">
                 <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Situação do Carro</label>
@@ -243,14 +268,15 @@
             </div>
 
             <div class="pt-4">
-              <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2">
-                <i class="ph-bold ph-check text-lg"></i> Encerrar Rota e Liberar Carro
-              </button>
+              <button id="btn-submit-fim" type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2">
+    <i class="ph-bold ph-check-circle text-lg"></i> Confirmar Saída
+  </button>
             </div>
           </form>
         </div>
       </section>
 
+      <!-- Log de Rotas -->
       <section id="view-minhas-rotas" class="hidden space-y-4">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -258,23 +284,23 @@
               <h2 class="text-base font-bold text-slate-800">Histórico de Rotas Registradas</h2>
               <p class="text-xs text-slate-500">Conciliação automática contínua</p>
             </div>
-            <input type="text" id="filtro-rotas" oninput="filtrarHistorico()" placeholder="Buscar por veículo ou condutor..." class="text-xs border border-slate-300 rounded-lg px-3 py-2 w-72 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            <input type="text" id="filtro-rotas" oninput="filtrarHistorico()" placeholder="Buscar por veículo ou Usuario..." class="text-xs border border-slate-300 rounded-lg px-3 py-2 w-72 focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
 
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs text-slate-600">
-              <thead class="bg-slate-50 border-b border-slate-200 font-bold text-slate-700 uppercase tracking-wider">
+              <thead class="bg-slate-50 border-b border-slate-200 font-bold text-slate-700 uppercase tracking-wider text-xs">
                 <tr>
-                  <th class="py-3 px-4">ID Rota</th>
-                  <th class="py-3 px-4">Veículo</th>
-                  <th class="py-3 px-4">Condutor</th>
-                  <th class="py-3 px-4">Trajeto</th>
-                  <th class="py-3 px-4">KM Saída</th>
-                  <th class="py-3 px-4">KM Retorno</th>
-                  <th class="py-3 px-4 text-center">Distância</th>
-                  <th class="py-3 px-4 text-center">Consumo Est.</th>
-                  <th class="py-3 px-4">Anomalia</th>
-                  <th class="py-3 px-4 text-center">Status</th>
+                  <th class="py-3 px-3">ID Rota</th>
+                  <th class="py-3 px-3">Veículo</th>
+                  <th class="py-3 px-3">Condutor</th>
+                  <th class="py-3 px-3">Trajeto</th>
+                  <th class="py-3 px-3">Saída (Data / KM)</th>
+                  <th class="py-3 px-3">Retorno (Data / KM)</th>
+                  <th class="py-3 px-3 text-center">Distância</th>
+                  <th class="py-3 px-3 text-center">Consumo Est.</th>
+                  <th class="py-3 px-3">Anomalia</th>
+                  <th class="py-3 px-3 text-center">Status</th>
                 </tr>
               </thead>
               <tbody id="tabelaHistorico" class="divide-y divide-slate-100"></tbody>
@@ -285,8 +311,10 @@
 
     </div>
 
+    <!-- MÓDULO GESTÃO -->
     <div id="module-gestao" class="hidden space-y-6">
 
+      <!-- Visão Geral -->
       <section id="view-dashboard" class="space-y-6">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -294,7 +322,7 @@
               <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Frota Total</span>
               <div class="p-2 bg-slate-100 rounded-lg text-slate-600"><i class="ph-bold ph-truck text-lg"></i></div>
             </div>
-            <p id="kpi-total-veiculos" class="text-2xl font-black text-slate-800 mt-2">6</p>
+            <p id="kpi-total-veiculos" class="text-2xl font-black text-slate-800 mt-2">0</p>
             <span class="text-xs text-slate-400">Veículos cadastrados</span>
           </div>
 
@@ -386,10 +414,11 @@
             </form>
           </div>
 
+          <!-- Tabela de Veículos com Botões de Editar e Apagar -->
           <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
             <div class="p-4 border-b border-slate-100 flex justify-between items-center">
               <h3 class="text-sm font-bold text-slate-800">Veículos Registrados</h3>
-              <span id="badge-total-carros" class="text-xs bg-slate-100 px-2.5 py-1 rounded-full font-bold text-slate-600">6 carros</span>
+              <span id="badge-total-carros" class="text-xs bg-slate-100 px-2.5 py-1 rounded-full font-bold text-slate-600">0 carros</span>
             </div>
             <div class="overflow-x-auto flex-1">
               <table class="w-full text-left text-xs text-slate-600">
@@ -397,62 +426,60 @@
                   <tr>
                     <th class="py-3 px-3">Carro</th>
                     <th class="py-3 px-3">Placa</th>
-                    <th class="py-3 px-3">Marca / Modelo</th>
+                    <th class="py-3 px-3">Modelo</th>
                     <th class="py-3 px-3 text-center">Tanque</th>
-                    <th class="py-3 px-3 text-center">Consumo (km/L)</th>
+                    <th class="py-3 px-3 text-center">Consumo</th>
                     <th class="py-3 px-3 text-right">KM Atual</th>
                     <th class="py-3 px-3 text-center">Status</th>
+                    <th class="py-3 px-3 text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody id="tabelaVeiculosCadastrados" class="divide-y divide-slate-100"></tbody>
               </table>
             </div>
           </div>
-
         </div>
       </section>
 
+      <!-- Cadastro & Edição de Usuários -->
       <section id="view-cad-usuarios" class="hidden space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
             <h3 class="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
-              <i class="ph-bold ph-user-plus text-brand-600"></i> Cadastrar Motorista / Usuário
+              <i class="ph-bold ph-user-plus text-brand-600"></i> Cadastrar motorista
             </h3>
-            <p class="text-xs text-slate-500 mb-5">E-mail corporativo e CNH</p>
+            <p class="text-xs text-slate-500 mb-5">Adicione Usuarios autorizados</p>
 
             <form id="formCadUsuario" onsubmit="handleCadUsuario(event)" class="space-y-3.5">
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">Nome Completo</label>
-                <input type="text" id="cad-u-nome" required placeholder="Ex: Ronald Oliveira" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500" />
+                <input type="text" id="cad-u-nome" required placeholder="Ex: Nome Sobrenome" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
               </div>
 
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">Email Corporativo</label>
-                <input type="email" id="cad-u-email" required placeholder="nome@arvo.tec.br" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500" />
+                <input type="email" id="cad-u-email" required placeholder="nome@arvo.tec.br" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Senha de Acesso</label>
+              <input type="password" id="cad-u-senha" required placeholder="••••••••" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Nº Carteira (CNH)</label>
+                <input type="text" id="cad-u-cnh" required placeholder="12345678900" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono" />
               </div>
 
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Senha de Acesso</label>
-                  <input type="password" id="cad-u-senha" required placeholder="••••••••" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500" />
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Nº Carteira (CNH)</label>
-                  <input type="text" id="cad-u-cnh" required placeholder="12345678900" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-mono" />
-                </div>
-              </div>
-
-              <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition text-xs flex items-center justify-center gap-1.5 mt-2">
-                <i class="ph-bold ph-check"></i> Cadastrar Usuário
+              <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-4 rounded-xl shadow text-xs flex items-center justify-center gap-1.5 mt-2">
+                <i class="ph-bold ph-check"></i> Salvar no Banco
               </button>
             </form>
           </div>
 
+          <!-- Tabela de Usuários com Botões de Editar e Apagar -->
           <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
             <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 class="text-sm font-bold text-slate-800">Equipe de Condutores</h3>
-              <span id="badge-total-users" class="text-xs bg-slate-100 px-2.5 py-1 rounded-full font-bold text-slate-600">6 condutores</span>
+              <h3 class="text-sm font-bold text-slate-800">Usuarios Habilitados</h3>
+              <span id="badge-total-users" class="text-xs bg-slate-100 px-2.5 py-1 rounded-full font-bold text-slate-600">0 Usuarios</span>
             </div>
             <div class="overflow-x-auto flex-1">
               <table class="w-full text-left text-xs text-slate-600">
@@ -462,13 +489,13 @@
                     <th class="py-3 px-4">Email Corporativo</th>
                     <th class="py-3 px-4 font-mono">Nº CNH</th>
                     <th class="py-3 px-4 text-center">Status</th>
+                    <th class="py-3 px-4 text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody id="tabelaUsuariosCadastrados" class="divide-y divide-slate-100"></tbody>
               </table>
             </div>
           </div>
-
         </div>
       </section>
 
@@ -476,6 +503,146 @@
 
   </main>
 
-  <script src="/BA-ckend/app.js"></script>
-</body>
+  <!-- =========================================================================
+       MODAIS DE EDIÇÃO
+       ========================================================================= -->
+
+  <!-- Modal Editar Veículo -->
+  <div id="modal-edit-veiculo" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i class="ph-bold ph-pencil-simple text-brand-600"></i> Editar Veículo: <span id="modal-edit-v-title" class="text-brand-700 font-mono"></span>
+        </h3>
+        <button onclick="fecharModalEditVeiculo()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form id="formEditVeiculo" onsubmit="handleSalvarEditVeiculo(event)" class="space-y-3.5">
+        <input type="hidden" id="edit-v-id" />
+        
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Placa</label>
+            <input type="text" id="edit-v-placa" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs uppercase font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Marca / Modelo</label>
+            <input type="text" id="edit-v-marca" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Tanque (L)</label>
+            <input type="number" id="edit-v-tanque" required min="10" max="200" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-mono" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Min (km/L)</label>
+            <input type="number" step="0.1" id="edit-v-consumomin" required class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-mono" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Max (km/L)</label>
+            <input type="number" step="0.1" id="edit-v-consumomax" required class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-mono" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">KM Atual</label>
+            <input type="number" id="edit-v-kmatual" required min="0" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Status</label>
+            <select id="edit-v-status" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold">
+              <option value="Disponivel">Disponível</option>
+              <option value="Em Uso">Em Uso</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Anomalias / Observações</label>
+          <textarea id="edit-v-anomalias" rows="2" placeholder="Observações de avaria..." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="fecharModalEditVeiculo()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5">
+            <i class="ph-bold ph-check"></i> Salvar Alterações
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Editar Usuário -->
+  <div id="modal-edit-usuario" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i class="ph-bold ph-pencil-simple text-brand-600"></i> Editar Usuario
+        </h3>
+        <button onclick="fecharModalEditUsuario()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form id="formEditUsuario" onsubmit="handleSalvarEditUsuario(event)" class="space-y-3.5">
+        <input type="hidden" id="edit-u-id" />
+        
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nome Completo</label>
+          <input type="text" id="edit-u-nome" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Email Corporativo</label>
+          <input type="email" id="edit-u-email" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+        </div>
+        <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">Senha de Acesso</label>
+        <div class="relative">
+          <input 
+            type="text" 
+            id="edit-u-senha" 
+            required
+            placeholder="Digite a senha..." 
+            class="w-full bg-slate-50 border border-slate-300 text-slate-800 font-mono font-semibold rounded-lg pl-3 pr-10 py-2 text-xs focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none" 
+          />
+          <button 
+            type="button" 
+            onclick="toggleVerSenhaEdicao()" 
+            title="Mostrar / Ocultar Senha"
+            class="absolute right-3 top-2 text-slate-400 hover:text-slate-600 focus:outline-none"
+          >
+            <i id="icone-senha-edit" class="ph-bold ph-eye text-base"></i>
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nº CNH</label>
+            <input type="text" id="edit-u-cnh" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Status</label>
+            <select id="edit-u-status" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold">
+              <option value="Ativo">Ativo</option>
+              <option value="Inativo">Inativo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="fecharModalEditUsuario()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5">
+            <i class="ph-bold ph-check"></i> Salvar Alterações
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  </body>
 </html>
+  <script src="/BA-ckend/app.js"></script>

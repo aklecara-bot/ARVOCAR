@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARVO - Acesso ao Sistema de Frota</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center p-4 antialiased selection:bg-brand-500 selection:text-white">
+
+  <div class="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 sm:p-10 border border-slate-100 relative overflow-hidden">
+    
+    <div class="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-brand-500 via-brand-600 to-emerald-400"></div>
+
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center p-3.5 bg-brand-50 rounded-2xl text-brand-700 shadow-inner mb-3">
+        <i class="ph-bold ph-steering-wheel text-3xl"></i>
+      </div>
+      <h1 class="text-2xl font-black text-slate-900 tracking-tight">ARVO</h1>
+      <p class="text-xs font-bold uppercase tracking-wider text-brand-700">Controlo de Frota 2026</p>
+      <p class="text-xs text-slate-400 mt-1">Insira as suas credenciais corporativas para aceder</p>
+    </div>
+
+    <div id="erro-login" class="hidden mb-5 p-3.5 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-700 flex items-start gap-2.5">
+      <i class="ph-bold ph-warning-circle text-base shrink-0 mt-0.5"></i>
+      <span id="erro-login-msg">E-mail ou senha inválidos.</span>
+    </div>
+
+    <form id="formLogin" onsubmit="handleLogin(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">E-mail Corporativo</label>
+        <div class="relative">
+          <span class="absolute left-3.5 top-3 text-slate-400"><i class="ph-bold ph-envelope-simple text-base"></i></span>
+          <input 
+            type="email" 
+            id="login-email" 
+            required 
+            placeholder="usuario@arvo.tec.br" 
+            class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white outline-none transition" 
+          />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Senha de Acesso</label>
+        <div class="relative">
+          <span class="absolute left-3.5 top-3 text-slate-400"><i class="ph-bold ph-lock-key text-base"></i></span>
+          <input 
+            type="password" 
+            id="login-senha" 
+            required 
+            placeholder="••••••••" 
+            class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white outline-none transition" 
+          />
+          <button 
+            type="button" 
+            onclick="toggleVerSenha()" 
+            class="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none"
+          >
+            <i id="icone-senha" class="ph-bold ph-eye text-base"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button 
+          type="submit" 
+          id="btn-login" 
+          class="w-full bg-brand-700 hover:bg-brand-800 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-brand-900/10 transition-all flex items-center justify-center gap-2 text-sm"
+        >
+          <span>Entrar no Sistema</span>
+          <i class="ph-bold ph-arrow-right text-base"></i>
+        </button>
+      </div>
+    </form>
+
+    <div class="mt-8 pt-5 border-t border-slate-100 text-center">
+      <span class="text-[11px] text-slate-400 block font-medium">Gestão e Operação de Veículos • ARVO</span>
+    </div>
+
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
+
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false }
+    });
+
+    function toggleVerSenha() {
+      const input = document.getElementById('login-senha');
+      const icone = document.getElementById('icone-senha');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icone.classList.remove('ph-eye');
+        icone.classList.add('ph-eye-slash');
+      } else {
+        input.type = 'password';
+        icone.classList.remove('ph-eye-slash');
+        icone.classList.add('ph-eye');
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-login');
+      const erroBox = document.getElementById('erro-login');
+      const erroMsg = document.getElementById('erro-login-msg');
+      
+      const email = document.getElementById('login-email').value.trim().toLowerCase();
+      const senha = document.getElementById('login-senha').value.trim();
+
+      erroBox.classList.add('hidden');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> A autenticar...`;
+
+      try {
+        const { data, error } = await db
+          .from('usuarios')
+          .select('*')
+          .eq('email', email)
+          .single();
+
+        if (error || !data) {
+          throw new Error("Utilizador não registado.");
+        }
+
+        if (data.senha !== senha) {
+          throw new Error("Senha incorreta.");
+        }
+
+        if (data.status === 'Inativo') {
+          throw new Error("Este utilizador está inativo.");
+        }
+
+        localStorage.setItem('arvo_usuario_logado', JSON.stringify({
+          id: data.id,
+          nome: data.nome,
+          email: data.email,
+          cnh: data.cnh
+        }));
+
+        // Redireciona para a página inicial
+        window.location.href = "paginainicial.html";
+
+      } catch (err) {
+        console.error("Falha no login:", err);
+        erroMsg.innerText = err.message || "E-mail ou senha inválidos.";
+        erroBox.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Entrar no Sistema</span> <i class="ph-bold ph-arrow-right text-base"></i>`;
+      }
+    }
+  </script>
+</body>
+</html>
