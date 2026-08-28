@@ -60,11 +60,12 @@ function atualizarUsuarioNoCabecalho() {
   
   const display = document.getElementById('topUserDisplay');
   const cnh = document.getElementById('topUserCnh');
-  const inputCondutor = document.getElementById('form-inicio-condutor');
+  // Ajustado para o ID exato presente no HTML
+  const inputUsuario = document.getElementById('form-inicio-Usuario');
 
   if (display) display.innerText = `${u.nome} (${u.email})`;
   if (cnh) cnh.innerText = `CNH: ${u.cnh}`;
-  if (inputCondutor) inputCondutor.value = `${u.nome} <${u.email}>`;
+  if (inputUsuario) inputUsuario.value = `${u.nome} <${u.email}>`;
 }
 
 function alternarUsuarioLogado() {
@@ -217,47 +218,82 @@ function toggleOutroDestino(valor) {
 }
 
 async function handleInicioRota(e) {
-
-const agora = new Date().toISOString();
-
-// Verifica se existe alguma reserva confirmada do carro neste momento
-const { data: reservasAtivas } = await db
-  .from('reservas')
-  .select('*')
-  .eq('veiculo_id', veiculoId)
-  .eq('status', 'CONFIRMADA')
-  .lte('data_inicio', agora)
-  .gte('data_fim', agora);
-
-if (reservasAtivas && reservasAtivas.length > 0) {
-  const reservaAtual = reservasAtivas[0];
-  const ehAdmin = user.email.toLowerCase() === "admin@arvo.tec.br";
-  const ehReservista = reservaAtual.responsavel.toLowerCase() === user.email.toLowerCase();
-
-  // Bloqueia caso o condutor atual não seja quem reservou nem o Admin
-  if (!ehReservista && !ehAdmin) {
-    alert(`⛔ Veículo Indisponível!\nO veículo ${veiculoId} está reservado exclusivamente para ${reservaAtual.responsavel} até ${new Date(reservaAtual.data_fim).toLocaleString('pt-BR')}.`);
-    return;
-  }
-}
-
   e.preventDefault();
-  const btn = document.getElementById('btn-submit-inicio');
-  const veiculoId = document.getElementById('form-inicio-veiculo').value;
-  const veiculo = veiculos.find(v => v.id === veiculoId);
-  const user = usuarios[currentUserIndex];
 
-  if (!veiculo || !user) {
-    alert("Selecione um veículo e condutor válidos.");
+  const btn = document.getElementById('btn-submit-inicio');
+  const veiculoId = document.getElementById('form-inicio-veiculo')?.value;
+  const veiculo = veiculos.find(v => v.id === veiculoId);
+  const user = usuarios[currentUserIndex] || JSON.parse(localStorage.getItem('arvo_usuario_logado'));
+
+  if (!veiculoId || !veiculo) {
+    alert("Por favor, selecione um veículo válido.");
     return;
   }
 
+  if (!user || !user.email) {
+    alert("Condutor não identificado. Faça login novamente.");
+    return;
+  }
+
+  // =========================================================================
+  // BLOQUEIO DE RESERVA (COMPARAÇÃO REAL DE TEMPO)
+  // =========================================================================
+  const agoraTimestamp = new Date().getTime();
+  const emailAtual = user.email.toLowerCase().trim();
+  const ADMIN_EMAIL = "admin@arvo.tec.br";
+
+  try {
+    const { data: reservasCarro, error: errRes } = await db
+      .from('reservas')
+      .select('*')
+      .eq('veiculo_id', veiculoId)
+      .eq('status', 'CONFIRMADA');
+
+    if (errRes) throw errRes;
+
+    if (reservasCarro && reservasCarro.length > 0) {
+      // Verifica se o horário atual está dentro de alguma reserva do carro
+      const reservaAtiva = reservasCarro.find(r => {
+        const ini = new Date(r.data_inicio).getTime();
+        const fim = new Date(r.data_fim).getTime();
+        return agoraTimestamp >= ini && agoraTimestamp <= fim;
+      });
+
+      if (reservaAtiva) {
+        const emailDono = (reservaAtiva.responsavel || '').toLowerCase().trim();
+        const ehDono = emailDono === emailAtual;
+        const ehAdmin = emailAtual === ADMIN_EMAIL.toLowerCase();
+
+        if (!ehDono && !ehAdmin) {
+          const dataFimFmt = new Date(reservaAtiva.data_fim).toLocaleString('pt-BR', {
+            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+          });
+
+          alert(
+            `⛔ VEÍCULO BLOQUEADO POR RESERVA!\n\n` +
+            `O veículo ${veiculoId} está reservado para:\n` +
+            `👤 Condutor: ${reservaAtiva.responsavel}\n` +
+            `🎯 Finalidade: ${reservaAtiva.finalidade}\n` +
+            `📅 Reservado até: ${dataFimFmt}\n\n` +
+            `Apenas ${reservaAtiva.responsavel} ou o Administrador podem utilizá-lo.`
+          );
+          return;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso na verificação de reserva:", err.message);
+  }
+
+  // =========================================================================
+  // CONTINUAÇÃO DO INÍCIO DE ROTA
+  // =========================================================================
   const selectOrigem = document.getElementById('form-inicio-origem').value;
   const textoOrigem = document.getElementById('form-inicio-origem-texto')?.value.trim().toUpperCase() || '';
   const origemFinal = selectOrigem === 'OUTRO' ? textoOrigem : selectOrigem;
 
   if (!origemFinal) {
-    alert("Por favor, digite o local de saída.");
+    alert("Por favor, informe a origem de saída.");
     return;
   }
 
@@ -266,9 +302,7 @@ if (reservasAtivas && reservasAtivas.length > 0) {
     btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Gravando...`;
   }
 
-  // DATA E HORA DE SAÍDA GERADA AUTOMATICAMENTE NO MOMENTO DO CLIQUE
   const dataHoraSaidaAtual = new Date().toISOString();
-
   const novaRota = {
     id: `ROTA-2026-${String(rotas.length + 261).padStart(4, '0')}`,
     veiculo_id: veiculoId,
@@ -276,7 +310,7 @@ if (reservasAtivas && reservasAtivas.length > 0) {
     origem: origemFinal,
     destino: null,
     finalidade: document.getElementById('form-inicio-finalidade').value,
-    data_saida: dataHoraSaidaAtual, // <-- Gravado automaticamente
+    data_saida: dataHoraSaidaAtual,
     data_retorno: null,
     km_saida: Number(veiculo.km_atual),
     km_retorno: null,
@@ -300,10 +334,12 @@ if (reservasAtivas && reservasAtivas.length > 0) {
     setSubTab('operacao', 'minhas-rotas');
   } catch (err) {
     console.error("Erro ao iniciar rota:", err);
-    alert("Erro: " + err.message);
+    alert("Erro ao gravar rota: " + err.message);
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="ph-bold ph-check-circle text-lg"></i> Confirmar Saída`;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check-circle text-lg"></i> Iniciar Rota`;
+    }
   }
 }
 
@@ -330,8 +366,10 @@ async function handleFimRota(e) {
     return;
   }
 
-  btn.disabled = true;
-  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Gravando...`;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Gravando...`;
+  }
 
   const situacao = document.querySelector('input[name="situacao_carro"]:checked').value;
   let anomaliaTexto = situacao === 'COM' ? document.getElementById('form-fim-anomalia').value.trim() : '';
@@ -339,11 +377,10 @@ async function handleFimRota(e) {
   const deltaKm = kmFinal - rota.km_saida;
   const medConsumo = (Number(veiculo.consumo_min) + Number(veiculo.consumo_max)) / 2;
   const litrosEst = Number((deltaKm / medConsumo).toFixed(2));
-
-  // DATA E HORA DE RETORNO GERADA AUTOMATICAMENTE
   const dataHoraRetornoAtual = new Date().toISOString();
 
   try {
+    // 1. Atualiza a rota para 'Concluida'
     const { error: erroRota } = await db.from('rotas').update({
       km_retorno: kmFinal,
       km_total: deltaKm,
@@ -351,10 +388,11 @@ async function handleFimRota(e) {
       destino: destinoFinal,
       status: 'Concluida',
       anomalia: anomaliaTexto,
-      data_retorno: dataHoraRetornoAtual // <-- Gravado automaticamente
+      data_retorno: dataHoraRetornoAtual
     }).eq('id', rotaId);
     if (erroRota) throw erroRota;
 
+    // 2. Atualiza o status do veículo para 'Disponivel'
     const { error: erroVeiculo } = await db.from('veiculos').update({
       km_atual: kmFinal,
       status: 'Disponivel',
@@ -362,20 +400,34 @@ async function handleFimRota(e) {
     }).eq('id', veiculo.id);
     if (erroVeiculo) throw erroVeiculo;
 
+    // 3. ENCERRA A RESERVA CORRESPONDENTE (Altera status para 'CONCLUIDA')
+    const { error: erroReserva } = await db.from('reservas').update({
+      status: 'CONCLUIDA'
+    })
+    .eq('veiculo_id', veiculo.id)
+    .eq('responsavel', rota.responsavel)
+    .eq('status', 'CONFIRMADA');
+
+    if (erroReserva) {
+      console.warn("Aviso ao encerrar reserva vinculada:", erroReserva.message);
+    }
+
     e.target.reset();
     toggleOutroDestino('');
-    document.getElementById('fim-detalhes-viagem').classList.add('hidden');
+    document.getElementById('fim-detalhes-viagem')?.classList.add('hidden');
     toggleAnomaliaInput(false);
 
-    alert(`Rota ${rotaId} encerrada às ${formatarDataHora(dataHoraRetornoAtual)}! Distância: ${deltaKm} km.`);
+    alert(`Rota ${rotaId} encerrada e reserva finalizada com sucesso!`);
     await carregarTodosDadosDoBanco();
     setSubTab('operacao', 'minhas-rotas');
   } catch (err) {
     console.error("Erro ao encerrar rota:", err);
-    alert("Erro: " + err.message);
+    alert("Erro ao gravar retorno: " + err.message);
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="ph-bold ph-check text-lg"></i> Finalizar Rota`;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check text-lg"></i> Finalizar Rota`;
+    }
   }
 }
 
@@ -856,13 +908,21 @@ function selecionarRotaFim() {
   const rotaId = document.getElementById('form-fim-rota-select')?.value;
   const rota = rotas.find(r => r.id === rotaId);
   const detalhes = document.getElementById('fim-detalhes-viagem');
+
   if (rota) {
-    const v = veiculos.find(item => item.id === rota.veiculo_id);
-    const medConsumo = ((Number(v.consumo_min) + Number(v.consumo_max))/2).toFixed(1);
-    document.getElementById('fim-info-veiculo').innerText = `${rota.veiculo_id} (${v.marca})`;
-    document.getElementById('fim-info-condutor').innerText = rota.responsavel;
+    const v = veiculos.find(item => item.id === rota.veiculo_id) || {};
+    const consMin = Number(v.consumo_min) || 10;
+    const consMax = Number(v.consumo_max) || 14;
+    const medConsumo = ((consMin + consMax) / 2).toFixed(1);
+
+    document.getElementById('fim-info-veiculo').innerText = `${rota.veiculo_id} (${v.marca || 'N/D'})`;
+    // Ajustado para fim-info-Usuario conforme index.html
+    const infoUser = document.getElementById('fim-info-Usuario') || document.getElementById('fim-info-condutor');
+    if (infoUser) infoUser.innerText = rota.responsavel;
+
     document.getElementById('fim-info-kmsaida').innerText = `${Number(rota.km_saida).toLocaleString('pt-BR')} km`;
     document.getElementById('fim-info-consumo-est').innerText = `Média de ${medConsumo} km/L`;
+    
     if (detalhes) detalhes.classList.remove('hidden');
 
     const inputKm = document.getElementById('form-fim-km');

@@ -1,14 +1,32 @@
 const CACHE_NAME = 'arvo-mobile-v1';
+const ASSETS_TO_CACHE = [
+  './arvocar-mobile/FR-ontendMobile/mobile.html',
+  './manifest.json',
+  'https://cdn.tailwindcss.com',
+  'https://unpkg.com/@phosphor-icons/web'
+];
 
 self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
+  // Não intercepta nem cacheia requisições ao Supabase
+  if (event.request.url.includes('supabase.co')) {
+    return;
+  }
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );

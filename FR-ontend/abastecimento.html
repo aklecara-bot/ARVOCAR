@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ARVO - Registro de Abastecimento</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
+
+  <!-- Header -->
+  <header class="bg-brand-900 text-white shadow sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-brand-600 p-2 rounded-xl flex items-center justify-center text-white shadow">
+          <i class="ph-bold ph-gas-pump text-xl"></i>
+        </div>
+        <div>
+          <span class="text-lg font-black tracking-tight">ARVOCAR</span>
+          <span
+            class="text-brand-300 text-xs font-semibold uppercase tracking-wider block leading-none">Abastecimento</span>
+        </div>
+      </div>
+      <a href="/FR-ontend/paginaInicial.html" id="link-voltar"
+        class="flex items-center gap-1 text-xs bg-brand-800 hover:bg-brand-700 text-white px-3 py-2 rounded-xl border border-brand-700 font-bold transition">
+        <i class="ph-bold ph-arrow-left text-sm"></i>
+        <span>Voltar</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+    <!-- Card de Formulário -->
+    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+      <div class="flex items-center gap-3 pb-4 border-b border-slate-100 mb-5">
+        <div class="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+          <i class="ph-bold ph-receipt text-2xl"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-black text-slate-900">Novo Registro de Combustível</h2>
+          <p class="text-xs text-slate-400">Preencha os dados e anexe a foto do cupom fiscal</p>
+        </div>
+      </div>
+
+      <form id="formAbastecimento" onsubmit="handleSalvarAbastecimento(event)" class="space-y-4">
+
+        <!-- Seleção de Veículo -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Veículo</label>
+          <select id="abast-veiculo" required
+            class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-bold focus:ring-2 focus:ring-brand-500">
+            <option value="">Selecione o carro...</option>
+          </select>
+        </div>
+
+        <!-- Local do Posto / Estabelecimento -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Posto / Local de
+            Abastecimento</label>
+          <input type="text" id="abast-local" required placeholder="Ex: Posto Ipiranga Alegre, Auto Posto Shell..."
+            class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-brand-500 uppercase" />
+        </div>
+
+        <!-- Quantidade de Litros e Preço por Litro -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Quantidade de
+              Litros</label>
+            <div class="relative">
+              <input type="number" step="0.001" min="0.1" id="abast-litros" oninput="calcularTotalAbastecimento()"
+                required placeholder="Ex: 35.500"
+                class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl pl-3.5 pr-10 py-2.5 text-xs font-mono font-bold focus:ring-2 focus:ring-brand-500" />
+              <span class="absolute right-3.5 top-2.5 text-xs text-slate-400 font-bold">L</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Preço por Litro</label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-2.5 text-xs text-slate-400 font-bold">R$</span>
+              <input type="number" step="0.01" min="0.1" id="abast-preco-litro" oninput="calcularTotalAbastecimento()"
+                required placeholder="Ex: 6.75"
+                class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-mono font-bold focus:ring-2 focus:ring-brand-500" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Valor Total Calculado Automaticamente -->
+        <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block">Valor Total do
+              Abastecimento</span>
+            <span class="text-[11px] text-emerald-600">Calculado automaticamente (Litros × Preço)</span>
+          </div>
+          <div class="text-right">
+            <span id="display-valor-total" class="text-2xl font-black font-mono text-emerald-700">R$ 0,00</span>
+          </div>
+        </div>
+
+        <!-- Upload da Imagem do Cupom Fiscal -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Cupom Fiscal / Nota (Foto
+            ou Arquivo)</label>
+          <div
+            class="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 text-center transition bg-slate-50 relative">
+            <input type="file" id="abast-foto" accept="image/*" capture="environment"
+              onchange="previewImagemCupom(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div id="box-preview-placeholder" class="space-y-1.5 pointer-events-none">
+              <i class="ph-bold ph-camera text-2xl text-slate-400"></i>
+              <p class="text-xs font-bold text-slate-600">Tirar foto do cupom ou carregar imagem</p>
+              <p class="text-[10px] text-slate-400">Formatos aceitos: JPG, PNG, WEBP</p>
+            </div>
+            <!-- Pré-visualização da imagem -->
+            <img id="img-preview"
+              class="hidden mx-auto max-h-48 rounded-xl object-contain shadow-sm border border-slate-200" />
+          </div>
+        </div>
+
+        <!-- Botão de Gravação -->
+        <button type="submit" id="btn-salvar-abastecimento"
+          class="w-full bg-brand-700 hover:bg-brand-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+          <i class="ph-bold ph-check text-base"></i>
+          <span>Registrar Abastecimento</span>
+        </button>
+
+      </form>
+    </div>
+
+    <!-- Histórico Recente de Abastecimentos -->
+    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-3">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Histórico de Abastecimentos</h3>
+        <span id="badge-total-abast"
+          class="text-[11px] bg-brand-50 text-brand-700 font-bold px-2.5 py-0.5 rounded-full border border-brand-200">0
+          registros</span>
+      </div>
+
+      <div id="lista-abastecimentos" class="space-y-2.5">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/BA-ckend/abastecimento.js">
+
+  </script>
+</body>
+
+</html>

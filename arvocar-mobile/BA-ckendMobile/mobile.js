@@ -1,21 +1,20 @@
 // =========================================================================
-// 1. CONFIGURAÇÃO UNIFICADA DO SUPABASE
+// MÓDULO: OPERAÇÃO MOBILE & ROTAS - ARVOCAR 2026
 // =========================================================================
-// Utilize exatamente as mesmas chaves do seu arquivo app.js da Web:
+
 const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = window.db || supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let usuarioLogado = null;
 let veiculos = [];
 let rotas = [];
 
 // =========================================================================
-// 2. CONTROLE DE SESSÃO UNIFICADO (WEB + MOBILE)
+// SESSÃO E LOGIN
 // =========================================================================
-
 function obterSessaoAtiva() {
   const sessao = localStorage.getItem('arvo_mobile_user') || localStorage.getItem('arvo_usuario_logado');
   return sessao ? JSON.parse(sessao) : null;
@@ -24,7 +23,7 @@ function obterSessaoAtiva() {
 function salvarSessaoUnificada(usuario) {
   const dados = JSON.stringify(usuario);
   localStorage.setItem('arvo_mobile_user', dados);
-  localStorage.setItem('arvo_usuario_logado', dados); // Garante acesso caso abra a Web no mesmo navegador
+  localStorage.setItem('arvo_usuario_logado', dados);
 }
 
 function toggleSenhaMobile() {
@@ -82,72 +81,18 @@ async function handleMobileLogin(e) {
 }
 
 function handleMobileLogout() {
-  if (confirm("Deseja sair do aplicativo?")) {
-    localStorage.removeItem('arvo_mobile_user');
-    localStorage.removeItem('arvo_usuario_logado');
-    usuarioLogado = null;
-    document.getElementById('screen-app').classList.add('hidden');
-    document.getElementById('screen-login').classList.remove('hidden');
-  }
-}
-
-// =========================================================================
-// 3. CARREGAMENTO E SINCRONIZAÇÃO
-// =========================================================================
-
-async function carregarVeiculos() {
-  // Identifica o select tanto na versão web quanto na versão mobile
-  const sel = document.getElementById('res-veiculo') || document.getElementById('m-res-veiculo');
-  if (!sel) return;
-
-  try {
-    const { data, error } = await db
-      .from('veiculos')
-      .select('*')
-      .order('id');
-
-    if (error) {
-      console.error("Erro Supabase ao buscar veículos:", error);
-      throw error;
-    }
-
-    veiculos = data || [];
-
-    if (veiculos.length === 0) {
-      sel.innerHTML = '<option value="">Nenhum carro cadastrado no banco</option>';
-      return;
-    }
-
-    sel.innerHTML = '<option value="">Selecione um carro...</option>';
-    veiculos.forEach(v => {
-      sel.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}]</option>`;
-    });
-
-  } catch (err) {
-    console.error("Falha ao carregar lista de veículos:", err);
-    sel.innerHTML = '<option value="">Erro ao carregar veículos</option>';
-    alert("Não foi possível carregar a lista de veículos. Verifique a conexão com o Supabase e as permissões da tabela 'veiculos'.");
-  }
-}
-
-async function carregarDadosMobile() {
-  try {
-    const { data: dadosV, error: errV } = await db.from('veiculos').select('*').order('id');
-    if (errV) throw errV;
-    veiculos = dadosV || [];
-
-    const { data: dadosR, error: errR } = await db.from('rotas').select('*').order('data_saida', { ascending: false });
-    if (errR) throw errR;
-    rotas = dadosR || [];
-
-    renderizarOpcoesVeiculos();
-    renderizarOpcoesRotasAtivas();
-    renderizarHistoricoMobile();
-    verificarRotasExcedidas12h();
-  } catch (err) {
-    console.error("Erro ao sincronizar com o banco Supabase:", err);
-    alert("Erro de conexão com o banco de dados: " + err.message);
-  }
+  mostrarConfirmacao(
+    'Encerrar Sessão',
+    'Deseja realmente sair da sua conta no aplicativo?',
+    () => {
+      localStorage.removeItem('arvo_mobile_user');
+      localStorage.removeItem('arvo_usuario_logado');
+      usuarioLogado = null;
+      document.getElementById('screen-app').classList.add('hidden');
+      document.getElementById('screen-login').classList.remove('hidden');
+    },
+    'Sair'
+  );
 }
 
 function iniciarAppMobile() {
@@ -176,9 +121,31 @@ function switchMobileTab(tab) {
 }
 
 // =========================================================================
-// 4. OPERAÇÃO DE ROTAS (CHECK-OUT & CHECK-IN)
+// CARREGAMENTO DE DADOS
 // =========================================================================
+async function carregarDadosMobile() {
+  try {
+    const { data: dadosV, error: errV } = await db.from('veiculos').select('*').order('id');
+    if (errV) throw errV;
+    veiculos = dadosV || [];
 
+    const { data: dadosR, error: errR } = await db.from('rotas').select('*').order('data_saida', { ascending: false });
+    if (errR) throw errR;
+    rotas = dadosR || [];
+
+    renderizarOpcoesVeiculos();
+    renderizarOpcoesRotasAtivas();
+    renderizarHistoricoMobile();
+    verificarRotasExcedidas12h();
+  } catch (err) {
+    console.error("Erro ao sincronizar dados:", err);
+    alert("Erro de sincronização: " + err.message);
+  }
+}
+
+// =========================================================================
+// OPERAÇÃO DE ROTAS (INÍCIO / FIM)
+// =========================================================================
 function renderizarOpcoesVeiculos() {
   const select = document.getElementById('m-inicio-veiculo');
   if (!select) return;
@@ -243,29 +210,36 @@ async function handleMobileInicioRota(e) {
   const veiculo = veiculos.find(v => v.id === veiculoId);
 
   if (!veiculo || !usuarioLogado) {
-    alert("Selecione um veículo disponível.");
+    mostrarPopup('aviso', 'Selecione o Veículo', 'Escolha um carro disponível para iniciar a viagem.');
     return;
   }
 
-  // 1. Checagem de Reservas no Supabase
   const agora = new Date().toISOString();
-  const { data: reservasAtivas } = await db
-    .from('reservas')
-    .select('*')
-    .eq('veiculo_id', veiculoId)
-    .eq('status', 'CONFIRMADA')
-    .lte('data_inicio', agora)
-    .gte('data_fim', agora);
+  try {
+    const { data: reservasAtivas } = await db
+      .from('reservas')
+      .select('*')
+      .eq('veiculo_id', veiculoId)
+      .eq('status', 'CONFIRMADA')
+      .lte('data_inicio', agora)
+      .gte('data_fim', agora);
 
-  if (reservasAtivas && reservasAtivas.length > 0) {
-    const reservaAtual = reservasAtivas[0];
-    const ehAdmin = usuarioLogado.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-    const ehReservista = reservaAtual.responsavel.toLowerCase() === usuarioLogado.email.toLowerCase();
+    if (reservasAtivas && reservasAtivas.length > 0) {
+      const reservaAtual = reservasAtivas[0];
+      const ehAdmin = usuarioLogado.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      const ehReservista = reservaAtual.responsavel.toLowerCase() === usuarioLogado.email.toLowerCase();
 
-    if (!ehReservista && !ehAdmin) {
-      alert(`⛔ Veículo Indisponível!\nO veículo ${veiculoId} está reservado para ${reservaAtual.responsavel} até ${new Date(reservaAtual.data_fim).toLocaleString('pt-BR')}.`);
-      return;
+      if (!ehReservista && !ehAdmin) {
+        mostrarPopup(
+          'erro',
+          'Veículo Reservado',
+          `O veículo <b>${veiculoId}</b> está reservado para <b>${reservaAtual.responsavel}</b> até ${new Date(reservaAtual.data_fim).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}.`
+        );
+        return;
+      }
     }
+  } catch (errRes) {
+    console.warn(errRes);
   }
 
   const selOrigem = document.getElementById('m-inicio-origem')?.value;
@@ -273,7 +247,7 @@ async function handleMobileInicioRota(e) {
   const origemFinal = selOrigem === 'OUTRO' ? txtOrigem : selOrigem;
 
   if (!origemFinal) {
-    alert("Informe o local de saída.");
+    mostrarPopup('aviso', 'Origem Obrigatória', 'Informe o local de saída do veículo.');
     return;
   }
 
@@ -306,13 +280,13 @@ async function handleMobileInicioRota(e) {
     const { error: errV } = await db.from('veiculos').update({ status: 'Em Uso' }).eq('id', veiculoId);
     if (errV) throw errV;
 
-    alert(`Rota iniciada com sucesso no ${veiculoId}!`);
+    mostrarPopup('sucesso', 'Rota Iniciada!', `A saída do veículo <b>${veiculoId}</b> foi gravada com sucesso.`);
     e.target.reset();
     toggleOutroOrigemMobile('');
     await carregarDadosMobile();
     switchMobileTab('historico');
   } catch (err) {
-    alert("Erro ao iniciar rota: " + err.message);
+    mostrarPopup('erro', 'Falha ao Iniciar', err.message);
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -399,6 +373,7 @@ async function handleMobileFimRota(e) {
   const litrosEst = Number((deltaKm / medConsumo).toFixed(2));
 
   try {
+    // 1. Conclui a rota
     const { error: errR } = await db.from('rotas').update({
       km_retorno: kmFinal,
       km_total: deltaKm,
@@ -410,6 +385,7 @@ async function handleMobileFimRota(e) {
     }).eq('id', rotaId);
     if (errR) throw errR;
 
+    // 2. Libera o veículo
     const { error: errV } = await db.from('veiculos').update({
       km_atual: kmFinal,
       status: 'Disponivel',
@@ -417,7 +393,15 @@ async function handleMobileFimRota(e) {
     }).eq('id', veiculo.id);
     if (errV) throw errV;
 
-    alert(`Rota ${rotaId} finalizada! Distância: ${deltaKm} km.`);
+    // 3. ENCERRA A RESERVA ATIVA DO CONDUTOR
+    await db.from('reservas').update({
+      status: 'CONCLUIDA'
+    })
+    .eq('veiculo_id', veiculo.id)
+    .eq('responsavel', rota.responsavel)
+    .eq('status', 'CONFIRMADA');
+
+    alert(`Rota ${rotaId} finalizada e reserva liberada! Distância: ${deltaKm} km.`);
     e.target.reset();
     toggleOutroDestinoMobile('');
     toggleAnomaliaMobile(false);
@@ -472,9 +456,8 @@ function renderizarHistoricoMobile() {
 }
 
 // =========================================================================
-// 5. ALERTAS E POP-UPS (ROTAS > 12H)
+// ALERTAS E NOTIFICAÇÕES (ROTAS > 12H)
 // =========================================================================
-
 function solicitarPermissaoNotificacao() {
   if ("Notification" in window && Notification.permission === "default") {
     Notification.requestPermission();
@@ -566,9 +549,9 @@ async function verificarRotasExcedidas12h() {
 }
 
 // =========================================================================
-// 6. INICIALIZAÇÃO
+// INICIALIZAÇÃO
 // =========================================================================
-window.onload = () => {
+document.addEventListener('DOMContentLoaded', () => {
   solicitarPermissaoNotificacao();
   setInterval(verificarRotasExcedidas12h, 10 * 60 * 1000);
 
@@ -577,4 +560,4 @@ window.onload = () => {
     usuarioLogado = sessao;
     iniciarAppMobile();
   }
-};
+});
