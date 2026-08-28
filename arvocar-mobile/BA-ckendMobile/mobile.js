@@ -1,20 +1,31 @@
 // =========================================================================
-// 1. CONFIGURAÇÃO DO SUPABASE E ESTADOS
+// 1. CONFIGURAÇÃO UNIFICADA DO SUPABASE
 // =========================================================================
+// Utilize exatamente as mesmas chaves do seu arquivo app.js da Web:
 const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
+const ADMIN_EMAIL = "admin@arvo.tec.br";
 
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false }
-});
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let usuarioLogado = null;
 let veiculos = [];
 let rotas = [];
 
 // =========================================================================
-// 2. CONTROLE DE SESSÃO & LOGIN MOBILE
+// 2. CONTROLE DE SESSÃO UNIFICADO (WEB + MOBILE)
 // =========================================================================
+
+function obterSessaoAtiva() {
+  const sessao = localStorage.getItem('arvo_mobile_user') || localStorage.getItem('arvo_usuario_logado');
+  return sessao ? JSON.parse(sessao) : null;
+}
+
+function salvarSessaoUnificada(usuario) {
+  const dados = JSON.stringify(usuario);
+  localStorage.setItem('arvo_mobile_user', dados);
+  localStorage.setItem('arvo_usuario_logado', dados); // Garante acesso caso abra a Web no mesmo navegador
+}
 
 function toggleSenhaMobile() {
   const input = document.getElementById('m-senha');
@@ -59,7 +70,7 @@ async function handleMobileLogin(e) {
       cnh: data.cnh
     };
 
-    localStorage.setItem('arvo_mobile_user', JSON.stringify(usuarioLogado));
+    salvarSessaoUnificada(usuarioLogado);
     iniciarAppMobile();
   } catch (err) {
     erroMsg.innerText = err.message || "E-mail ou senha inválidos.";
@@ -73,6 +84,7 @@ async function handleMobileLogin(e) {
 function handleMobileLogout() {
   if (confirm("Deseja sair do aplicativo?")) {
     localStorage.removeItem('arvo_mobile_user');
+    localStorage.removeItem('arvo_usuario_logado');
     usuarioLogado = null;
     document.getElementById('screen-app').classList.add('hidden');
     document.getElementById('screen-login').classList.remove('hidden');
@@ -80,22 +92,61 @@ function handleMobileLogout() {
 }
 
 // =========================================================================
-// 3. CARREGAMENTO E NAVEGAÇÃO DE ABAS
+// 3. CARREGAMENTO E SINCRONIZAÇÃO
 // =========================================================================
+
+async function carregarVeiculos() {
+  // Identifica o select tanto na versão web quanto na versão mobile
+  const sel = document.getElementById('res-veiculo') || document.getElementById('m-res-veiculo');
+  if (!sel) return;
+
+  try {
+    const { data, error } = await db
+      .from('veiculos')
+      .select('*')
+      .order('id');
+
+    if (error) {
+      console.error("Erro Supabase ao buscar veículos:", error);
+      throw error;
+    }
+
+    veiculos = data || [];
+
+    if (veiculos.length === 0) {
+      sel.innerHTML = '<option value="">Nenhum carro cadastrado no banco</option>';
+      return;
+    }
+
+    sel.innerHTML = '<option value="">Selecione um carro...</option>';
+    veiculos.forEach(v => {
+      sel.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}]</option>`;
+    });
+
+  } catch (err) {
+    console.error("Falha ao carregar lista de veículos:", err);
+    sel.innerHTML = '<option value="">Erro ao carregar veículos</option>';
+    alert("Não foi possível carregar a lista de veículos. Verifique a conexão com o Supabase e as permissões da tabela 'veiculos'.");
+  }
+}
 
 async function carregarDadosMobile() {
   try {
-    const { data: dadosV } = await db.from('veiculos').select('*').order('id');
+    const { data: dadosV, error: errV } = await db.from('veiculos').select('*').order('id');
+    if (errV) throw errV;
     veiculos = dadosV || [];
 
-    const { data: dadosR } = await db.from('rotas').select('*').order('data_saida', { ascending: false });
+    const { data: dadosR, error: errR } = await db.from('rotas').select('*').order('data_saida', { ascending: false });
+    if (errR) throw errR;
     rotas = dadosR || [];
 
     renderizarOpcoesVeiculos();
     renderizarOpcoesRotasAtivas();
     renderizarHistoricoMobile();
+    verificarRotasExcedidas12h();
   } catch (err) {
-    console.error("Erro ao carregar dados:", err);
+    console.error("Erro ao sincronizar com o banco Supabase:", err);
+    alert("Erro de conexão com o banco de dados: " + err.message);
   }
 }
 
@@ -109,15 +160,19 @@ function iniciarAppMobile() {
 }
 
 function switchMobileTab(tab) {
-  ['iniciar', 'finalizar', 'historico'].forEach(t => {
-    document.getElementById(`tab-${t}`).classList.add('hidden');
+  const abas = ['iniciar', 'finalizar', 'historico'];
+
+  abas.forEach(t => {
+    const el = document.getElementById(`tab-${t}`);
     const btn = document.getElementById(`nav-btn-${t}`);
-    btn.className = "flex flex-col items-center gap-1 text-slate-400 font-semibold transition";
+    if (el) el.classList.add('hidden');
+    if (btn) btn.className = "flex flex-col items-center gap-1 text-slate-400 font-semibold transition";
   });
 
-  document.getElementById(`tab-${tab}`).classList.remove('hidden');
+  const activeView = document.getElementById(`tab-${tab}`);
   const activeBtn = document.getElementById(`nav-btn-${tab}`);
-  activeBtn.className = "flex flex-col items-center gap-1 text-brand-700 font-bold transition";
+  if (activeView) activeView.classList.remove('hidden');
+  if (activeBtn) activeBtn.className = "flex flex-col items-center gap-1 text-brand-700 font-bold transition";
 }
 
 // =========================================================================
@@ -126,6 +181,7 @@ function switchMobileTab(tab) {
 
 function renderizarOpcoesVeiculos() {
   const select = document.getElementById('m-inicio-veiculo');
+  if (!select) return;
   select.innerHTML = '<option value="">Selecione o veículo...</option>';
   veiculos.filter(v => v.status === 'Disponivel').forEach(v => {
     select.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}] (${Number(v.km_atual).toLocaleString('pt-BR')} km)</option>`;
@@ -133,59 +189,86 @@ function renderizarOpcoesVeiculos() {
 }
 
 function atualizarKmVeiculoMobile() {
-  const vId = document.getElementById('m-inicio-veiculo').value;
+  const vId = document.getElementById('m-inicio-veiculo')?.value;
   const v = veiculos.find(item => item.id === vId);
-  document.getElementById('m-inicio-km').value = v ? v.km_atual : '';
+  const inputKm = document.getElementById('m-inicio-km');
+  if (inputKm) inputKm.value = v ? v.km_atual : '';
 }
 
 function toggleOutroOrigemMobile(valor) {
   const input = document.getElementById('m-inicio-origem-outro');
-  if (valor === 'OUTRO') {
-    input.classList.remove('hidden');
-    input.required = true;
-    input.focus();
-  } else {
-    input.classList.add('hidden');
-    input.required = false;
-    input.value = '';
+  if (input) {
+    if (valor === 'OUTRO') {
+      input.classList.remove('hidden');
+      input.required = true;
+      input.focus();
+    } else {
+      input.classList.add('hidden');
+      input.required = false;
+      input.value = '';
+    }
   }
 }
 
 function toggleOutroDestinoMobile(valor) {
   const input = document.getElementById('m-fim-destino-outro');
-  if (valor === 'OUTRO') {
-    input.classList.remove('hidden');
-    input.required = true;
-    input.focus();
-  } else {
-    input.classList.add('hidden');
-    input.required = false;
-    input.value = '';
+  if (input) {
+    if (valor === 'OUTRO') {
+      input.classList.remove('hidden');
+      input.required = true;
+      input.focus();
+    } else {
+      input.classList.add('hidden');
+      input.required = false;
+      input.value = '';
+    }
   }
 }
 
 function toggleAnomaliaMobile(show) {
   const txt = document.getElementById('m-fim-anomalia');
-  if (show) txt.classList.remove('hidden');
-  else {
-    txt.classList.add('hidden');
-    txt.value = '';
+  if (txt) {
+    if (show) txt.classList.remove('hidden');
+    else {
+      txt.classList.add('hidden');
+      txt.value = '';
+    }
   }
 }
 
-// Iniciar Rota
 async function handleMobileInicioRota(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-m-confirmar-inicio');
-  const veiculoId = document.getElementById('m-inicio-veiculo').value;
+  const veiculoId = document.getElementById('m-inicio-veiculo')?.value;
   const veiculo = veiculos.find(v => v.id === veiculoId);
 
-  if (!veiculo) {
+  if (!veiculo || !usuarioLogado) {
     alert("Selecione um veículo disponível.");
     return;
   }
 
-  const selOrigem = document.getElementById('m-inicio-origem').value;
+  // 1. Checagem de Reservas no Supabase
+  const agora = new Date().toISOString();
+  const { data: reservasAtivas } = await db
+    .from('reservas')
+    .select('*')
+    .eq('veiculo_id', veiculoId)
+    .eq('status', 'CONFIRMADA')
+    .lte('data_inicio', agora)
+    .gte('data_fim', agora);
+
+  if (reservasAtivas && reservasAtivas.length > 0) {
+    const reservaAtual = reservasAtivas[0];
+    const ehAdmin = usuarioLogado.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const ehReservista = reservaAtual.responsavel.toLowerCase() === usuarioLogado.email.toLowerCase();
+
+    if (!ehReservista && !ehAdmin) {
+      alert(`⛔ Veículo Indisponível!\nO veículo ${veiculoId} está reservado para ${reservaAtual.responsavel} até ${new Date(reservaAtual.data_fim).toLocaleString('pt-BR')}.`);
+      return;
+    }
+  }
+
+  const selOrigem = document.getElementById('m-inicio-origem')?.value;
   const txtOrigem = document.getElementById('m-inicio-origem-outro')?.value.trim().toUpperCase() || '';
   const origemFinal = selOrigem === 'OUTRO' ? txtOrigem : selOrigem;
 
@@ -194,8 +277,10 @@ async function handleMobileInicioRota(e) {
     return;
   }
 
-  btn.disabled = true;
-  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
+  }
 
   const novaRota = {
     id: `ROTA-2026-${String(rotas.length + 261).padStart(4, '0')}`,
@@ -203,7 +288,7 @@ async function handleMobileInicioRota(e) {
     responsavel: usuarioLogado.email,
     origem: origemFinal,
     destino: null,
-    finalidade: document.getElementById('m-inicio-finalidade').value,
+    finalidade: document.getElementById('m-inicio-finalidade')?.value,
     data_saida: new Date().toISOString(),
     data_retorno: null,
     km_saida: Number(veiculo.km_atual),
@@ -229,14 +314,16 @@ async function handleMobileInicioRota(e) {
   } catch (err) {
     alert("Erro ao iniciar rota: " + err.message);
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="ph-bold ph-check-circle text-base"></i> Confirmar Saída`;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check-circle text-base"></i> Confirmar Saída`;
+    }
   }
 }
 
-// Finalizar Rota
 function renderizarOpcoesRotasAtivas() {
   const select = document.getElementById('m-fim-rota-select');
+  if (!select) return;
   select.innerHTML = '<option value="">Selecione sua rota ativa...</option>';
   rotas.filter(r => r.status === 'Em Uso' && r.responsavel === usuarioLogado.email).forEach(r => {
     select.innerHTML += `<option value="${r.id}">${r.id} (${r.veiculo_id}) - KM Saída: ${r.km_saida}</option>`;
@@ -244,7 +331,7 @@ function renderizarOpcoesRotasAtivas() {
 }
 
 function selecionarRotaFimMobile() {
-  const rotaId = document.getElementById('m-fim-rota-select').value;
+  const rotaId = document.getElementById('m-fim-rota-select')?.value;
   const rota = rotas.find(r => r.id === rotaId);
   const card = document.getElementById('m-detalhes-viagem');
   const inputKm = document.getElementById('m-fim-km');
@@ -252,25 +339,24 @@ function selecionarRotaFimMobile() {
   if (rota) {
     document.getElementById('m-info-veiculo').innerText = rota.veiculo_id;
     document.getElementById('m-info-kmsaida').innerText = `${Number(rota.km_saida).toLocaleString('pt-BR')} km`;
-    inputKm.min = rota.km_saida;
-    inputKm.value = rota.km_saida;
-    card.classList.remove('hidden');
+    if (inputKm) {
+      inputKm.min = rota.km_saida;
+      inputKm.value = rota.km_saida;
+    }
+    if (card) card.classList.remove('hidden');
     calcularKmPercorridoMobile();
   } else {
-    card.classList.add('hidden');
+    if (card) card.classList.add('hidden');
   }
 }
 
 function calcularKmPercorridoMobile() {
-  const rotaId = document.getElementById('m-fim-rota-select').value;
+  const rotaId = document.getElementById('m-fim-rota-select')?.value;
   const rota = rotas.find(r => r.id === rotaId);
-  const kmFinal = parseFloat(document.getElementById('m-fim-km').value);
+  const kmFinal = parseFloat(document.getElementById('m-fim-km')?.value);
   const feedback = document.getElementById('m-km-feedback');
 
-  if (!rota || isNaN(kmFinal)) {
-    feedback.innerText = "";
-    return;
-  }
+  if (!rota || isNaN(kmFinal) || !feedback) return;
 
   if (kmFinal < rota.km_saida) {
     feedback.innerText = `Aviso: KM final não pode ser menor que a saída (${rota.km_saida} km)!`;
@@ -285,10 +371,10 @@ function calcularKmPercorridoMobile() {
 async function handleMobileFimRota(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-m-confirmar-fim');
-  const rotaId = document.getElementById('m-fim-rota-select').value;
-  const kmFinal = parseFloat(document.getElementById('m-fim-km').value);
+  const rotaId = document.getElementById('m-fim-rota-select')?.value;
+  const kmFinal = parseFloat(document.getElementById('m-fim-km')?.value);
 
-  const selDest = document.getElementById('m-fim-destino').value;
+  const selDest = document.getElementById('m-fim-destino')?.value;
   const txtDest = document.getElementById('m-fim-destino-outro')?.value.trim().toUpperCase() || '';
   const destinoFinal = selDest === 'OUTRO' ? txtDest : selDest;
 
@@ -300,11 +386,13 @@ async function handleMobileFimRota(e) {
     return;
   }
 
-  btn.disabled = true;
-  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
+  }
 
-  const situacao = document.querySelector('input[name="m_situacao_carro"]:checked').value;
-  const anomaliaTexto = situacao === 'COM' ? document.getElementById('m-fim-anomalia').value.trim() : '';
+  const situacao = document.querySelector('input[name="m_situacao_carro"]:checked')?.value;
+  const anomaliaTexto = situacao === 'COM' ? document.getElementById('m-fim-anomalia')?.value.trim() : '';
 
   const deltaKm = kmFinal - rota.km_saida;
   const medConsumo = (Number(veiculo.consumo_min) + Number(veiculo.consumo_max)) / 2;
@@ -333,24 +421,26 @@ async function handleMobileFimRota(e) {
     e.target.reset();
     toggleOutroDestinoMobile('');
     toggleAnomaliaMobile(false);
-    document.getElementById('m-detalhes-viagem').classList.add('hidden');
+    document.getElementById('m-detalhes-viagem')?.classList.add('hidden');
     await carregarDadosMobile();
     switchMobileTab('historico');
   } catch (err) {
     alert("Erro ao finalizar rota: " + err.message);
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="ph-bold ph-check text-base"></i> Finalizar Rota`;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check text-base"></i> Finalizar Rota`;
+    }
   }
 }
 
-// Histórico
 function renderizarHistoricoMobile() {
   const container = document.getElementById('m-lista-historico');
   const badge = document.getElementById('m-total-rotas-badge');
+  if (!container) return;
+
   const minhasRotas = rotas.filter(r => r.responsavel === usuarioLogado.email);
-  
-  badge.innerText = `${minhasRotas.length} rotas`;
+  if (badge) badge.innerText = `${minhasRotas.length} rotas`;
   container.innerHTML = '';
 
   if (minhasRotas.length === 0) {
@@ -374,7 +464,7 @@ function renderizarHistoricoMobile() {
       </div>
       <div class="flex justify-between items-center text-[11px] font-mono text-slate-500 pt-1 border-t border-slate-100">
         <span>Distância: <b class="text-brand-700 font-bold">${r.km_total > 0 ? `${r.km_total} km` : '-'}</b></span>
-        <span>Saída: ${new Date(r.data_saida).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' })}</span>
+        <span>Saída: ${r.data_saida ? new Date(r.data_saida).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }) : '-'}</span>
       </div>
     `;
     container.appendChild(card);
@@ -382,12 +472,109 @@ function renderizarHistoricoMobile() {
 }
 
 // =========================================================================
-// 5. INICIALIZAÇÃO
+// 5. ALERTAS E POP-UPS (ROTAS > 12H)
+// =========================================================================
+
+function solicitarPermissaoNotificacao() {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+}
+
+function dispararNotificacaoNativa(titulo, mensagem) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    navigator.serviceWorker?.ready.then((registration) => {
+      registration.showNotification(titulo, {
+        body: mensagem,
+        icon: "https://cdn-icons-png.flaticon.com/512/3202/3202926.png",
+        vibrate: [200, 100, 200],
+        tag: "alerta-rota-12h"
+      });
+    }) || new Notification(titulo, { body: mensagem });
+  }
+}
+
+function abrirFinalizacaoDiretaMobile(rotaId) {
+  switchMobileTab('finalizar');
+  const select = document.getElementById('m-fim-rota-select');
+  if (select) {
+    select.value = rotaId;
+    selecionarRotaFimMobile();
+  }
+}
+
+function exibirPopUpAlerta(rota, horasAbertas) {
+  const modalId = `modal-alerta-${rota.id}`;
+  if (document.getElementById(modalId)) return;
+
+  const popUp = document.createElement('div');
+  popUp.id = modalId;
+  popUp.className = "fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in";
+  popUp.innerHTML = `
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-rose-100 text-center space-y-4">
+      <div class="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+        <i class="ph-bold ph-warning-circle"></i>
+      </div>
+      <div>
+        <h3 class="text-base font-black text-slate-900">Atenção: Rota Aberta!</h3>
+        <p class="text-xs text-slate-500 mt-1">
+          A rota <b class="text-slate-800">${rota.id}</b> com o veículo <b class="text-slate-800">${rota.veiculo_id}</b> está aberta há mais de <span class="text-rose-600 font-bold">${horasAbertas.toFixed(1)} horas</span>.
+        </p>
+      </div>
+      <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium">
+        Por favor, finalize o check-in inserindo o KM final do painel.
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="document.getElementById('${modalId}').remove()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+          Lembrar Depois
+        </button>
+        <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDiretaMobile('${rota.id}');" class="flex-1 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md transition">
+          Finalizar Agora
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(popUp);
+}
+
+async function verificarRotasExcedidas12h() {
+  if (!usuarioLogado) return;
+  const agora = new Date();
+
+  const { data: rotasAtivas } = await db
+    .from('rotas')
+    .select('*')
+    .eq('status', 'Em Uso');
+
+  if (!rotasAtivas) return;
+
+  rotasAtivas.forEach(rota => {
+    if (!rota.data_saida) return;
+    const dataSaida = new Date(rota.data_saida);
+    const diferencaHoras = (agora - dataSaida) / (1000 * 60 * 60);
+
+    if (diferencaHoras >= 12) {
+      if (rota.responsavel === usuarioLogado.email || usuarioLogado.email === ADMIN_EMAIL) {
+        exibirPopUpAlerta(rota, diferencaHoras);
+        dispararNotificacaoNativa(
+          "⚠️ ARVO - Fechamento de Rota Pendente",
+          `A rota ${rota.id} (${rota.veiculo_id}) está aberta há ${diferencaHoras.toFixed(0)}h. Realize a devolução.`
+        );
+      }
+    }
+  });
+}
+
+// =========================================================================
+// 6. INICIALIZAÇÃO
 // =========================================================================
 window.onload = () => {
-  const sessao = localStorage.getItem('arvo_mobile_user');
+  solicitarPermissaoNotificacao();
+  setInterval(verificarRotasExcedidas12h, 10 * 60 * 1000);
+
+  const sessao = obterSessaoAtiva();
   if (sessao) {
-    usuarioLogado = JSON.parse(sessao);
+    usuarioLogado = sessao;
     iniciarAppMobile();
   }
 };

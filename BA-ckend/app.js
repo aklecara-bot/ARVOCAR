@@ -217,6 +217,30 @@ function toggleOutroDestino(valor) {
 }
 
 async function handleInicioRota(e) {
+
+const agora = new Date().toISOString();
+
+// Verifica se existe alguma reserva confirmada do carro neste momento
+const { data: reservasAtivas } = await db
+  .from('reservas')
+  .select('*')
+  .eq('veiculo_id', veiculoId)
+  .eq('status', 'CONFIRMADA')
+  .lte('data_inicio', agora)
+  .gte('data_fim', agora);
+
+if (reservasAtivas && reservasAtivas.length > 0) {
+  const reservaAtual = reservasAtivas[0];
+  const ehAdmin = user.email.toLowerCase() === "admin@arvo.tec.br";
+  const ehReservista = reservaAtual.responsavel.toLowerCase() === user.email.toLowerCase();
+
+  // Bloqueia caso o condutor atual não seja quem reservou nem o Admin
+  if (!ehReservista && !ehAdmin) {
+    alert(`⛔ Veículo Indisponível!\nO veículo ${veiculoId} está reservado exclusivamente para ${reservaAtual.responsavel} até ${new Date(reservaAtual.data_fim).toLocaleString('pt-BR')}.`);
+    return;
+  }
+}
+
   e.preventDefault();
   const btn = document.getElementById('btn-submit-inicio');
   const veiculoId = document.getElementById('form-inicio-veiculo').value;
@@ -950,6 +974,103 @@ function filtrarHistorico() {
   });
 }
 
+// =========================================================================
+// SISTEMA DE ALERTAS & NOTIFICAÇÕES (ROTAS > 12 HORAS)
+// =========================================================================
+
+// 1. Solicita permissão para notificações nativas do celular/navegador
+function solicitarPermissaoNotificacao() {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+}
+
+// 2. Dispara notificação nativa no aparelho
+function dispararNotificacaoNativa(titulo, mensagem) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    navigator.serviceWorker?.ready.then((registration) => {
+      registration.showNotification(titulo, {
+        body: mensagem,
+        icon: "https://cdn-icons-png.flaticon.com/512/3202/3202926.png",
+        vibrate: [200, 100, 200],
+        tag: "alerta-rota-12h"
+      });
+    }) || new Notification(titulo, { body: mensagem });
+  }
+}
+
+// 3. Exibe Pop-up na interface do usuário
+function exibirPopUpAlerta(rota, horasAbertas) {
+  const modalId = `modal-alerta-${rota.id}`;
+  if (document.getElementById(modalId)) return; // Evita duplicar o mesmo pop-up
+
+  const popUp = document.createElement('div');
+  popUp.id = modalId;
+  popUp.className = "fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in";
+  popUp.innerHTML = `
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-rose-100 text-center space-y-4">
+      <div class="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+        <i class="ph-bold ph-warning-circle"></i>
+      </div>
+      <div>
+        <h3 class="text-base font-black text-slate-900">Atenção: Rota Pendente!</h3>
+        <p class="text-xs text-slate-500 mt-1">
+          A rota <b class="text-slate-800">${rota.id}</b> com o veículo <b class="text-slate-800">${rota.veiculo_id}</b> está aberta há mais de <span class="text-rose-600 font-bold">${horasAbertas.toFixed(1)} horas</span>.
+        </p>
+      </div>
+      <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium">
+        Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento.
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="document.getElementById('${modalId}').remove()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+          Lembrar Depois
+        </button>
+        <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDireta('${rota.veiculo_id}');" class="flex-1 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md transition">
+          Finalizar Agora
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(popUp);
+}
+
+// 4. Verificador automático de rotas > 12h
+async function verificarRotasExcedidas12h() {
+  const sessao = JSON.parse(localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user'));
+  if (!sessao) return;
+
+  const agora = new Date();
+
+  // Consulta rotas em uso
+  const { data: rotasAtivas, error } = await db
+    .from('rotas')
+    .select('*')
+    .eq('status', 'Em Uso');
+
+  if (error || !rotasAtivas) return;
+
+  rotasAtivas.forEach(rota => {
+    if (!rota.data_saida) return;
+
+    const dataSaida = new Date(rota.data_saida);
+    const diferencaHoras = (agora - dataSaida) / (1000 * 60 * 60);
+
+    // Se passou de 12 horas e pertence ao condutor ou se o usuário for o Admin
+    if (diferencaHoras >= 12) {
+      if (rota.responsavel === sessao.email || sessao.email === "admin@arvo.tec.br") {
+        exibirPopUpAlerta(rota, diferencaHoras);
+        dispararNotificacaoNativa(
+          "⚠️ ARVO - Fechamento de Rota Pendente",
+          `A rota ${rota.id} (${rota.veiculo_id}) está aberta há ${diferencaHoras.toFixed(0)}h. Realize a devolução.`
+        );
+      }
+    }
+  });
+}
+
+// Executa na inicialização e verifica a cada 10 minutos
+solicitarPermissaoNotificacao();
+setInterval(verificarRotasExcedidas12h, 10 * 60 * 1000);
 
 
 
