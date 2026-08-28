@@ -84,10 +84,10 @@ function ajustarModalidadeReserva(tipo) {
 async function handleSalvarReservaMobile(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-m-salvar-res');
-  const veiculoId = document.getElementById('m-res-veiculo')?.value;[cite: 11]
-  const tipo = document.getElementById('m-res-tipo')?.value || 'DIAS';[cite: 11]
-  const dtInicioStr = document.getElementById('m-res-data-inicio')?.value;[cite: 11]
-  const dtFimStr = document.getElementById('m-res-data-fim')?.value;[cite: 11]
+  const veiculoId = document.getElementById('m-res-veiculo')?.value;
+  const tipo = document.getElementById('m-res-tipo')?.value || 'DIAS';
+  const dtInicioStr = document.getElementById('m-res-data-inicio')?.value;
+  const dtFimStr = document.getElementById('m-res-data-fim')?.value;
 
   if (!veiculoId || !dtInicioStr) {
     mostrarPopup('aviso', 'Campos Obrigatórios', 'Por favor, selecione um veículo e informe as datas.');
@@ -96,27 +96,27 @@ async function handleSalvarReservaMobile(e) {
 
   let dInicio, dFim;
   if (tipo === 'HORAS') {
-    const hIni = document.getElementById('m-res-hora-inicio').value;[cite: 11]
-    const hFim = document.getElementById('m-res-hora-fim').value;[cite: 11]
-    dInicio = new Date(`${dtInicioStr}T${hIni}:00`);[cite: 11]
-    dFim = new Date(`${dtInicioStr}T${hFim}:00`);[cite: 11]
+    const hIni = document.getElementById('m-res-hora-inicio').value;
+    const hFim = document.getElementById('m-res-hora-fim').value;
+    dInicio = new Date(`${dtInicioStr}T${hIni}:00`);
+    dFim = new Date(`${dtInicioStr}T${hFim}:00`);
   } else if (tipo === 'TURNO') {
-    const turno = document.getElementById('m-res-turno-sel').value;[cite: 11]
+    const turno = document.getElementById('m-res-turno-sel').value;
     if (turno === 'MANHA') {
-      dInicio = new Date(`${dtInicioStr}T07:00:00`);[cite: 11]
-      dFim = new Date(`${dtInicioStr}T12:00:00`);[cite: 11]
+      dInicio = new Date(`${dtInicioStr}T07:00:00`);
+      dFim = new Date(`${dtInicioStr}T12:00:00`);
     } else if (turno === 'TARDE') {
-      dInicio = new Date(`${dtInicioStr}T13:00:00`);[cite: 11]
-      dFim = new Date(`${dtInicioStr}T18:00:00`);[cite: 11]
+      dInicio = new Date(`${dtInicioStr}T13:00:00`);
+      dFim = new Date(`${dtInicioStr}T18:00:00`);
     } else {
-      dInicio = new Date(`${dtInicioStr}T18:00:00`);[cite: 11]
-      const dSeguinte = new Date(dtInicioStr);[cite: 11]
-      dSeguinte.setDate(dSeguinte.getDate() + 1);[cite: 11]
-      dFim = new Date(`${dSeguinte.toISOString().split('T')[0]}T06:00:00`);[cite: 11]
+      dInicio = new Date(`${dtInicioStr}T18:00:00`);
+      const dSeguinte = new Date(dtInicioStr);
+      dSeguinte.setDate(dSeguinte.getDate() + 1);
+      dFim = new Date(`${dSeguinte.toISOString().split('T')[0]}T06:00:00`);
     }
   } else {
-    dInicio = new Date(`${dtInicioStr}T00:00:00`);[cite: 11]
-    dFim = new Date(`${dtFimStr}T23:59:59`);[cite: 11]
+    dInicio = new Date(`${dtInicioStr}T00:00:00`);
+    dFim = new Date(`${dtFimStr}T23:59:59`);
   }
 
   if (dFim <= dInicio) {
@@ -138,42 +138,42 @@ async function handleSalvarReservaMobile(e) {
   }
 
   if (btn) {
-    btn.disabled = true;[cite: 11]
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;[cite: 11]
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
   }
 
   const novaReserva = {
-    veiculo_id: veiculoId,[cite: 11]
-    responsavel: usuarioLogado.email,[cite: 11]
-    tipo_reserva: tipo,[cite: 11]
-    data_inicio: dInicio.toISOString(),[cite: 11]
-    data_fim: dFim.toISOString(),[cite: 11]
-    finalidade: document.getElementById('m-res-finalidade').value,[cite: 11]
-    observacao: document.getElementById('m-res-obs')?.value.trim() || '',[cite: 11]
-    status: 'CONFIRMADA'[cite: 11]
+    veiculo_id: veiculoId,
+    responsavel: usuarioLogado.email,
+    tipo_reserva: tipo,
+    data_inicio: dInicio.toISOString(),
+    data_fim: dFim.toISOString(),
+    finalidade: document.getElementById('m-res-finalidade').value,
+    observacao: document.getElementById('m-res-obs')?.value.trim() || '',
+    status: 'CONFIRMADA'
   };
 
   try {
-    const { error } = await db.from('reservas').insert([novaReserva]);[cite: 11]
-    if (error) throw error;[cite: 11]
+    const { error } = await db.from('reservas').insert([novaReserva]);
+    if (error) throw error;
 
     mostrarPopup('sucesso', 'Reserva Confirmada!', `O veículo <b>${veiculoId}</b> foi reservado com sucesso para a sua atividade.`);
-    e.target.reset();[cite: 11]
+    e.target.reset();
     ajustarModalidadeReserva('DIAS');
     await carregarListaReservas();
   } catch (err) {
     mostrarPopup('erro', 'Erro ao Reservar', err.message);
   } finally {
     if (btn) {
-      btn.disabled = false;[cite: 11]
-      btn.innerHTML = `<i class="ph-bold ph-check"></i> Confirmar Agendamento`;[cite: 11]
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check"></i> Confirmar Agendamento`;
     }
   }
 }
 
 function cancelarReservaMobile(reservaId, responsavel) {
-  const ehAdmin = usuarioLogado.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();[cite: 11]
-  const ehDono = usuarioLogado.email.toLowerCase() === responsavel.toLowerCase();[cite: 11]
+  const ehAdmin = usuarioLogado.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const ehDono = usuarioLogado.email.toLowerCase() === responsavel.toLowerCase();
 
   if (!ehAdmin && !ehDono) {
     mostrarPopup('erro', 'Acesso Negado', 'Você só pode cancelar reservas feitas pelo seu próprio usuário.');
@@ -185,8 +185,8 @@ function cancelarReservaMobile(reservaId, responsavel) {
     'Tem certeza de que deseja liberar este agendamento?',
     async () => {
       try {
-        const { error } = await db.from('reservas').update({ status: 'CANCELADA' }).eq('id', reservaId);[cite: 11]
-        if (error) throw error;[cite: 11]
+        const { error } = await db.from('reservas').update({ status: 'CANCELADA' }).eq('id', reservaId);
+        if (error) throw error;
         mostrarPopup('sucesso', 'Agendamento Cancelado', 'O veículo foi liberado na base de dados.');
         await carregarListaReservas();
       } catch (err) {
