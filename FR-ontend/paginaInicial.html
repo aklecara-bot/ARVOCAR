@@ -42,18 +42,18 @@
       
       <div class="flex items-center space-x-3">
         <div class="bg-brand-600 p-2 rounded-xl flex items-center justify-center text-white shadow">
-          <i class="ph-bold ph-steering-wheel text-xl"></i>
+          <img src="/imagens/arvocarwhite30.png" alt="">
         </div>
         <div>
-          <span class="text-xl font-black tracking-tight">ARVO</span>
-          <span class="text-brand-300 text-xs font-semibold uppercase tracking-wider block sm:inline sm:ml-2">Controle de Frota</span>
+          <span class="text-xl font-black tracking-tight">ARVOCAR</span>
+          <span class="text-brand-300 text-xs font-semibold uppercase tracking-wider block sm:inline sm:ml-2">Controle de Rota</span>
         </div>
       </div>
 
       <!-- Módulos -->
       <div class="flex bg-brand-950/60 p-1 rounded-xl border border-brand-800 text-xs font-semibold">
         <button id="btn-mod-operacao" onclick="setModule('operacao')" class="module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
-          <i class="ph-bold ph-paper-plane-tilt"></i> Operação de Rotas
+          <i class="ph-bold ph-paper-plane-tilt"></i> Rotas
         </button>
         <!-- Oculto por padrão via classe 'hidden' -->
         <button id="btn-mod-gestao" onclick="setModule('gestao')" class="hidden text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
@@ -127,17 +127,17 @@
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
           <div class="flex items-center gap-3 pb-5 border-b border-slate-100 mb-6">
             <div class="p-3 bg-brand-100 text-brand-700 rounded-xl">
-              <i class="ph-bold ph-key text-2xl"></i>
+              <img src="/imagens/arvomobi.png" alt="arvocar">
             </div>
             <div>
               <h2 class="text-xl font-bold text-slate-900">Iniciar Rota (Retirada)</h2>
-              <p class="text-xs text-slate-500">Trava automática de hodômetro e vínculo de motorista</p>
+              <p class="text-xs text-slate-500">Rotas com limite de 12 horas</p>
             </div>
           </div>
 
           <form id="formInicioRota" onsubmit="handleInicioRota(event)" class="space-y-4">
             <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Usuario Autenticado</label>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Usuario</label>
               <input type="text" id="form-inicio-Usuario" readonly class="w-full bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-3.5 py-2 text-sm font-medium cursor-not-allowed" />
             </div>
 
@@ -187,7 +187,7 @@
 
             <div class="pt-4">
               <button id="btn-submit-inicio" type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2">
-                <i class="ph-bold ph-check-circle text-lg"></i> Confirmar Saída
+                <i class="ph-bold ph-check-circle text-lg"></i> Iniciar Rota
               </button>
             </div>
           </form>
@@ -199,7 +199,7 @@
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
           <div class="flex items-center gap-3 pb-5 border-b border-slate-100 mb-6">
             <div class="p-3 bg-amber-100 text-amber-700 rounded-xl">
-              <i class="ph-bold ph-map-pin-line text-2xl"></i>
+              <img src="/imagens/arvoMobiwhite.png" alt="">
             </div>
             <div>
               <h2 class="text-xl font-bold text-slate-900">Finalizar Rota (Devolução)</h2>
@@ -269,7 +269,7 @@
 
             <div class="pt-4">
               <button id="btn-submit-fim" type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2">
-    <i class="ph-bold ph-check-circle text-lg"></i> Confirmar Saída
+    <i class="ph-bold ph-check-circle text-lg"></i> Finalizar Rota
   </button>
             </div>
           </form>
@@ -282,7 +282,7 @@
           <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 class="text-base font-bold text-slate-800">Histórico de Rotas Registradas</h2>
-              <p class="text-xs text-slate-500">Conciliação automática contínua</p>
+              <p class="text-xs text-slate-500">Atualização automática</p>
             </div>
             <input type="text" id="filtro-rotas" oninput="filtrarHistorico()" placeholder="Buscar por veículo ou Usuario..." class="text-xs border border-slate-300 rounded-lg px-3 py-2 w-72 focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
