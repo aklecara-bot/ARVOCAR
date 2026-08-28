@@ -134,29 +134,38 @@
           .from('usuarios')
           .select('*')
           .eq('email', email)
-          .single();
+          .maybeSingle();
 
-        if (error || !data) {
-          throw new Error("Utilizador não registado.");
+        if (error) {
+          throw new Error("Erro de conexão com o banco de dados.");
         }
 
-        if (data.senha !== senha) {
+        if (!data) {
+          throw new Error("E-mail não cadastrado no sistema.");
+        }
+
+        if (String(data.senha).trim() !== senha) {
           throw new Error("Senha incorreta.");
         }
 
-        if (data.status === 'Inativo') {
-          throw new Error("Este utilizador está inativo.");
+        if (data.status && data.status.toLowerCase() === 'inativo') {
+          throw new Error("Este usuário está inativo no momento.");
         }
 
-        localStorage.setItem('arvo_usuario_logado', JSON.stringify({
+        const sessaoUsuario = {
           id: data.id,
-          nome: data.nome,
+          nome: data.nome || email.split('@')[0],
           email: data.email,
-          cnh: data.cnh
-        }));
+          cnh: data.cnh || '',
+          perfil: data.perfil || 'motorista'
+        };
 
-        // Redireciona para a página inicial
-        window.location.href = "paginainicial.html";
+        // Salva nas duas chaves para manter compatibilidade com mobile e desktop
+        localStorage.setItem('arvo_usuario_logado', JSON.stringify(sessaoUsuario));
+        localStorage.setItem('arvo_mobile_user', JSON.stringify(sessaoUsuario));
+
+        // Redireciona para o mobile.html
+        window.location.href = "mobile.html";
 
       } catch (err) {
         console.error("Falha no login:", err);
