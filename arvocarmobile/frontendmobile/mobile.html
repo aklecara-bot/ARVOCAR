@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ARVOCAR - Rotas </title>
+  <title>ARVOCAR - Mobile Rotas</title>
 
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#14532d" />
@@ -12,19 +12,17 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="ARVO Rota" />
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3202/3202926.png" />
+
   <script>
-    // Registra o Service Worker para habilitar o botão de instalação
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
-        .then(() => console.log('PWA Service Worker Ativo'))
-        .catch((err) => console.log('Erro no Service Worker:', err));
+        .then((reg) => console.log('PWA Service Worker Ativo:', reg.scope))
+        .catch((err) => console.warn('SW ignorado em ambiente local:', err));
     }
   </script>
-  <!-- Tailwind CSS -->
+
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
@@ -46,30 +44,27 @@
       }
     }
   </script>
+
   <style>
-    /* Estilo para toque fluído em dispositivos móveis */
     body { -webkit-tap-highlight-color: transparent; }
     .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1rem); }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-800 font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-brand-500 selection:text-white">
 
-  <!-- =========================================================
-       TELA 1: LOGIN (EXIBIDA SE NÃO ESTIVER AUTENTICADO)
-       ========================================================= -->
   <div id="screen-login" class="flex-1 flex flex-col justify-center px-4 py-8 max-w-md mx-auto w-full">
     <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 relative overflow-hidden">
       <div class="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-brand-500 via-brand-600 to-emerald-400"></div>
 
       <div class="text-center mb-6">
         <div class="inline-flex items-center justify-center p-3 bg-brand-50 rounded-2xl text-brand-700 shadow-inner mb-2">
-          <img src="/imagens/arvocarblack150.png" alt="">
+          <img src="imagens/arvocarblack150.png" alt="ARVOCAR" class="h-10 w-auto" onerror="this.style.display='none'; document.getElementById('login-fallback-icon').classList.remove('hidden');" />
+          <i id="login-fallback-icon" class="ph-bold ph-steering-wheel text-3xl text-brand-700 hidden"></i>
         </div>
         <h1 class="text-2xl font-black text-slate-900 tracking-tight">ARVOCAR Mobile</h1>
         <p class="text-xs font-bold uppercase tracking-wider text-brand-700">Controle de Rotas</p>
       </div>
 
-      <!-- Mensagem de Erro de Login -->
       <div id="erro-login-box" class="hidden mb-4 p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-700 flex items-start gap-2">
         <i class="ph-bold ph-warning-circle text-base shrink-0 mt-0.5"></i>
         <span id="erro-login-msg">E-mail ou senha inválidos.</span>
@@ -79,87 +74,81 @@
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">E-mail</label>
           <div class="relative">
-            <span class="absolute left-3.5 top-3 text-slate-400"><i class="ph-bold ph-envelope-simple text-base"></i></span>
-            <input type="email" id="m-email" required placeholder="motorista@arvo.tec.br" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-3.5 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
+            <span class="absolute left-3.5 top-3.5 text-slate-400"><i class="ph-bold ph-envelope-simple text-base"></i></span>
+            <input type="email" id="m-email" required autocomplete="email" autocapitalize="none" placeholder="motorista@arvo.tec.br" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-3.5 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition" />
           </div>
         </div>
 
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Senha</label>
           <div class="relative">
-            <span class="absolute left-3.5 top-3 text-slate-400"><i class="ph-bold ph-lock-key text-base"></i></span>
-            <input type="password" id="m-senha" required placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-10 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
-            <button type="button" onclick="toggleSenhaMobile()" class="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 focus:outline-none">
+            <span class="absolute left-3.5 top-3.5 text-slate-400"><i class="ph-bold ph-lock-key text-base"></i></span>
+            <input type="password" id="m-senha" required placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-10 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition" />
+            <button type="button" onclick="toggleSenhaMobile()" class="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-none">
               <i id="m-icone-senha" class="ph-bold ph-eye text-base"></i>
             </button>
           </div>
         </div>
 
-        <button type="submit" id="btn-m-login" class="w-full bg-brand-700 hover:bg-brand-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm mt-2">
-          <span>Entrar</span>
+        <button type="submit" id="btn-m-login" class="w-full bg-brand-700 hover:bg-brand-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-brand-900/10 transition-all flex items-center justify-center gap-2 text-sm mt-2 active:scale-98">
+          <span>Entrar no Sistema</span>
           <i class="ph-bold ph-arrow-right text-base"></i>
         </button>
       </form>
     </div>
   </div>
 
-  <!-- =========================================================
-       TELA 2: OPERAÇÃO DE ROTAS (EXIBIDA APÓS O LOGIN)
-       ========================================================= -->
   <div id="screen-app" class="hidden flex-1 flex flex-col bg-slate-100 min-h-screen">
     
-    <!-- Header Mobile Fixo -->
     <header class="bg-brand-900 text-white sticky top-0 z-40 shadow-md">
-      <div class="px-4 h-14 flex items-center justify-between">
+      <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
         <div class="flex items-center space-x-2.5">
-          <div class="bg-brand-600 p-1.5 rounded-lg text-white">
-            <img src="/imagens/arvocarwhite30.png" alt="">
+          <div class="w-8 h-8 rounded-lg bg-brand-800 flex items-center justify-center text-brand-100 border border-brand-700 shadow-inner">
+            <i class="ph-bold ph-steering-wheel text-lg"></i>
           </div>
           <div>
-            <h1 class="text-sm font-black tracking-tight leading-none">ARVOCAR</h1>
-            <span id="m-top-username" class="text-[10px] text-brand-300 font-semibold block leading-tight truncate max-w-[170px]">Condutor</span>
+            <h1 class="text-sm font-black tracking-tight leading-none text-white">ARVOCAR</h1>
+            <span id="m-top-username" class="text-[10px] text-brand-100 font-semibold block leading-tight truncate max-w-[170px]">Condutor</span>
           </div>
         </div>
 
-        <button onclick="handleMobileLogout()" title="Sair" class="text-xs bg-brand-800 hover:bg-rose-600 text-white px-2.5 py-1.5 rounded-lg border border-brand-700 transition flex items-center gap-1">
+        <button onclick="handleMobileLogout()" title="Sair" class="text-xs bg-brand-800/80 hover:bg-rose-700 text-brand-100 px-3 py-1.5 rounded-xl border border-brand-700 transition flex items-center gap-1 active:scale-95">
           <i class="ph-bold ph-sign-out text-sm"></i>
           <span class="font-bold">Sair</span>
         </button>
       </div>
     </header>
 
-    <!-- Conteúdo das Abas -->
-    <main class="flex-1 p-4 pb-24 max-w-md mx-auto w-full">
+    <main class="flex-1 p-4 pb-24 max-w-md mx-auto w-full space-y-4">
 
-      <!-- 1. Aba Iniciar Rota (Check-out) -->
       <section id="tab-iniciar" class="space-y-4">
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
           <div class="flex items-center gap-3 pb-3 border-b border-slate-100 mb-4">
-            <div class="p-2.5 bg-brand-100 text-brand-700 rounded-xl">
-              <img src="/imagens/arvoMobiwhite.png" alt="">
+            <div class="p-2.5 bg-brand-50 text-brand-700 rounded-xl border border-brand-100">
+              <i class="ph-bold ph-key text-xl"></i>
             </div>
             <div>
               <h2 class="text-base font-bold text-slate-900">Iniciar Rota (Retirada)</h2>
-              <p class="text-[11px] text-slate-400">Rotas com limite de 12 horas</p>
+              <p class="text-[11px] text-slate-400">Rotas com limite operacional de 12 horas</p>
             </div>
           </div>
 
           <form id="formMobileInicio" onsubmit="handleMobileInicioRota(event)" class="space-y-3.5">
             <div>
-              <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Selecione o Veículo Disponível</label>
-              <select id="m-inicio-veiculo" onchange="atualizarKmVeiculoMobile()" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-brand-500 font-bold">
+              <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Selecione o Veículo Disponível *</label>
+              <select id="m-inicio-veiculo" onchange="atualizarKmVeiculoMobile()" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-brand-500 font-bold outline-none">
                 <option value="">Selecione o veículo...</option>
               </select>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">KM Inicial (Bloqueado)</label>
-                <input type="number" id="m-inicio-km" readonly class="w-full bg-slate-100 border border-slate-200 text-slate-700 font-mono font-bold rounded-xl px-3 py-2 text-xs" />
+                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">KM Inicial (Hodômetro)</label>
+                <input type="number" id="m-inicio-km" readonly class="w-full bg-slate-100 border border-slate-200 text-slate-700 font-mono font-bold rounded-xl px-3 py-2 text-xs outline-none" />
               </div>
               <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Origem da Saída</label>
-                <select id="m-inicio-origem" onchange="toggleOutroOrigemMobile(this.value)" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500">
+                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Origem da Saída *</label>
+                <select id="m-inicio-origem" onchange="toggleOutroOrigemMobile(this.value)" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
                   <option value="ALEGRE">ALEGRE</option>
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
@@ -170,11 +159,11 @@
               </div>
             </div>
 
-            <input type="text" id="m-inicio-origem-outro" placeholder="Digite o local de saída..." class="hidden w-full bg-white border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-medium" />
+            <input type="text" id="m-inicio-origem-outro" placeholder="Digite o local de saída..." class="hidden w-full bg-white border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-medium outline-none" />
 
             <div>
-              <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Finalidade / Projeto</label>
-              <select id="m-inicio-finalidade" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-brand-500">
+              <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Finalidade / Projeto *</label>
+              <select id="m-inicio-finalidade" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
                 <option value="MONITORAMENTO">MONITORAMENTO</option>
                 <option value="PROJETO TÉCNICO E MONITORAMENTO">PROJETO TÉCNICO E MONITORAMENTO</option>
                 <option value="PREPARAÇÃO E MONITORAMENTO">PREPARAÇÃO E MONITORAMENTO</option>
@@ -184,19 +173,18 @@
               </select>
             </div>
 
-            <button type="submit" id="btn-m-confirmar-inicio" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl shadow transition text-xs flex items-center justify-center gap-2 mt-2">
-              <i class="ph-bold ph-check-circle text-base"></i> Iniciar Rota
+            <button type="submit" id="btn-m-confirmar-inicio" class="w-full bg-brand-700 hover:bg-brand-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition text-xs flex items-center justify-center gap-2 mt-2 active:scale-98">
+              <i class="ph-bold ph-check-circle text-base"></i> Confirmar Saída
             </button>
           </form>
         </div>
       </section>
 
-      <!-- 2. Aba Finalizar Rota (Check-in) -->
       <section id="tab-finalizar" class="hidden space-y-4">
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
           <div class="flex items-center gap-3 pb-3 border-b border-slate-100 mb-4">
-            <div class="p-2.5 bg-amber-100 text-amber-700 rounded-xl">
-              <img src="/imagens/arvomobi.png" alt="arvocar">
+            <div class="p-2.5 bg-amber-50 text-amber-700 rounded-xl border border-amber-100">
+              <i class="ph-bold ph-map-pin-line text-xl"></i>
             </div>
             <div>
               <h2 class="text-base font-bold text-slate-900">Finalizar Rota</h2>
@@ -206,8 +194,8 @@
 
           <form id="formMobileFim" onsubmit="handleMobileFimRota(event)" class="space-y-3.5">
             <div>
-              <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Selecionar Rota Ativa</label>
-              <select id="m-fim-rota-select" onchange="selecionarRotaFimMobile()" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-amber-500 font-bold">
+              <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Selecionar Rota Ativa *</label>
+              <select id="m-fim-rota-select" onchange="selecionarRotaFimMobile()" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-amber-500 font-bold outline-none">
                 <option value="">Selecione sua rota ativa...</option>
               </select>
             </div>
@@ -219,12 +207,12 @@
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">KM Final no Hodômetro</label>
-                <input type="number" id="m-fim-km" oninput="calcularKmPercorridoMobile()" required placeholder="Ex: 77250" class="w-full bg-white border border-slate-300 text-slate-800 font-mono font-bold rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500" />
+                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">KM Final *</label>
+                <input type="number" id="m-fim-km" oninput="calcularKmPercorridoMobile()" required placeholder="Ex: 77250" class="w-full bg-white border border-slate-300 text-slate-800 font-mono font-bold rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none" />
               </div>
               <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Local de Entrega</label>
-                <select id="m-fim-destino" onchange="toggleOutroDestinoMobile(this.value)" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500">
+                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Local de Entrega *</label>
+                <select id="m-fim-destino" onchange="toggleOutroDestinoMobile(this.value)" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
                   <option value="ALEGRE">ALEGRE</option>
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
@@ -235,34 +223,32 @@
               </div>
             </div>
 
-            <input type="text" id="m-fim-destino-outro" placeholder="Digite o local de devolução..." class="hidden w-full bg-white border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-medium" />
+            <input type="text" id="m-fim-destino-outro" placeholder="Digite o local de devolução..." class="hidden w-full bg-white border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-medium outline-none" />
 
-            <div id="m-km-feedback" class="text-[11px] text-slate-500 font-medium"></div>
+            <div id="m-km-feedback" class="text-[11px] font-medium"></div>
 
-            <!-- Anomalias -->
             <div class="pt-2 border-t border-slate-100">
               <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Situação do Carro</label>
               <div class="flex items-center gap-4 text-xs font-semibold mb-2">
-                <label class="flex items-center gap-1.5">
-                  <input type="radio" name="m_situacao_carro" value="SEM" checked onchange="toggleAnomaliaMobile(false)" class="text-brand-600" />
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="m_situacao_carro" value="SEM" checked onchange="toggleAnomaliaMobile(false)" class="text-brand-600 focus:ring-0" />
                   <span class="text-emerald-700">Sem Problemas</span>
                 </label>
-                <label class="flex items-center gap-1.5">
-                  <input type="radio" name="m_situacao_carro" value="COM" onchange="toggleAnomaliaMobile(true)" class="text-rose-600" />
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="m_situacao_carro" value="COM" onchange="toggleAnomaliaMobile(true)" class="text-rose-600 focus:ring-0" />
                   <span class="text-rose-700">Com Avarias / Ruídos</span>
                 </label>
               </div>
               <textarea id="m-fim-anomalia" rows="2" placeholder="Descreva o problema observado..." class="hidden w-full bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-xl p-2.5 outline-none"></textarea>
             </div>
 
-            <button type="submit" id="btn-m-confirmar-fim" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl shadow transition text-xs flex items-center justify-center gap-2 mt-2">
+            <button type="submit" id="btn-m-confirmar-fim" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition text-xs flex items-center justify-center gap-2 mt-2 active:scale-98">
               <i class="ph-bold ph-check text-base"></i> Finalizar Rota
             </button>
           </form>
         </div>
       </section>
 
-      <!-- 3. Aba Log de Rotas do Motorista -->
       <section id="tab-historico" class="hidden space-y-3">
         <div class="flex items-center justify-between px-1">
           <h2 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Meu Histórico de Rotas</h2>
@@ -270,46 +256,39 @@
         </div>
 
         <div id="m-lista-historico" class="space-y-2.5">
-          <!-- Cards de rotas carregados dinamicamente -->
-        </div>
+          </div>
       </section>
 
     </main>
 
-    <!-- Barra de Navegação Inferior (Estilo App Mobile Nativo) -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 flex justify-around items-center z-40 shadow-lg pb-safe">
-      <!-- 1. Iniciar Rota -->
-  <button onclick="switchMobileTab('iniciar')" id="nav-btn-iniciar" class="flex flex-col items-center gap-1 text-brand-700 font-bold transition">
-    <i class="ph-bold ph-key text-xl"></i>
-    <span class="text-[10px]">Iniciar</span>
-  </button>
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2 flex justify-around items-center z-40 shadow-lg pb-safe max-w-md mx-auto">
+      <button onclick="switchMobileTab('iniciar')" id="nav-btn-iniciar" class="flex flex-col items-center gap-1 text-brand-700 font-bold transition">
+        <i class="ph-bold ph-key text-xl"></i>
+        <span class="text-[10px]">Iniciar</span>
+      </button>
 
-  <!-- 2. Finalizar Rota -->
-  <button onclick="switchMobileTab('finalizar')" id="nav-btn-finalizar" class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-    <i class="ph-bold ph-map-pin-line text-xl"></i>
-    <span class="text-[10px]">Finalizar</span>
-  </button>
+      <button onclick="switchMobileTab('finalizar')" id="nav-btn-finalizar" class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
+        <i class="ph-bold ph-map-pin-line text-xl"></i>
+        <span class="text-[10px]">Finalizar</span>
+      </button>
 
-  <!-- 3. Minhas Rotas -->
-  <button onclick="switchMobileTab('historico')" id="nav-btn-historico" class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-    <i class="ph-bold ph-clock-counter-clockwise text-xl"></i>
-    <span class="text-[10px]">Rotas</span>
-  </button>
+      <button onclick="switchMobileTab('historico')" id="nav-btn-historico" class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
+        <i class="ph-bold ph-clock-counter-clockwise text-xl"></i>
+        <span class="text-[10px]">Rotas</span>
+      </button>
 
-  <!-- 4. Agenda / Reservas (Link direto para a tela de reservas) -->
-   <a href="/arvocarmobile/frontendmobile/reservasmobile.html" id="nav-btn-reservas" class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-  <i class="ph-bold ph-calendar-check text-xl"></i>
-  <span class="text-[10px]">Reservas</span>
-  </a>
+      <a href="reservasMobile.html" id="nav-btn-reservas" class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
+        <i class="ph-bold ph-calendar-check text-xl"></i>
+        <span class="text-[10px]">Reservas</span>
+      </a>
 
-  <!-- 5. Abastecimento (Link direto para a tela de reservas) -->
-   <a href="/arvocarmobile/frontendmobile/abastecimentomobile.html" id="nav-btn-abastecimento" class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-  <i class="ph-bold ph-gas-pump text-xl"></i>
-  <span class="text-[10px]">Abastecimento</span>
-  </a>
-  </nav>
+      <a href="abastecimentoMobile.html" id="nav-btn-abastecimento" class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
+        <i class="ph-bold ph-gas-pump text-xl"></i>
+        <span class="text-[10px]">Abastecer</span>
+      </a>
+    </nav>
   </div>
 
-  <script src="/arvocarmobile/backendmobile/mobile.js"></script>
+  <script src="mobile.js"></script>
 </body>
 </html>

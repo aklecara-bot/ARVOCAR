@@ -2,15 +2,23 @@
 // MÓDULO: OPERAÇÃO MOBILE & ROTAS - ARVOCAR 2026
 // =========================================================================
 
-const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
-const ADMIN_EMAIL = "admin@arvo.tec.br";
+window.SUPABASE_URL = window.SUPABASE_URL || "https://kadowettowccespuieyl.supabase.co";
+window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
+window.ADMIN_EMAIL = window.ADMIN_EMAIL || "admin@arvo.tec.br";
 
-const db = window.db || supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Inicializa a instância apenas se ainda não existir no escopo global
+if (!window.db && typeof supabase !== 'undefined') {
+  window.db = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+    auth: { persistSession: false }
+  });
+}
 
-let usuarioLogado = null;
-let veiculos = [];
-let rotas = [];
+var db = window.db;
+var ADMIN_EMAIL = window.ADMIN_EMAIL;
+
+var usuarioLogado = null;
+var veiculos = [];
+var rotas = [];
 
 // =========================================================================
 // SESSÃO E LOGIN
