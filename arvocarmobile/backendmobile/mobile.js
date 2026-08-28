@@ -25,7 +25,11 @@ var rotas = [];
 // =========================================================================
 function obterSessaoAtiva() {
   const sessao = localStorage.getItem('arvo_mobile_user') || localStorage.getItem('arvo_usuario_logado');
-  return sessao ? JSON.parse(sessao) : null;
+  try {
+    return sessao ? JSON.parse(sessao) : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 function salvarSessaoUnificada(usuario) {
@@ -37,12 +41,14 @@ function salvarSessaoUnificada(usuario) {
 function toggleSenhaMobile() {
   const input = document.getElementById('m-senha');
   const icone = document.getElementById('m-icone-senha');
+  if (!input) return;
+
   if (input.type === 'password') {
     input.type = 'text';
-    icone.classList.replace('ph-eye', 'ph-eye-slash');
+    if (icone) icone.className = 'ph-bold ph-eye-slash text-base';
   } else {
     input.type = 'password';
-    icone.classList.replace('ph-eye-slash', 'ph-eye');
+    if (icone) icone.className = 'ph-bold ph-eye text-base';
   }
 }
 
@@ -52,62 +58,85 @@ async function handleMobileLogin(e) {
   const erroBox = document.getElementById('erro-login-box');
   const erroMsg = document.getElementById('erro-login-msg');
 
-  const email = document.getElementById('m-email').value.trim().toLowerCase();
-  const senha = document.getElementById('m-senha').value.trim();
+  const emailInput = document.getElementById('m-email');
+  const senhaInput = document.getElementById('m-senha');
 
-  erroBox.classList.add('hidden');
-  btn.disabled = true;
-  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Autenticando...`;
+  if (!emailInput || !senhaInput) return;
+
+  const email = emailInput.value.trim().toLowerCase();
+  const senha = senhaInput.value.trim();
+
+  if (erroBox) erroBox.classList.add('hidden');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Autenticando...`;
+  }
 
   try {
     const { data, error } = await db
       .from('usuarios')
       .select('*')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) throw new Error("Usuário não cadastrado.");
-    if (data.senha !== senha) throw new Error("Senha incorreta.");
-    if (data.status === 'Inativo') throw new Error("Usuário inativo no sistema.");
+    if (error) throw new Error("Erro de conexão com o banco de dados.");
+    if (!data) throw new Error("Usuário não cadastrado.");
+    if (String(data.senha).trim() !== senha) throw new Error("Senha incorreta.");
+    if (data.status && data.status.toLowerCase() === 'inativo') {
+      throw new Error("Usuário inativo no sistema.");
+    }
 
     usuarioLogado = {
       id: data.id,
-      nome: data.nome,
+      nome: data.nome || email.split('@')[0],
       email: data.email,
-      cnh: data.cnh
+      cnh: data.cnh || ''
     };
 
     salvarSessaoUnificada(usuarioLogado);
     iniciarAppMobile();
+
   } catch (err) {
-    erroMsg.innerText = err.message || "E-mail ou senha inválidos.";
-    erroBox.classList.remove('hidden');
+    console.error("Erro no login mobile:", err);
+    if (erroMsg) erroMsg.innerText = err.message || "E-mail ou senha inválidos.";
+    if (erroBox) erroBox.classList.remove('hidden');
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<span>Acessar Operação</span> <i class="ph-bold ph-arrow-right text-base"></i>`;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<span>Entrar no Sistema</span> <i class="ph-bold ph-arrow-right text-base"></i>`;
+    }
   }
 }
 
 function handleMobileLogout() {
-  mostrarConfirmacao(
-    'Encerrar Sessão',
-    'Deseja realmente sair da sua conta no aplicativo?',
-    () => {
-      localStorage.removeItem('arvo_mobile_user');
-      localStorage.removeItem('arvo_usuario_logado');
-      usuarioLogado = null;
-      document.getElementById('screen-app').classList.add('hidden');
-      document.getElementById('screen-login').classList.remove('hidden');
-    },
-    'Sair'
-  );
+  if (confirm("Deseja realmente sair da sua conta no aplicativo?")) {
+    localStorage.removeItem('arvo_mobile_user');
+    localStorage.removeItem('arvo_usuario_logado');
+    usuarioLogado = null;
+
+    const screenApp = document.getElementById('screen-app');
+    const screenLogin = document.getElementById('screen-login');
+
+    if (screenApp && screenLogin) {
+      screenApp.classList.add('hidden');
+      screenLogin.classList.remove('hidden');
+    } else {
+      window.location.href = "login.html";
+    }
+  }
 }
 
 function iniciarAppMobile() {
-  document.getElementById('screen-login').classList.add('hidden');
-  document.getElementById('screen-app').classList.remove('hidden');
-  document.getElementById('m-top-username').innerText = `${usuarioLogado.nome} (${usuarioLogado.email})`;
-  
+  const screenLogin = document.getElementById('screen-login');
+  const screenApp = document.getElementById('screen-app');
+  const topUsername = document.getElementById('m-top-username');
+
+  if (screenLogin) screenLogin.classList.add('hidden');
+  if (screenApp) screenApp.classList.remove('hidden');
+  if (topUsername && usuarioLogado) {
+    topUsername.innerText = `${usuarioLogado.nome} (${usuarioLogado.email})`;
+  }
+
   switchMobileTab('iniciar');
   carregarDadosMobile();
 }
@@ -147,7 +176,6 @@ async function carregarDadosMobile() {
     verificarRotasExcedidas12h();
   } catch (err) {
     console.error("Erro ao sincronizar dados:", err);
-    alert("Erro de sincronização: " + err.message);
   }
 }
 
@@ -159,7 +187,7 @@ function renderizarOpcoesVeiculos() {
   if (!select) return;
   select.innerHTML = '<option value="">Selecione o veículo...</option>';
   veiculos.filter(v => v.status === 'Disponivel').forEach(v => {
-    select.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}] (${Number(v.km_atual).toLocaleString('pt-BR')} km)</option>`;
+    select.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca || ''} [${v.placa || 'S/ Placa'}] (${Number(v.km_atual || 0).toLocaleString('pt-BR')} km)</option>`;
   });
 }
 
@@ -218,36 +246,50 @@ async function handleMobileInicioRota(e) {
   const veiculo = veiculos.find(v => v.id === veiculoId);
 
   if (!veiculo || !usuarioLogado) {
-    mostrarPopup('aviso', 'Selecione o Veículo', 'Escolha um carro disponível para iniciar a viagem.');
+    alert("Selecione um veículo disponível.");
     return;
   }
 
-  const agora = new Date().toISOString();
+  // Validação segura de Reservas ativas
+  const agoraTimestamp = new Date().getTime();
+  const emailAtual = (usuarioLogado.email || '').toLowerCase().trim();
+
   try {
-    const { data: reservasAtivas } = await db
+    const { data: reservasCarro } = await db
       .from('reservas')
       .select('*')
       .eq('veiculo_id', veiculoId)
-      .eq('status', 'CONFIRMADA')
-      .lte('data_inicio', agora)
-      .gte('data_fim', agora);
+      .eq('status', 'CONFIRMADA');
 
-    if (reservasAtivas && reservasAtivas.length > 0) {
-      const reservaAtual = reservasAtivas[0];
-      const ehAdmin = usuarioLogado.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-      const ehReservista = reservaAtual.responsavel.toLowerCase() === usuarioLogado.email.toLowerCase();
+    if (reservasCarro && reservasCarro.length > 0) {
+      const reservaAtiva = reservasCarro.find(r => {
+        const ini = new Date(r.data_inicio).getTime();
+        const fim = new Date(r.data_fim).getTime();
+        return agoraTimestamp >= ini && agoraTimestamp <= fim;
+      });
 
-      if (!ehReservista && !ehAdmin) {
-        mostrarPopup(
-          'erro',
-          'Veículo Reservado',
-          `O veículo <b>${veiculoId}</b> está reservado para <b>${reservaAtual.responsavel}</b> até ${new Date(reservaAtual.data_fim).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}.`
-        );
-        return;
+      if (reservaAtiva) {
+        const emailDono = (reservaAtiva.responsavel || '').toLowerCase().trim();
+        const ehDono = emailDono === emailAtual;
+        const ehAdmin = emailAtual === ADMIN_EMAIL.toLowerCase();
+
+        if (!ehDono && !ehAdmin) {
+          const dataFimFmt = new Date(reservaAtiva.data_fim).toLocaleString('pt-BR', {
+            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+          });
+
+          alert(
+            `⛔ CARRO RESERVADO!\n\n` +
+            `Este veículo está em uso/reserva por:\n` +
+            `👤 ${reservaAtiva.responsavel}\n` +
+            `📅 Até: ${dataFimFmt}`
+          );
+          return;
+        }
       }
     }
-  } catch (errRes) {
-    console.warn(errRes);
+  } catch (errCheck) {
+    console.error("Erro ao checar reservas:", errCheck);
   }
 
   const selOrigem = document.getElementById('m-inicio-origem')?.value;
@@ -255,7 +297,7 @@ async function handleMobileInicioRota(e) {
   const origemFinal = selOrigem === 'OUTRO' ? txtOrigem : selOrigem;
 
   if (!origemFinal) {
-    mostrarPopup('aviso', 'Origem Obrigatória', 'Informe o local de saída do veículo.');
+    alert("Informe o local de saída.");
     return;
   }
 
@@ -273,7 +315,7 @@ async function handleMobileInicioRota(e) {
     finalidade: document.getElementById('m-inicio-finalidade')?.value,
     data_saida: new Date().toISOString(),
     data_retorno: null,
-    km_saida: Number(veiculo.km_atual),
+    km_saida: Number(veiculo.km_atual || 0),
     km_retorno: null,
     km_total: 0,
     consumo_litros: null,
@@ -288,13 +330,13 @@ async function handleMobileInicioRota(e) {
     const { error: errV } = await db.from('veiculos').update({ status: 'Em Uso' }).eq('id', veiculoId);
     if (errV) throw errV;
 
-    mostrarPopup('sucesso', 'Rota Iniciada!', `A saída do veículo <b>${veiculoId}</b> foi gravada com sucesso.`);
+    alert(`Rota iniciada com sucesso no veículo ${veiculoId}!`);
     e.target.reset();
     toggleOutroOrigemMobile('');
     await carregarDadosMobile();
     switchMobileTab('historico');
   } catch (err) {
-    mostrarPopup('erro', 'Falha ao Iniciar', err.message);
+    alert("Erro ao iniciar rota: " + err.message);
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -361,7 +403,12 @@ async function handleMobileFimRota(e) {
   const destinoFinal = selDest === 'OUTRO' ? txtDest : selDest;
 
   const rota = rotas.find(r => r.id === rotaId);
-  const veiculo = veiculos.find(v => v.id === rota.veiculo_id);
+  const veiculo = veiculos.find(v => v.id === rota?.veiculo_id);
+
+  if (!rota || !veiculo) {
+    alert("Selecione uma rota ativa válida.");
+    return;
+  }
 
   if (kmFinal < rota.km_saida) {
     alert("O KM final não pode ser menor que o KM de saída.");
@@ -377,7 +424,7 @@ async function handleMobileFimRota(e) {
   const anomaliaTexto = situacao === 'COM' ? document.getElementById('m-fim-anomalia')?.value.trim() : '';
 
   const deltaKm = kmFinal - rota.km_saida;
-  const medConsumo = (Number(veiculo.consumo_min) + Number(veiculo.consumo_max)) / 2;
+  const medConsumo = (Number(veiculo.consumo_min || 10) + Number(veiculo.consumo_max || 12)) / 2;
   const litrosEst = Number((deltaKm / medConsumo).toFixed(2));
 
   try {
@@ -401,7 +448,7 @@ async function handleMobileFimRota(e) {
     }).eq('id', veiculo.id);
     if (errV) throw errV;
 
-    // 3. ENCERRA A RESERVA ATIVA DO CONDUTOR
+    // 3. Encerra a reserva vinculada
     await db.from('reservas').update({
       status: 'CONCLUIDA'
     })
@@ -409,7 +456,7 @@ async function handleMobileFimRota(e) {
     .eq('responsavel', rota.responsavel)
     .eq('status', 'CONFIRMADA');
 
-    alert(`Rota ${rotaId} finalizada e reserva liberada! Distância: ${deltaKm} km.`);
+    alert(`Rota ${rotaId} finalizada! Distância: ${deltaKm} km.`);
     e.target.reset();
     toggleOutroDestinoMobile('');
     toggleAnomaliaMobile(false);
@@ -429,7 +476,7 @@ async function handleMobileFimRota(e) {
 function renderizarHistoricoMobile() {
   const container = document.getElementById('m-lista-historico');
   const badge = document.getElementById('m-total-rotas-badge');
-  if (!container) return;
+  if (!container || !usuarioLogado) return;
 
   const minhasRotas = rotas.filter(r => r.responsavel === usuarioLogado.email);
   if (badge) badge.innerText = `${minhasRotas.length} rotas`;
@@ -464,7 +511,7 @@ function renderizarHistoricoMobile() {
 }
 
 // =========================================================================
-// ALERTAS E NOTIFICAÇÕES (ROTAS > 12H)
+// ALERTAS OPERACIONAIS (> 12 HORAS)
 // =========================================================================
 function solicitarPermissaoNotificacao() {
   if ("Notification" in window && Notification.permission === "default") {
