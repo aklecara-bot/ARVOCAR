@@ -1,6 +1,6 @@
 const CACHE_NAME = 'arvo-mobile-v1';
 const ASSETS_TO_CACHE = [
-  './arvocar-mobile/FR-ontendMobile/mobile.html',
+  './arvocar-mobile/frontendMobile/mobile.html',
   './manifest.json',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/@phosphor-icons/web'
