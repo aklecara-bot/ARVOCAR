@@ -215,7 +215,6 @@ async function carregarHistoricoAbastecimento() {
     data.forEach(a => {
       const card = document.createElement('div');
       card.className = "bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2";
-      
       const valorFormatado = Number(a.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
       card.innerHTML = `
@@ -223,20 +222,17 @@ async function carregarHistoricoAbastecimento() {
           <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
             <i class="ph-bold ph-gas-pump text-amber-500"></i> ${a.veiculo_id}
           </span>
-          <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+          <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
             ${valorFormatado}
           </span>
         </div>
-
         <div class="text-xs text-slate-600 font-medium">
-          <i class="ph-bold ph-map-pin text-slate-400"></i> ${a.local_posto}
+          <i class="ph-bold ph-map-pin text-slate-400"></i> ${a.local_posto || '-'}
         </div>
-
         <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-1.5 border-t border-slate-100">
           <span>${a.quantidade_litros} L (R$ ${Number(a.preco_litro).toFixed(2)}/L)</span>
           <span>${new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
         </div>
-
         ${a.url_comprovante ? `
           <div class="pt-1">
             <a href="${a.url_comprovante}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:underline">

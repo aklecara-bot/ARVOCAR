@@ -393,10 +393,10 @@ async function cancelarReservaMobile(reservaId, responsavel) {
 }
 
 function handleMobileLogout() {
-  if (confirm("Deseja realmente sair da sua conta no aplicativo?")) {
-    localStorage.removeItem('arvo_mobile_user');
+  if (confirm("Deseja sair do sistema?")) {
     localStorage.removeItem('arvo_usuario_logado');
-    window.location.href = "login.html";
+    localStorage.removeItem('arvo_mobile_user');
+    window.location.href = '/frontend/login.html'; // ou a sua tela de login correspondente
   }
 }
 
