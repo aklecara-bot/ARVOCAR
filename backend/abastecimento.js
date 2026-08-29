@@ -17,7 +17,7 @@
       usuarioLogado = JSON.parse(sessao);
 
       if (localStorage.getItem('arvo_mobile_user')) {
-        document.getElementById('link-voltar').href = 'mobile.html';
+        document.getElementById('link-voltar').href = 'paginainicial.html';
       }
 
       await carregarVeiculos();

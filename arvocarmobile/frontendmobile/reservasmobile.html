@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ARVO - Reservas Mobile</title>
+  <title>ARVOCAR - Reservas</title>
 
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS & Phosphor Icons -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- FullCalendar CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
   <script>
     tailwind.config = {
@@ -34,142 +35,173 @@
   <style>
     body { -webkit-tap-highlight-color: transparent; }
     .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1rem); }
+    .fc .fc-toolbar-title { font-size: 0.9rem !important; font-weight: 800 !important; color: #1e293b; }
+    .fc .fc-button { font-size: 0.65rem !important; padding: 0.25rem 0.5rem !important; font-weight: 700 !important; border-radius: 0.5rem !important; }
+    .fc .fc-button-primary { background-color: #15803d !important; border-color: #15803d !important; }
+    .fc .fc-daygrid-day-number { font-size: 0.75rem !important; font-weight: 600; }
+    .fc-event { font-size: 0.65rem !important; border-radius: 4px !important; padding: 1px 3px !important; cursor: pointer; }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-brand-500 selection:text-white">
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-24 antialiased selection:bg-brand-500 selection:text-white">
 
-  <!-- Header Fixo -->
-  <header class="bg-brand-900 text-white sticky top-0 z-40 shadow-md">
-    <div class="px-4 h-14 flex items-center justify-between">
-      <div class="flex items-center space-x-2.5">
-        <div class="bg-brand-600 p-1.5 rounded-lg text-white">
-          <i class="ph-bold ph-calendar-check text-lg"></i>
+  <!-- Header Superior Verde Escuro com Abas (Padrão Abastecimento) -->
+  <header class="bg-brand-900 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-brand-800 flex items-center justify-center border border-brand-700 shadow-inner">
+          <i class="ph-bold ph-calendar-check text-xl text-brand-100"></i>
         </div>
         <div>
-          <h1 class="text-sm font-black tracking-tight leading-none">ARVO Reservas</h1>
-          <span id="m-user-label" class="text-[10px] text-brand-300 font-semibold block leading-tight truncate max-w-[190px]">Condutor</span>
+          <h1 class="text-sm font-bold leading-tight">Reservas</h1>
+          <p id="user-display" class="text-[11px] text-slate-400">Carregando...</p>
         </div>
       </div>
-
-      <button onclick="handleMobileLogout()" title="Sair" class="text-xs bg-brand-800 hover:bg-rose-600 text-white px-2.5 py-1.5 rounded-lg border border-brand-700 transition flex items-center gap-1">
+      <button onclick="handleMobileLogout()" title="Sair" class="text-xs bg-brand-800/80 hover:bg-rose-700 text-brand-100 px-3 py-1.5 rounded-xl border border-brand-700 transition flex items-center gap-1 active:scale-95">
           <i class="ph-bold ph-sign-out text-sm"></i>
           <span class="font-bold">Sair</span>
         </button>
-      </a>
+    </div>
+
+    <!-- Navegação em Abas Superiores -->
+    <div class="max-w-md mx-auto px-4 flex border-t border-slate-800 text-xs">
+      <button id="tab-btn-novo" onclick="trocarAba('novo')" class="flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition">
+        <i class="ph-bold ph-plus-circle"></i> Novo Agendamento
+      </button>
+      <button id="tab-btn-calendario" onclick="trocarAba('calendario')" class="flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition">
+        <i class="ph-bold ph-calendar"></i> Calendário & Lista
+      </button>
     </div>
   </header>
 
   <!-- Conteúdo Principal -->
-  <main class="flex-1 p-4 pb-24 max-w-md mx-auto w-full space-y-4">
+  <main class="max-w-md mx-auto p-4">
 
-    <!-- Card de Agendamento -->
-    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
-      <div class="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-        <div class="p-2 bg-brand-50 text-brand-700 rounded-xl">
-          <i class="ph-bold ph-calendar-plus text-lg"></i>
+    <!-- ========================================== -->
+    <!-- ABA 1: FORMULÁRIO DE NOVO AGENDAMENTO      -->
+    <!-- ========================================== -->
+    <section id="view-novo" class="space-y-4">
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+        <form id="form-reserva" onsubmit="salvarReservaMobile(event)" class="space-y-3.5">
+          
+          <!-- Veículo -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Veículo *</label>
+            <div class="relative">
+              <span class="absolute left-3 top-2.5 text-slate-400"><i class="ph-bold ph-car text-base"></i></span>
+              <select id="res-veiculo" required class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
+                <option value="">Carregando veículos...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Modalidade da Reserva -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Modalidade da Reserva *</label>
+            <div class="relative">
+              <span class="absolute left-3 top-2.5 text-slate-400"><i class="ph-bold ph-clock text-base"></i></span>
+              <select id="res-tipo" onchange="ajustarCamposModalidade(this.value)" required class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
+                <option value="HORAS">Por Horas (Mesmo dia)</option>
+                <option value="TURNO">Por Turno (Manhã, Tarde ou Noite)</option>
+                <option value="DIAS" selected>Por Dia / Dias</option>
+                <option value="SEMANAS">Por Semana(s)</option>
+                <option value="MES">Por Mês</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Campos de Horas (Se modalidade = HORAS) -->
+          <div id="box-horas" class="hidden grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Hora Início</label>
+              <input type="time" id="res-hora-inicio" value="08:00" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Hora Fim</label>
+              <input type="time" id="res-hora-fim" value="12:00" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none font-mono">
+            </div>
+          </div>
+
+          <!-- Campos de Turno (Se modalidade = TURNO) -->
+          <div id="box-turno" class="hidden">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Turno Desejado</label>
+            <select id="res-turno-sel" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
+              <option value="MANHA">Manhã (07:00 às 12:00)</option>
+              <option value="TARDE">Tarde (13:00 às 18:00)</option>
+              <option value="NOITE">Noite / Integral (18:00 às 06:00)</option>
+            </select>
+          </div>
+
+          <!-- Datas -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Data Início *</label>
+              <input type="date" id="res-data-inicio" required class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
+            </div>
+            <div id="box-data-fim">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Data Fim *</label>
+              <input type="date" id="res-data-fim" required class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
+            </div>
+          </div>
+
+          <!-- Finalidade / Projeto -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Finalidade / Projeto *</label>
+            <div class="relative">
+              <span class="absolute left-3 top-2.5 text-slate-400"><i class="ph-bold ph-briefcase text-base"></i></span>
+              <select id="res-finalidade" required class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
+                <option value="MONITORAMENTO">MONITORAMENTO</option>
+                <option value="PROJETO TÉCNICO E MONITORAMENTO">PROJETO TÉCNICO E MONITORAMENTO</option>
+                <option value="PREPARAÇÃO E MONITORAMENTO">PREPARAÇÃO E MONITORAMENTO</option>
+                <option value="REFLORESTAR">REFLORESTAR</option>
+                <option value="GESTÁGUA">GESTÁGUA</option>
+                <option value="DEMANDAS INTERNAS">DEMANDAS INTERNAS</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Observações -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Observações (Opcional)</label>
+            <textarea id="res-obs" rows="2" placeholder="Ex: Viagem para Anutiba..." class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-brand-500 outline-none"></textarea>
+          </div>
+
+          <!-- Botão Salvar -->
+          <button type="submit" id="btn-submit" class="w-full bg-brand-700 hover:bg-brand-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm mt-2">
+            <i class="ph-bold ph-check"></i>
+            <span>Confirmar Agendamento</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- ABA 2: CALENDÁRIO & PRÓXIMOS AGENDAMENTOS  -->
+    <!-- ========================================== -->
+    <section id="view-calendario" class="hidden space-y-4">
+      
+      <!-- Card do Calendário -->
+      <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200">
+        <div id="calendar" class="min-h-[340px]"></div>
+      </div>
+
+      <!-- Lista de Agendamentos Ativos -->
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between px-1">
+          <h2 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Próximos Agendamentos</h2>
+          <span id="badge-total-reservas" class="text-[11px] bg-brand-50 text-brand-700 border border-brand-200 font-bold px-2 py-0.5 rounded-full">0 reservas</span>
         </div>
-        <div>
-          <h2 class="text-sm font-bold text-slate-900">Novo Agendamento</h2>
-          <p class="text-[11px] text-slate-400">Garanta o carro para sua atividade</p>
+
+        <div id="lista-reservas" class="space-y-2.5">
+          <!-- Renderizado via JavaScript -->
         </div>
       </div>
 
-      <form id="formReservaMobile" onsubmit="handleSalvarReservaMobile(event)" class="space-y-3.5 text-xs">
-        
-        <!-- Seleção de Veículo -->
-        <div>
-          <label class="block font-bold text-slate-700 uppercase mb-1">Veículo</label>
-          <select id="m-res-veiculo" onchange="atualizarKmVeiculoMobile()" " required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 font-bold focus:ring-2 focus:ring-brand-500">
-            <option value="">Selecione o veículo...</option>
-          </select>
-        </div>
-
-        <!-- Modalidade da Reserva -->
-        <div>
-          <label class="block font-bold text-slate-700 uppercase mb-1">Modalidade</label>
-          <select id="m-res-tipo" onchange="ajustarCamposModalidadeMobile(this.value)" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 font-semibold focus:ring-2 focus:ring-brand-500">
-            <option value="HORAS">Por Horas (Mesmo dia)</option>
-            <option value="TURNO">Por Turno (Manhã, Tarde ou Noite)</option>
-            <option value="DIAS" selected>Por Dia / Dias</option>
-            <option value="SEMANAS">Por Semana(s)</option>
-            <option value="MES">Por Mês</option>
-          </select>
-        </div>
-
-        <!-- Campos de Horas (Exibidos se tipo = HORAS) -->
-        <div id="box-horas-mobile" class="hidden grid grid-cols-2 gap-2">
-          <div>
-            <label class="block font-bold text-slate-600 mb-1">Hora Início</label>
-            <input type="time" id="m-res-hora-inicio" value="08:00" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-mono" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-600 mb-1">Hora Fim</label>
-            <input type="time" id="m-res-hora-fim" value="12:00" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-mono" />
-          </div>
-        </div>
-
-        <!-- Campos de Turno (Exibidos se tipo = TURNO) -->
-        <div id="box-turno-mobile" class="hidden">
-          <label class="block font-bold text-slate-600 mb-1">Turno Desejado</label>
-          <select id="m-res-turno-sel" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2">
-            <option value="MANHA">Manhã (07:00 às 12:00)</option>
-            <option value="TARDE">Tarde (13:00 às 18:00)</option>
-            <option value="NOITE">Noite / Integral (18:00 às 06:00)</option>
-          </select>
-        </div>
-
-        <!-- Datas -->
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block font-bold text-slate-700 uppercase mb-1">Data Início</label>
-            <input type="date" id="m-res-data-inicio" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-2.5 py-2 font-medium focus:ring-2 focus:ring-brand-500" />
-          </div>
-          <div id="box-data-fim-mobile">
-            <label class="block font-bold text-slate-700 uppercase mb-1">Data Fim</label>
-            <input type="date" id="m-res-data-fim" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-2.5 py-2 font-medium focus:ring-2 focus:ring-brand-500" />
-          </div>
-        </div>
-
-        <!-- Finalidade -->
-        <div>
-          <label class="block font-bold text-slate-700 uppercase mb-1">Finalidade / Projeto</label>
-          <select id="m-res-finalidade" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 font-medium focus:ring-2 focus:ring-brand-500">
-            <option value="MONITORAMENTO">MONITORAMENTO</option>
-            <option value="PROJETO TÉCNICO E MONITORAMENTO">PROJETO TÉCNICO E MONITORAMENTO</option>
-            <option value="PREPARAÇÃO E MONITORAMENTO">PREPARAÇÃO E MONITORAMENTO</option>
-            <option value="REFLORESTAR">REFLORESTAR</option>
-            <option value="GESTÁGUA">GESTÁGUA</option>
-            <option value="DEMANDAS INTERNAS">DEMANDAS INTERNAS</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 uppercase mb-1">Observações</label>
-          <textarea id="m-res-obs" rows="2" placeholder="Observações..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs outline-none focus:ring-2 focus:ring-brand-500"></textarea>
-        </div>
-
-        <button type="submit" id="btn-m-salvar-res" class="w-full bg-brand-700 hover:bg-brand-800 text-white font-bold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-xs">
-          <i class="ph-bold ph-check"></i> Confirmar Agendamento
-        </button>
-      </form>
-    </div>
-
-    <!-- Lista de Reservas Confirmadas -->
-    <div class="space-y-2.5">
-      <div class="flex items-center justify-between px-1">
-        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Agendamentos Ativos</h3>
-        <span id="m-badge-reservas" class="text-[11px] bg-brand-100 text-brand-800 font-bold px-2 py-0.5 rounded-full">0 reservas</span>
-      </div>
-
-      <div id="m-lista-reservas" class="space-y-2.5">
-        <!-- Cards gerados dinamicamente via JS -->
-      </div>
-    </div>
+    </section>
 
   </main>
 
-  <!-- Barra de Navegação Inferior -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2 flex justify-around items-center z-40 shadow-lg pb-safe">
+  <!-- Barra de Navegação Inferior (Estrutura idêntica à de Abastecimento) -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 flex justify-around items-center z-40 shadow-lg pb-safe">
     <a href="mobile.html" class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
       <i class="ph-bold ph-key text-xl"></i>
       <span class="text-[10px]">Iniciar</span>
@@ -185,17 +217,18 @@
       <span class="text-[10px]">Rotas</span>
     </a>
 
-    <div class="flex flex-col items-center gap-1 text-brand-700 font-bold transition">
+    <a href="reservasmobile.html" id="nav-btn-reservas" class="flex flex-col items-center gap-1 text-brand-700 font-bold transition">
       <i class="ph-bold ph-calendar-check text-xl"></i>
       <span class="text-[10px]">Reservas</span>
-    </div>
-    <a href="/arvocarmobile/frontendmobile/abastecimentomobile.html" id="nav-btn-abastecimento" class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-    <i class="ph-bold ph-gas-pump text-xl"></i>
-    <span class="text-[10px]">Abastecimento</span>
     </a>
 
+    <a href="abastecimentomobile.html" id="nav-btn-abastecimento" class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
+      <i class="ph-bold ph-gas-pump text-xl"></i>
+      <span class="text-[10px]">Abastecimento</span>
+    </a>
   </nav>
 
-  <script src="/arvocarmobile/backendmobile/mobile.js"></script>
+  <!-- Script Externo -->
+  <script src="reservasmobile.js"></script>
 </body>
 </html>

@@ -257,5 +257,23 @@ async function carregarHistoricoAbastecimento() {
   }
 }
 
+function handleMobileLogout() {
+  if (confirm("Deseja realmente sair da sua conta no aplicativo?")) {
+    localStorage.removeItem('arvo_mobile_user');
+    localStorage.removeItem('arvo_usuario_logado');
+    usuarioLogado = null;
+
+    const screenApp = document.getElementById('screen-app');
+    const screenLogin = document.getElementById('screen-login');
+
+    if (screenApp && screenLogin) {
+      screenApp.classList.add('hidden');
+      screenLogin.classList.remove('hidden');
+    } else {
+      window.location.href = "login.html";
+    }
+  }
+}
+
 // Inicializa com segurança sem conflitar com outros scripts
 document.addEventListener('DOMContentLoaded', initAbastecimentoMobile);
