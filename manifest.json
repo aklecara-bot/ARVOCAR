@@ -1,8 +1,8 @@
 {
-  "name": "ARVO - Controle de Frota",
-  "short_name": "ARVO Frota",
+  "name": "ARVO - Controle de Rota",
+  "short_name": "ARVO Rota",
   "description": "App de Operação de Rotas e Frotas ARVO",
-  "start_url": "./frontendMobile/mobile.html",
+  "start_url": "./frontendmobile/mobile.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0f172a",
