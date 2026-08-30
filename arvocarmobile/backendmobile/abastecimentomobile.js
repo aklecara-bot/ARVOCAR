@@ -70,9 +70,15 @@ async function carregarVeiculosAbastecimento() {
   try {
     const { data, error } = await db
       .from('veiculos')
-      .select('*');
+      .select('*')
+      .order('id');
 
-    if (error) throw error;
+    if (error) {
+      console.error("Erro retornado pelo Supabase na tabela 'veiculos':", error);
+      throw error;
+    }
+
+    console.log("Veículos carregados com sucesso:", data);
     veiculosAbast = data || [];
 
     if (veiculosAbast.length === 0) {
@@ -81,9 +87,8 @@ async function carregarVeiculosAbastecimento() {
     }
 
     sel.innerHTML = '<option value="">Selecione o veículo...</option>';
-    veiculosAbast.forEach(v => { const vId = v.id || v.identificador;
-      const vDesc = v.marca ? `${v.marca} [${v.placa || 'S/ Placa'}]` : (v.placa || `Veículo ${vId}`);
-      sel.innerHTML += `<option value="${vId}">${vId} - ${vDesc}</option>`;
+    veiculosAbast.forEach(v => {
+      sel.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}]</option>`;
     });
 
   } catch (err) {
@@ -126,7 +131,7 @@ function atualizarNomeArquivoMobile(input) {
 async function salvarAbastecimentoMobile(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-submit') || document.getElementById('btn-salvar-abastecimento');
-  
+
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
@@ -156,7 +161,7 @@ async function salvarAbastecimentoMobile(e) {
       const file = fotoInput.files[0];
       const extensao = file.name.split('.').pop();
       const fileName = `abast_${Date.now()}_${Math.random().toString(36).substring(7)}.${extensao}`;
-      
+
       const { error: uploadErr } = await db.storage
         .from('comprovantes')
         .upload(fileName, file);
@@ -195,10 +200,10 @@ async function salvarAbastecimentoMobile(e) {
     }
 
     alert('✅ Abastecimento registrado com sucesso!');
-    
+
     const form = document.getElementById('form-abastecimento') || document.getElementById('formAbastecimento');
     if (form) form.reset();
-    
+
     calcularTotalAbastecimentoMobile();
     await carregarHistoricoAbastecimento();
 
