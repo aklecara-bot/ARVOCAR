@@ -94,7 +94,7 @@ async function handleMobileLogin(e) {
     };
 
     salvarSessaoUnificada(usuarioLogado);
-    window.location.href = "instalar.html";
+    window.location.href = "../arvocarmobile/frontendmobile/instalar.html";
     //iniciarAppMobile();
 
   } catch (err) {
