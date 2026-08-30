@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Instalar ARVOCAR</title>
+
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#14532d" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-slate-900 min-h-screen flex items-center justify-center p-4 antialiased text-slate-100">
+
+  <div class="max-w-sm w-full bg-slate-800 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-6 relative overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-brand-500 via-brand-600 to-emerald-400"></div>
+
+    <!-- Ícone e Identidade -->
+    <div class="space-y-2">
+      <div class="w-20 h-20 bg-brand-900/60 border border-brand-700/50 rounded-3xl flex items-center justify-center mx-auto shadow-inner text-brand-400">
+        <i class="ph-bold ph-device-mobile-camera text-4xl"></i>
+      </div>
+      <h1 class="text-xl font-black text-white tracking-tight">Instalar Aplicativo</h1>
+      <p class="text-xs text-slate-300">
+        Instale o <span class="font-bold text-brand-400">ARVOCAR</span> no seu aparelho para melhor desempenho, acesso rápido e uso off-line.
+      </p>
+    </div>
+
+    <!-- Ações de Instalação -->
+    <div class="space-y-3 pt-2">
+      <!-- Botão Nativo Android / Chrome -->
+      <button id="btn-instalar" class="w-full bg-brand-700 hover:bg-brand-600 active:scale-95 text-white font-bold py-3.5 px-4 rounded-2xl shadow-lg shadow-brand-900/30 transition flex items-center justify-center gap-2 text-sm">
+        <i class="ph-bold ph-download-simple text-lg"></i>
+        <span>Instalar Aplicativo</span>
+      </button>
+
+      <!-- Instruções Específicas para iPhone/iPad (iOS) -->
+      <div id="box-ios" class="hidden p-4 bg-slate-700/50 border border-slate-600 rounded-2xl text-left text-xs text-slate-300 space-y-2">
+        <p class="font-bold text-brand-300 flex items-center gap-1.5">
+          <i class="ph-bold ph-apple-logo text-base"></i> No iPhone ou iPad:
+        </p>
+        <ol class="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
+          <li>Toque no botão <b>Compartilhar</b> <i class="ph-bold ph-export inline text-xs"></i> no Safari.</li>
+          <li>Role para baixo e selecione <b>Adicionar à Tela de Início</b> <i class="ph-bold ph-plus-square inline text-xs"></i>.</li>
+        </ol>
+      </div>
+
+      <!-- Continuar pelo navegador -->
+      <button onclick="continuarWeb()" class="w-full bg-transparent hover:bg-slate-700/40 text-slate-400 hover:text-slate-200 font-semibold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-1.5">
+        <span>Acessar pelo navegador</span>
+        <i class="ph-bold ph-arrow-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let deferredPrompt = null;
+
+    // Detecta se já está instalado ou rodando standalone
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    
+    // Detecta dispositivo móvel/tablet
+    const isMobileDevice = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1);
+
+    // Se já estiver instalado ou for desktop puro, vai direto para mobile.html
+    if (isStandalone || !isMobileDevice) {
+      window.location.replace("mobile.html");
+    }
+
+    // Captura evento de instalação (Chrome/Android/Edge)
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn = document.getElementById('btn-instalar');
+      if (btn) btn.classList.remove('hidden');
+    });
+
+    // Detecta iOS para exibir passo a passo
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIOS && !isStandalone) {
+      document.getElementById('box-ios')?.classList.remove('hidden');
+      // No iOS Safari o botão de instalação automática não é suportado diretamente
+      const btn = document.getElementById('btn-instalar');
+      if (btn) btn.innerText = "Siga as instruções abaixo";
+    }
+
+    // Clique no botão de instalação
+    document.getElementById('btn-instalar').addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          window.location.replace("mobile.html");
+        }
+        deferredPrompt = null;
+      } else if (isIOS) {
+        alert("Siga o passo a passo indicado abaixo para adicionar o app à sua tela de início.");
+      } else {
+        continuarWeb();
+      }
+    });
+
+    // Detecta quando a instalação for concluída com sucesso
+    window.addEventListener('appinstalled', () => {
+      window.location.replace("mobile.html");
+    });
+
+    function continuarWeb() {
+      window.location.href = "mobile.html";
+    }
+  </script>
+</body>
+</html>

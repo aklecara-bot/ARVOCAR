@@ -94,7 +94,8 @@ async function handleMobileLogin(e) {
     };
 
     salvarSessaoUnificada(usuarioLogado);
-    iniciarAppMobile();
+    window.location.href = "instalar.html";
+    //iniciarAppMobile();
 
   } catch (err) {
     console.error("Erro no login mobile:", err);
