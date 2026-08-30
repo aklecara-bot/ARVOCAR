@@ -189,6 +189,31 @@ async function salvarAbastecimentoMobile(e) {
 }
 
 // =========================================================================
+// CONTROLE DE NAVEGAÇÃO DE ABAS (NOVO REGISTRO / HISTÓRICO)
+// =========================================================================
+function trocarAba(aba) {
+  const viewNovo = document.getElementById('view-novo');
+  const viewHist = document.getElementById('view-historico');
+  const btnNovo = document.getElementById('tab-btn-novo');
+  const btnHist = document.getElementById('tab-btn-historico');
+
+  if (!viewNovo || !viewHist) return;
+
+  if (aba === 'novo') {
+    viewNovo.classList.remove('hidden');
+    viewHist.classList.add('hidden');
+    if (btnNovo) btnNovo.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
+    if (btnHist) btnHist.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
+  } else {
+    viewNovo.classList.add('hidden');
+    viewHist.classList.remove('hidden');
+    if (btnHist) btnHist.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
+    if (btnNovo) btnNovo.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
+    carregarHistoricoAbastecimento();
+  }
+}
+
+// =========================================================================
 // CARREGAR HISTÓRICO RECENTE
 // =========================================================================
 async function carregarHistoricoAbastecimento() {
