@@ -393,10 +393,20 @@ async function cancelarReservaMobile(reservaId, responsavel) {
 }
 
 function handleMobileLogout() {
-  if (confirm("Deseja sair do sistema?")) {
-    localStorage.removeItem('arvo_usuario_logado');
+  if (confirm("Deseja realmente sair da sua conta no aplicativo?")) {
     localStorage.removeItem('arvo_mobile_user');
-    window.location.href = '/frontend/login.html'; // ou a sua tela de login correspondente
+    localStorage.removeItem('arvo_usuario_logado');
+    usuarioLogado = null;
+
+    const screenApp = document.getElementById('screen-app');
+    const screenLogin = document.getElementById('screen-login');
+
+    if (screenApp && screenLogin) {
+      screenApp.classList.add('hidden');
+      screenLogin.classList.remove('hidden');
+    } else {
+      window.location.href = "../frontendmobile/mobile.html";
+    }
   }
 }
 

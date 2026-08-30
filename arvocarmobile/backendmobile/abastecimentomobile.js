@@ -31,17 +31,46 @@ async function initAbastecimentoMobile() {
 }
 
 // =========================================================================
+// CONTROLE DE NAVEGAÇÃO DE ABAS
+// =========================================================================
+function trocarAba(aba) {
+  const viewNovo = document.getElementById('view-novo');
+  const viewHist = document.getElementById('view-historico');
+  const btnNovo = document.getElementById('tab-btn-novo');
+  const btnHist = document.getElementById('tab-btn-historico');
+
+  if (!viewNovo || !viewHist) return;
+
+  if (aba === 'novo') {
+    viewNovo.classList.remove('hidden');
+    viewHist.classList.add('hidden');
+    if (btnNovo) btnNovo.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
+    if (btnHist) btnHist.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
+  } else {
+    viewNovo.classList.add('hidden');
+    viewHist.classList.remove('hidden');
+    if (btnHist) btnHist.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
+    if (btnNovo) btnNovo.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
+    carregarHistoricoAbastecimento();
+  }
+}
+
+// =========================================================================
 // CARREGAMENTO DE VEÍCULOS
 // =========================================================================
 async function carregarVeiculosAbastecimento() {
   const sel = document.getElementById('abs-veiculo') || document.getElementById('abast-veiculo') || document.getElementById('m-res-veiculo');
-  if (!sel) return;
+  if (!sel) {
+    console.warn("Elemento de seleção de veículos não encontrado no DOM.");
+    return;
+  }
+
+  sel.innerHTML = '<option value="">Carregando veículos...</option>';
 
   try {
     const { data, error } = await db
       .from('veiculos')
-      .select('*')
-      .order('id');
+      .select('*');
 
     if (error) throw error;
     veiculosAbast = data || [];
@@ -52,8 +81,9 @@ async function carregarVeiculosAbastecimento() {
     }
 
     sel.innerHTML = '<option value="">Selecione o veículo...</option>';
-    veiculosAbast.forEach(v => {
-      sel.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}]</option>`;
+    veiculosAbast.forEach(v => { const vId = v.id || v.identificador;
+      const vDesc = v.marca ? `${v.marca} [${v.placa || 'S/ Placa'}]` : (v.placa || `Veículo ${vId}`);
+      sel.innerHTML += `<option value="${vId}">${vId} - ${vDesc}</option>`;
     });
 
   } catch (err) {
@@ -139,8 +169,7 @@ async function salvarAbastecimentoMobile(e) {
 
     const payload = {
       veiculo_id: veiculo_id,
-      motorista_id: usuarioLogado.id || null,
-      motorista_nome: usuarioLogado.nome || usuarioLogado.email,
+      responsavel: usuarioLogado.email,
       local_posto,
       tipo_combustivel,
       quantidade_litros,
@@ -185,31 +214,6 @@ async function salvarAbastecimentoMobile(e) {
       btn.disabled = false;
       btn.innerHTML = `<i class="ph-bold ph-check text-base"></i><span>Registrar Abastecimento</span>`;
     }
-  }
-}
-
-// =========================================================================
-// CONTROLE DE NAVEGAÇÃO DE ABAS (NOVO REGISTRO / HISTÓRICO)
-// =========================================================================
-function trocarAba(aba) {
-  const viewNovo = document.getElementById('view-novo');
-  const viewHist = document.getElementById('view-historico');
-  const btnNovo = document.getElementById('tab-btn-novo');
-  const btnHist = document.getElementById('tab-btn-historico');
-
-  if (!viewNovo || !viewHist) return;
-
-  if (aba === 'novo') {
-    viewNovo.classList.remove('hidden');
-    viewHist.classList.add('hidden');
-    if (btnNovo) btnNovo.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
-    if (btnHist) btnHist.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
-  } else {
-    viewNovo.classList.add('hidden');
-    viewHist.classList.remove('hidden');
-    if (btnHist) btnHist.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
-    if (btnNovo) btnNovo.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
-    carregarHistoricoAbastecimento();
   }
 }
 
@@ -278,6 +282,10 @@ async function carregarHistoricoAbastecimento() {
   }
 }
 
+// =========================================================================
+// LOGOUT MOBILE
+// =========================================================================
+
 function handleMobileLogout() {
   if (confirm("Deseja realmente sair da sua conta no aplicativo?")) {
     localStorage.removeItem('arvo_mobile_user');
@@ -291,10 +299,24 @@ function handleMobileLogout() {
       screenApp.classList.add('hidden');
       screenLogin.classList.remove('hidden');
     } else {
-      window.location.href = "login.html";
+      window.location.href = "../frontendmobile/mobile.html";
     }
   }
 }
+
+// =========================================================================
+// VÍNCULOS GLOBAIS (WINDOW)
+// =========================================================================
+window.trocarAba = trocarAba;
+window.calcularTotal = calcularTotal;
+window.calcularTotalAbastecimentoMobile = calcularTotal;
+window.atualizarNomeArquivo = atualizarNomeArquivo;
+window.atualizarNomeArquivoMobile = atualizarNomeArquivo;
+window.salvarAbastecimento = salvarAbastecimento;
+window.salvarAbastecimentoMobile = salvarAbastecimento;
+window.carregarHistorico = carregarHistoricoAbastecimento;
+window.carregarHistoricoAbastecimento = carregarHistoricoAbastecimento;
+window.handleMobileLogout = handleMobileLogout;
 
 // Inicializa com segurança sem conflitar com outros scripts
 document.addEventListener('DOMContentLoaded', initAbastecimentoMobile);

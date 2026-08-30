@@ -121,7 +121,7 @@ function handleMobileLogout() {
       screenApp.classList.add('hidden');
       screenLogin.classList.remove('hidden');
     } else {
-      window.location.href = "login.html";
+      window.location.href = "../frontend/login.html";
     }
   }
 }

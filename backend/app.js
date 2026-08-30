@@ -20,7 +20,7 @@ let currentUserIndex = 0;
 function verificarSessaoUsuario() {
   const sessao = localStorage.getItem('arvo_usuario_logado');
   if (!sessao) {
-    window.location.href = "login.html";
+    window.location.href = "../frontend/login.html";
     return null;
   }
   return JSON.parse(sessao);
@@ -30,7 +30,7 @@ function fazerLogout() {
   const confirmacao = confirm("Tem certeza que deseja encerrar a sessão?");
   if (confirmacao) {
     localStorage.removeItem('arvo_usuario_logado');
-    window.location.href = "login.html";
+    window.location.href = "../frontend/login.html";
   }
 }
 
