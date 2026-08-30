@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -29,30 +30,35 @@
     }
   </script>
 </head>
+
 <body class="bg-slate-100 text-slate-800 min-h-screen pb-24 antialiased selection:bg-brand-500 selection:text-white">
 
   <header class="bg-brand-900 text-white shadow-md sticky top-0 z-40">
-  <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-brand-800 flex items-center justify-center border border-brand-700 shadow-inner">
-        <i class="ph-bold ph-gas-pump text-xl text-brand-100"></i>
+    <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div
+          class="w-9 h-9 rounded-xl bg-brand-800 flex items-center justify-center border border-brand-700 shadow-inner">
+          <i class="ph-bold ph-gas-pump text-xl text-brand-100"></i>
         </div>
         <div>
           <h1 class="text-sm font-bold leading-tight">Abastecimento</h1>
           <p id="user-display" class="text-[11px] text-slate-400">Carregando...</p>
         </div>
       </div>
-      <button onclick="handleMobileLogout()" title="Sair" class="text-xs bg-brand-800/80 hover:bg-rose-700 text-brand-100 px-3 py-1.5 rounded-xl border border-brand-700 transition flex items-center gap-1 active:scale-95">
-          <i class="ph-bold ph-sign-out text-sm"></i>
-          <span class="font-bold">Sair</span>
-        </button>
+      <button onclick="handleMobileLogout()" title="Sair"
+        class="text-xs bg-brand-800/80 hover:bg-rose-700 text-brand-100 px-3 py-1.5 rounded-xl border border-brand-700 transition flex items-center gap-1 active:scale-95">
+        <i class="ph-bold ph-sign-out text-sm"></i>
+        <span class="font-bold">Sair</span>
+      </button>
     </div>
 
     <div class="max-w-md mx-auto px-4 flex border-t border-slate-800 text-xs">
-      <button id="tab-btn-novo" onclick="trocarAba('novo')" class="flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition">
+      <button id="tab-btn-novo" onclick="trocarAba('novo')"
+        class="flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition">
         <i class="ph-bold ph-plus-circle"></i> Novo Registro
       </button>
-      <button id="tab-btn-historico" onclick="trocarAba('historico')" class="flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition">
+      <button id="tab-btn-historico" onclick="trocarAba('historico')"
+        class="flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition">
         <i class="ph-bold ph-clock-counter-clockwise"></i> Histórico
       </button>
     </div>
@@ -63,12 +69,13 @@
     <section id="view-novo" class="space-y-4">
       <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
         <form id="form-abastecimento" onsubmit="salvarAbastecimentoMobile(event)" class="space-y-3.5">
-                  
+
           <div>
             <label class="block text-xs font-semibold text-slate-700 mb-1">Veículo *</label>
             <div class="relative">
               <span class="absolute left-3 top-2.5 text-slate-400"><i class="ph-bold ph-car text-base"></i></span>
-              <select id="abs-veiculo" required class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+              <select id="abs-veiculo" required
+                class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
                 <option value="">Selecione o veículo...</option>
               </select>
             </div>
@@ -77,15 +84,18 @@
           <div>
             <label class="block text-xs font-semibold text-slate-700 mb-1">Posto / Local *</label>
             <div class="relative">
-              <span class="absolute left-3 top-2.5 text-slate-400"><i class="ph-bold ph-storefront text-base"></i></span>
-              <input type="text" id="abs-posto" required placeholder="Ex: Posto Ipiranga Centro" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+              <span class="absolute left-3 top-2.5 text-slate-400"><i
+                  class="ph-bold ph-storefront text-base"></i></span>
+              <input type="text" id="abs-posto" required placeholder="Ex: Posto Ipiranga Centro"
+                class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Combustível</label>
-              <select id="abs-tipo" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+              <select id="abs-tipo"
+                class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
                 <option value="Gasolina Comum">Gasolina Comum</option>
                 <option value="Gasolina Aditivada">Gasolina Adit.</option>
                 <option value="Etanol">Etanol</option>
@@ -95,18 +105,23 @@
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Km Hodômetro *</label>
-              <input type="number" id="abs-km" required placeholder="Ex: 45230" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+              <input type="number" id="abs-km" required placeholder="Ex: 45230"
+                class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Litros (L) *</label>
-              <input type="number" step="0.01" id="abs-litros" required oninput="calcularTotalAbastecimentoMobile()" placeholder="0.00" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+              <input type="number" step="0.01" id="abs-litros" required oninput="calcularTotalAbastecimentoMobile()"
+                placeholder="0.00"
+                class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Preço / Litro (R$) *</label>
-              <input type="number" step="0.01" id="abs-preco-litro" required oninput="calcularTotalAbastecimentoMobile()" placeholder="0.00" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+              <input type="number" step="0.01" id="abs-preco-litro" required
+                oninput="calcularTotalAbastecimentoMobile()" placeholder="0.00"
+                class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
             </div>
           </div>
 
@@ -118,15 +133,19 @@
           <div>
             <label class="block text-xs font-semibold text-slate-700 mb-1">Foto do Cupom / Comprovante</label>
             <div class="flex items-center gap-2">
-              <label class="flex-1 cursor-pointer bg-slate-50 border border-dashed border-slate-300 rounded-xl p-3 text-center hover:bg-slate-100 transition flex flex-col items-center justify-center gap-1">
+              <label
+                class="flex-1 cursor-pointer bg-slate-50 border border-dashed border-slate-300 rounded-xl p-3 text-center hover:bg-slate-100 transition flex flex-col items-center justify-center gap-1">
                 <i class="ph-bold ph-camera text-xl text-slate-500"></i>
-                <span id="comprovante-nome" class="text-[11px] text-slate-600 font-medium">Tirar foto ou anexar arquivo</span>
-                <input type="file" id="abs-foto" accept="image/*" capture="environment" onchange="atualizarNomeArquivo(this)" class="hidden">
+                <span id="comprovante-nome" class="text-[11px] text-slate-600 font-medium">Tirar foto ou anexar
+                  arquivo</span>
+                <input type="file" id="abs-foto" accept="image/*" capture="environment"
+                  onchange="atualizarNomeArquivo(this)" class="hidden">
               </label>
             </div>
           </div>
 
-          <button type="submit" id="btn-submit" class="w-full bg-green-600 hover:bg-white-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm mt-2">
+          <button type="submit" id="btn-submit" onclick="salvarAbastecimento(event)"
+            class="w-full bg-green-600 hover:bg-white-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm mt-2">
             <i class="ph-bold ph-check"></i>
             <span>Registrar Abastecimento</span>
           </button>
@@ -137,49 +156,106 @@
     <section id="view-historico" class="hidden space-y-3">
       <div class="flex items-center justify-between px-1">
         <h2 class="text-xs font-bold text-slate-600 uppercase tracking-wider">Lançamentos Recentes</h2>
-        <button onclick="carregarHistoricoAbastecimento()" class="text-xs text-brand-700 hover:underline flex items-center gap-1">
-        <i class="ph-bold ph-arrows-clockwise"></i> Atualizar
+        <button onclick="carregarHistoricoAbastecimento()"
+          class="text-xs text-brand-700 hover:underline flex items-center gap-1">
+          <i class="ph-bold ph-arrows-clockwise"></i> Atualizar
         </button>
       </div>
 
       <div id="lista-abastecimentos" class="space-y-2.5">
-        </div>
+      </div>
     </section>
+
+    <!-- Modal de Detalhes e Visualização do Comprovante -->
+<div id="modal-detalhes-abast" class="hidden fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 border border-slate-100 max-h-[90vh] overflow-y-auto">
+    
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+      <div class="flex items-center gap-2">
+        <div class="p-2 bg-amber-50 text-amber-600 rounded-xl">
+          <i class="ph-bold ph-receipt text-lg"></i>
+        </div>
+        <h3 class="text-sm font-black text-slate-800" id="modal-abast-veiculo">Detalhes do Abastecimento</h3>
+      </div>
+      <button onclick="fecharModalAbastecimento()" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100">
+        <i class="ph-bold ph-x text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Informações Detalhadas -->
+    <div class="space-y-2 text-xs bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+      <div class="flex justify-between"><span class="text-slate-500 font-medium">Posto:</span> <b id="modal-abast-posto" class="text-slate-800 text-right">-</b></div>
+      <div class="flex justify-between"><span class="text-slate-500 font-medium">Combustível:</span> <b id="modal-abast-tipo" class="text-slate-800">-</b></div>
+      <div class="flex justify-between"><span class="text-slate-500 font-medium">Responsável:</span> <b id="modal-abast-resp" class="text-slate-800">-</b></div>
+      <div class="flex justify-between"><span class="text-slate-500 font-medium">Odômetro (KM):</span> <b id="modal-abast-km" class="text-slate-800 font-mono">-</b></div>
+      <div class="flex justify-between"><span class="text-slate-500 font-medium">Litros / Preço:</span> <b id="modal-abast-litros-preco" class="text-slate-800 font-mono">-</b></div>
+      <div class="flex justify-between pt-1 border-t border-slate-200/60"><span class="text-emerald-800 font-bold">Valor Total:</span> <b id="modal-abast-total" class="text-emerald-700 font-mono font-bold text-sm">-</b></div>
+      <div class="flex justify-between"><span class="text-slate-400 text-[10px]">Data e Hora:</span> <span id="modal-abast-data" class="text-slate-500 text-[10px] font-mono">-</span></div>
+    </div>
+
+    <!-- Área da Imagem / Download -->
+    <div id="modal-box-comprovante" class="space-y-3">
+      <div class="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 max-h-56 flex items-center justify-center">
+        <img id="modal-img-preview" src="" alt="Cupom Fiscal" class="w-full h-auto object-contain max-h-56" />
+      </div>
+      <div class="flex gap-2">
+        <a id="btn-ver-imagem" href="#" target="_blank" class="flex-1 text-center bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-1.5">
+          <i class="ph-bold ph-arrow-square-out text-base"></i> Abrir Imagem
+        </a>
+        <button id="btn-baixar-imagem" onclick="baixarImagemComprovante()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-1.5">
+          <i class="ph-bold ph-download-simple text-base"></i> Baixar Arquivo
+        </button>
+      </div>
+    </div>
+
+    <div id="modal-sem-comprovante" class="hidden text-center py-4 text-xs text-slate-400 italic bg-slate-50 rounded-2xl border border-slate-100">
+      Nenhum comprovante fiscal anexado neste registro.
+    </div>
+
+  </div>
+</div>
 
   </main>
 
-     <!-- Barra de Navegação Inferior (Estilo App Mobile Nativo) -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 flex justify-around items-center z-40 shadow-lg pb-safe">
-      <!-- 1. Iniciar Rota -->
-  <button onclick="switchMobileTab('iniciar')" id="nav-btn-iniciar" class="flex flex-col items-center gap-1 text-brand-700 font-bold transition">
-    <i class="ph-bold ph-key text-xl"></i>
-    <span class="text-[10px]">Iniciar</span>
-  </button>
+  <!-- Barra de Navegação Inferior (Estilo App Mobile Nativo) -->
+  <nav
+    class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 flex justify-around items-center z-40 shadow-lg pb-safe">
+    <!-- 1. Iniciar Rota -->
+    <button onclick="switchMobileTab('iniciar')" id="nav-btn-iniciar"
+      class="flex flex-col items-center gap-1 text-brand-700 font-bold transition">
+      <i class="ph-bold ph-key text-xl"></i>
+      <span class="text-[10px]">Iniciar</span>
+    </button>
 
-  <!-- 2. Finalizar Rota -->
-  <button onclick="switchMobileTab('finalizar')" id="nav-btn-finalizar" class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-    <i class="ph-bold ph-map-pin-line text-xl"></i>
-    <span class="text-[10px]">Finalizar</span>
-  </button>
+    <!-- 2. Finalizar Rota -->
+    <button onclick="switchMobileTab('finalizar')" id="nav-btn-finalizar"
+      class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
+      <i class="ph-bold ph-map-pin-line text-xl"></i>
+      <span class="text-[10px]">Finalizar</span>
+    </button>
 
-  <!-- 3. Minhas Rotas -->
-  <button onclick="switchMobileTab('historico')" id="nav-btn-historico" class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-    <i class="ph-bold ph-clock-counter-clockwise text-xl"></i>
-    <span class="text-[10px]">Rotas</span>
-  </button>
+    <!-- 3. Minhas Rotas -->
+    <button onclick="switchMobileTab('historico')" id="nav-btn-historico"
+      class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
+      <i class="ph-bold ph-clock-counter-clockwise text-xl"></i>
+      <span class="text-[10px]">Rotas</span>
+    </button>
 
-  <!-- 4. Agenda / Reservas (Link direto para a tela de reservas) -->
-  <a href="/arvocarmobile/frontendmobile/reservasmobile.html" id="nav-btn-reservas" class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
-    <i class="ph-bold ph-calendar-check text-xl"></i>
-    <span class="text-[10px]">Reservas</span>
+    <!-- 4. Agenda / Reservas (Link direto para a tela de reservas) -->
+    <a href="/arvocarmobile/frontendmobile/reservasmobile.html" id="nav-btn-reservas"
+      class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
+      <i class="ph-bold ph-calendar-check text-xl"></i>
+      <span class="text-[10px]">Reservas</span>
 
-  </a>
-  <a href="/arvocarmobile/frontendmobile/abastecimentomobile.html" class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
-  <i class="ph-bold ph-gas-pump text-base"></i>
-  <span>Abastecer</span>
-</a>
-    </nav>
+    </a>
+    <a href="/arvocarmobile/frontendmobile/abastecimentomobile.html"
+      class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
+      <i class="ph-bold ph-gas-pump text-base"></i>
+      <span>Abastecer</span>
+    </a>
+  </nav>
 
   <script src="../backendmobile/abastecimentomobile.js"></script>
 </body>
+
 </html>
