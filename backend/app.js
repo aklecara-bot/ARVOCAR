@@ -68,7 +68,7 @@ function atualizarUsuarioNoCabecalho() {
 }
 
 // =========================================================================
-// 3. NAVEGAÇÃO ENTRE MÓDULOS E SUB-ABAS (CORRIGIDO)
+// 3. NAVEGAÇÃO ENTRE MÓDULOS E SUB-ABAS
 // =========================================================================
 
 function setModule(mod) {
@@ -704,19 +704,23 @@ function renderFleetGrid() {
 
   veiculos.forEach(v => {
     const isEmUso = v.status === 'Em Uso';
+    // Identificador principal (ex: ARVO 10, ARVO 11)
+    const nomeVeiculo = v.nome_frota || v.id || v.placa || 'Veículo';
+    const idAcao = v.id || v.uuid_veiculos || v.placa;
+
     const card = document.createElement('div');
     card.className = "bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-slate-300 transition";
     card.innerHTML = `
       <div>
         <div class="flex items-center justify-between mb-2">
-          <span class="text-base font-extrabold text-slate-900">${v.nome_frota || v.id}</span>
+          <span class="text-base font-extrabold text-slate-900">${nomeVeiculo}</span>
           <span class="text-[11px] px-2.5 py-0.5 rounded-full font-bold ${isEmUso ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">
             ${isEmUso ? '• Em Rota' : '• Disponível'}
           </span>
         </div>
         <div class="flex items-center justify-between text-xs text-slate-500 mb-3">
-          <span>${v.marca}</span>
-          <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded font-semibold text-slate-700">${v.placa}</span>
+          <span>${v.marca || '-'}</span>
+          <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded font-semibold text-slate-700">${v.placa || '-'}</span>
         </div>
 
         <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 mb-3 space-y-1">
@@ -724,12 +728,24 @@ function renderFleetGrid() {
             <span class="text-[10px] uppercase font-bold text-slate-400">Hodômetro</span>
             <span class="text-lg font-bold font-mono text-slate-800">${Number(v.km_atual || 0).toLocaleString('pt-BR')} km</span>
           </div>
+          <div class="flex justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+            <span>Tanque: <b>${v.tanque || 0} L</b></span>
+            <span>Méd: <b>${(((Number(v.consumo_min || 0) + Number(v.consumo_max || 0)) / 2) || 0).toFixed(1)} km/L</b></span>
+          </div>
         </div>
+
+        ${v.anomalias ? `
+          <div class="bg-rose-50 border border-rose-100 rounded-lg p-2.5 text-xs text-rose-700 flex items-start gap-2">
+            <i class="ph-bold ph-warning text-sm shrink-0 mt-0.5"></i>
+            <span class="line-clamp-2">${v.anomalias}</span>
+          </div>
+        ` : '<div class="text-xs text-slate-400 italic">Sem anomalias registradas</div>'}
       </div>
+
       <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
         ${isEmUso ? 
-          `<button onclick="abrirFinalizacaoDireta('${v.id}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` : 
-          `<button onclick="abrirInicioDireto('${v.id}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
+          `<button onclick="abrirFinalizacaoDireta('${idAcao}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` : 
+          `<button onclick="abrirInicioDireto('${idAcao}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
         }
       </div>
     `;
