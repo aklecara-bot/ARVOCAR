@@ -155,7 +155,7 @@ async function carregarTodosDadosDoBanco() {
   if (!usuarioSessao) return;
 
   try {
-    const { data: dadosVeiculos, error: errV } = await db.from('veiculos').select('*').order('id');
+    const { data: dadosVeiculos, error: errV } = await db.from('veiculos').select('*');
     if (errV) throw errV;
     veiculos = dadosVeiculos || [];
 
@@ -219,7 +219,12 @@ async function handleInicioRota(e) {
 
   const btn = document.getElementById('btn-submit-inicio');
   const veiculoId = document.getElementById('form-inicio-veiculo')?.value;
-  const veiculo = veiculos.find(v => v.id === veiculoId || v.placa === veiculoId);
+  const veiculo = veiculos.find(v => 
+    String(v.id) === String(veiculoId) || 
+    String(v.uuid_veiculos) === String(veiculoId) || 
+    String(v.placa) === String(veiculoId) || 
+    String(v.nome_frota) === String(veiculoId)
+  );
   const user = usuarios[currentUserIndex] || JSON.parse(localStorage.getItem('arvo_usuario_logado'));
 
   if (!veiculoId || !veiculo) {
@@ -235,11 +240,14 @@ async function handleInicioRota(e) {
   const agoraTimestamp = new Date().getTime();
   const emailAtual = user.email.toLowerCase().trim();
 
+  // Identificador legível (ex: "ARVO 10")
+  const idLegivel = veiculo.nome_frota || veiculo.identificador || veiculo.id;
+
   try {
     const { data: reservasCarro, error: errRes } = await db
       .from('reservas')
       .select('*')
-      .eq('veiculo_id', veiculo.id)
+      .or(`veiculo_id.eq.${veiculo.id},veiculo_id.eq.${idLegivel}`)
       .eq('status', 'CONFIRMADA');
 
     if (errRes) throw errRes;
@@ -263,7 +271,7 @@ async function handleInicioRota(e) {
 
           alert(
             `⛔ VEÍCULO BLOQUEADO POR RESERVA!\n\n` +
-            `O veículo ${veiculo.id} está reservado para:\n` +
+            `O veículo ${idLegivel} está reservado para:\n` +
             `👤 Condutor: ${reservaAtiva.responsavel}\n` +
             `🎯 Finalidade: ${reservaAtiva.finalidade}\n` +
             `📅 Reservado até: ${dataFimFmt}`
@@ -291,9 +299,11 @@ async function handleInicioRota(e) {
   }
 
   const dataHoraSaidaAtual = new Date().toISOString();
+  
+  // Objeto corrigido de acordo com as colunas reais da tabela 'rotas'
   const novaRota = {
     id: `ROTA-2026-${String(rotas.length + 261).padStart(4, '0')}`,
-    veiculo_id: veiculo.id,
+    veiculo_id: idLegivel, // Salva diretamente o nome legível (ex: "ARVO 15")
     responsavel: user.email,
     origem: origemFinal,
     destino: null,
@@ -347,7 +357,11 @@ async function handleFimRota(e) {
   }
 
   const rota = rotas.find(r => r.id === rotaId);
-  const veiculo = veiculos.find(v => v.id === rota.veiculo_id);
+  const veiculo = veiculos.find(v => 
+    String(v.id) === String(rota?.veiculo_id) || 
+    String(v.nome_frota) === String(rota?.veiculo_id) ||
+    String(v.uuid_veiculos) === String(rota?.veiculo_id)
+  ) || {};
 
   if (kmFinal < rota.km_saida) {
     alert("Erro: O KM Final não pode ser inferior ao KM de Saída!");
@@ -379,15 +393,17 @@ async function handleFimRota(e) {
     }).eq('id', rotaId);
     if (erroRota) throw erroRota;
 
-    const { error: erroVeiculo } = await db.from('veiculos').update({
-      km_atual: kmFinal,
-      status: 'Disponivel',
-      anomalias: anomaliaTexto || veiculo.anomalias
-    }).eq('id', veiculo.id);
-    if (erroVeiculo) throw erroVeiculo;
+    if (veiculo.id) {
+      const { error: erroVeiculo } = await db.from('veiculos').update({
+        km_atual: kmFinal,
+        status: 'Disponivel',
+        anomalias: anomaliaTexto || veiculo.anomalias
+      }).eq('id', veiculo.id);
+      if (erroVeiculo) throw erroVeiculo;
+    }
 
     await db.from('reservas').update({ status: 'CONCLUIDA' })
-      .eq('veiculo_id', veiculo.id)
+      .or(`veiculo_id.eq.${rota.veiculo_id},veiculo_id.eq.${veiculo.id}`)
       .eq('responsavel', rota.responsavel)
       .eq('status', 'CONFIRMADA');
 
@@ -502,11 +518,10 @@ async function handleSalvarEditVeiculo(e) {
   };
 
   try {
-    const { data, error } = await db
+    const { error } = await db
       .from('veiculos')
       .update(dadosAtualizados)
-      .or(`uuid_veiculos.eq.${idChave},id.eq.${idChave},placa.eq.${idChave}`)
-      .select();
+      .or(`uuid_veiculos.eq.${idChave},id.eq.${idChave},placa.eq.${idChave}`);
 
     if (error) throw error;
 
@@ -704,8 +719,7 @@ function renderFleetGrid() {
 
   veiculos.forEach(v => {
     const isEmUso = v.status === 'Em Uso';
-    // Identificador principal (ex: ARVO 10, ARVO 11)
-    const nomeVeiculo = v.nome_frota || v.id || v.placa || 'Veículo';
+    const nomeVeiculo = v.nome_frota || v.identificador || v.placa || v.id || 'Veículo';
     const idAcao = v.id || v.uuid_veiculos || v.placa;
 
     const card = document.createElement('div');
@@ -759,7 +773,7 @@ function renderTabelaVeiculosCad() {
   tbody.innerHTML = '';
   
   veiculos.forEach(v => {
-    const nomeCarroArvo = v.nome_frota || v.id || '-';
+    const nomeCarroArvo = v.nome_frota || v.identificador || v.placa || v.id || '-';
     const isEmUso = v.status === 'Em Uso';
     const isForaUso = v.status === 'Fora de Uso';
     const identificador = v.uuid_veiculos || v.id;
@@ -842,13 +856,18 @@ function renderSelectVeiculosInicio() {
   if (!select) return;
   select.innerHTML = '<option value="">Selecione um veículo...</option>';
   veiculos.filter(v => v.status === 'Disponivel').forEach(v => {
-    select.innerHTML += `<option value="${v.id}">${v.placa} - ${v.nome_frota || v.id} (${Number(v.km_atual || 0).toLocaleString('pt-BR')} km)</option>`;
+    const nomeAmigavel = v.nome_frota || v.identificador || v.id;
+    select.innerHTML += `<option value="${v.id}">${v.placa} - ${nomeAmigavel} (${Number(v.km_atual || 0).toLocaleString('pt-BR')} km)</option>`;
   });
 }
 
 function atualizarKmInicialPreenchido() {
   const vId = document.getElementById('form-inicio-veiculo')?.value;
-  const v = veiculos.find(item => item.id === vId || item.placa === vId);
+  const v = veiculos.find(item => 
+    String(item.id) === String(vId) || 
+    String(item.uuid_veiculos) === String(vId) || 
+    String(item.placa) === String(vId)
+  );
   const inputKm = document.getElementById('form-inicio-km');
   if (inputKm) inputKm.value = v ? v.km_atual : '';
 }
@@ -866,7 +885,13 @@ function renderSelectRotasFim() {
   if (!select) return;
   select.innerHTML = '<option value="">Selecione uma viagem em trânsito...</option>';
   rotas.filter(r => r.status === 'Em Uso').forEach(r => {
-    select.innerHTML += `<option value="${r.id}">${r.id} | ${r.veiculo_id} (${r.responsavel})</option>`;
+    const veic = veiculos.find(v => 
+      String(v.id) === String(r.veiculo_id) || 
+      String(v.uuid_veiculos) === String(r.veiculo_id) ||
+      String(v.nome_frota) === String(r.veiculo_id)
+    );
+    const nomeExibicao = r.nome_frota || (veic ? (veic.nome_frota || veic.identificador || veic.id) : r.veiculo_id);
+    select.innerHTML += `<option value="${r.id}">${r.id} | ${nomeExibicao} (${r.responsavel})</option>`;
   });
 }
 
@@ -876,13 +901,19 @@ function selecionarRotaFim() {
   const detalhes = document.getElementById('fim-detalhes-viagem');
 
   if (rota) {
-    const v = veiculos.find(item => item.id === rota.veiculo_id) || {};
+    const v = veiculos.find(item => 
+      String(item.id) === String(rota.veiculo_id) || 
+      String(item.uuid_veiculos) === String(rota.veiculo_id) ||
+      String(item.nome_frota) === String(rota.veiculo_id)
+    ) || {};
+
+    const nomeExibicao = rota.nome_frota || v.nome_frota || v.identificador || rota.veiculo_id;
     const consMin = Number(v.consumo_min) || 10;
     const consMax = Number(v.consumo_max) || 14;
     const medConsumo = ((consMin + consMax) / 2).toFixed(1);
 
     const infoCar = document.getElementById('fim-info-veiculo');
-    if (infoCar) infoCar.innerText = `${rota.veiculo_id} (${v.nome_frota || 'N/D'})`;
+    if (infoCar) infoCar.innerText = `${nomeExibicao} [${v.placa || 'Sem Placa'}]`;
 
     const infoUser = document.getElementById('fim-info-Usuario') || document.getElementById('fim-info-condutor');
     if (infoUser) infoUser.innerText = rota.responsavel;
@@ -907,7 +938,10 @@ function selecionarRotaFim() {
 }
 
 function abrirFinalizacaoDireta(vId) {
-  const rota = rotas.find(r => r.veiculo_id === vId && r.status === 'Em Uso');
+  const rota = rotas.find(r => 
+    (String(r.veiculo_id) === String(vId) || String(r.nome_frota) === String(vId)) && 
+    r.status === 'Em Uso'
+  );
   if (rota) {
     setModule('operacao');
     setSubTab('operacao', 'retorno');
@@ -930,7 +964,11 @@ function calcularKmPercorrido() {
     feedback.className = "text-[11px] text-rose-600 font-bold mt-1 block";
   } else {
     const delta = kmFinal - rota.km_saida;
-    const v = veiculos.find(item => item.id === rota.veiculo_id) || {};
+    const v = veiculos.find(item => 
+      String(item.id) === String(rota.veiculo_id) || 
+      String(item.uuid_veiculos) === String(rota.veiculo_id) ||
+      String(item.nome_frota) === String(rota.veiculo_id)
+    ) || {};
     const medConsumo = ((Number(v.consumo_min || 10) + Number(v.consumo_max || 14)) / 2);
     const litrosEst = (delta / medConsumo).toFixed(1);
     feedback.innerText = `Distância: ${delta} km (Consumo est.: ~${litrosEst} Litros)`;
@@ -946,18 +984,38 @@ function toggleAnomaliaInput(show) {
   }
 }
 
+// =========================================================================
+// RENDER HISTÓRICO COM RESOLUÇÃO DE IDENTIFICADOR AMIGÁVEL
+// =========================================================================
 function renderHistorico() {
   const tbody = document.getElementById('tabelaHistorico');
   if (!tbody) return;
   tbody.innerHTML = '';
 
   rotas.forEach(r => {
+    // Procura o veículo correspondente na lista pelo UUID, id ou placa
+    const veic = veiculos.find(v => 
+      String(v.id) === String(r.veiculo_id) || 
+      String(v.uuid_veiculos) === String(r.veiculo_id) || 
+      String(v.placa) === String(r.veiculo_id) || 
+      String(v.nome_frota) === String(r.veiculo_id)
+    );
+
+    // Se o veiculo_id for um UUID longo, substitui pelo identificador amigável
+    let nomeExibicao = r.nome_frota;
+    if (!nomeExibicao && veic) {
+      nomeExibicao = veic.nome_frota || veic.identificador || veic.id;
+    }
+    if (!nomeExibicao) {
+      nomeExibicao = (r.veiculo_id && r.veiculo_id.length > 20) ? 'ARVO' : (r.veiculo_id || '-');
+    }
+
     const tr = document.createElement('tr');
     tr.className = "hover:bg-slate-50 transition";
     tr.innerHTML = `
       <td class="py-3 px-3 font-mono font-bold text-slate-800">${r.id}</td>
       <td class="py-3 px-3 font-extrabold text-slate-900 text-sm">
-        ${r.nome_frota || r.veiculo_id || '-'}
+        ${nomeExibicao}
       </td>
       <td class="py-3 px-3 text-slate-600">${r.responsavel}</td>
       <td class="py-3 px-3 font-medium">${r.origem} &rarr; ${r.destino || 'Em Trânsito'}</td>
@@ -1014,8 +1072,9 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   const modalId = `modal-alerta-${rota.id}`;
   if (document.getElementById(modalId)) return;
 
-  const nomeCarro = rota.nome_frota || rota.veiculo_id || 'Veículo';
-  const placaCarro = rota.placa ? ` [${rota.placa}]` : '';
+  const veic = veiculos.find(v => String(v.id) === String(rota.veiculo_id) || String(v.uuid_veiculos) === String(rota.veiculo_id));
+  const nomeCarro = rota.nome_frota || (veic ? (veic.nome_frota || veic.id) : rota.veiculo_id);
+  const placaCarro = (veic && veic.placa) ? ` [${veic.placa}]` : '';
 
   const popUp = document.createElement('div');
   popUp.id = modalId;
