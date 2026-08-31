@@ -1,6 +1,6 @@
 {
-  "name": "ARVO - Controle de Rota",
-  "short_name": "ARVO Rota",
+  "name": "ARVOCAR",
+  "short_name": "ARVOCAR - Rotas",
   "start_url": "/arvocarmobile/frontendmobile/mobile.html",
   "scope": "/",
   "display": "standalone",
