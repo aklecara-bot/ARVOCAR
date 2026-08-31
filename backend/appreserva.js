@@ -47,7 +47,8 @@
     const { data, error } = await db
       .from('veiculos')
       .select('*')
-      .order('id');
+      .neq('status', 'Fora de Uso')
+      .order('nome_frota');
 
     if (error) throw error;
     veiculos = data || [];
@@ -59,7 +60,9 @@
 
     sel.innerHTML = '<option value="">Selecione um carro...</option>';
     veiculos.forEach(v => {
-      sel.innerHTML += `<option value="${v.placa}" data-uuid="${v.nome_frota || ''}" data-placa="${v.placa}">${v.placa} - ${v.nome_frota}</option>`;
+      const nomeFrota = v.nome_frota || v.id;
+      // Salvamos o nome_frota no value para que a reserva seja criada com esse nome
+      sel.innerHTML += `<option value="${nomeFrota}" data-placa="${v.placa || ''}">${nomeFrota} - ${v.marca || ''} [${v.placa || ''}]</option>`;
     });
 
   } catch (err) {
@@ -78,43 +81,55 @@
     }
 
     function initCalendario() {
-      const calendarEl = document.getElementById('calendar');
-      calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        locale: 'pt-br',
-        headerToolbar: {
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,timeGridWeek,listMonth'
-        },
-        buttonText: {
-          today: 'Hoje',
-          month: 'Mês',
-          week: 'Semana',
-          list: 'Lista'
-        },
-        events: function(fetchInfo, successCallback, failureCallback) {
-          const eventos = reservas.map(r => ({
-            id: r.id.toString(),
-            title: `${r.veiculo_id} - ${r.responsavel.split('@')[0]}`,
-            start: r.data_inicio,
-            end: r.data_fim,
-            backgroundColor: coresCarros[r.veiculo_id] || coresCarros.DEFAULT,
-            extendedProps: {
-              responsavel: r.responsavel,
-              finalidade: r.finalidade,
-              veiculo: r.veiculo_id
-            }
-          }));
-          successCallback(eventos);
-        },
-        eventClick: function(info) {
-          const p = info.event.extendedProps;
-          alert(`🚗 Reserva: ${p.veiculo}\n👤 Condutor: ${p.responsavel}\n🎯 Finalidade: ${p.finalidade}\n📅 Início: ${new Date(info.event.start).toLocaleString('pt-BR')}\n📅 Término: ${new Date(info.event.end).toLocaleString('pt-BR')}`);
-        }
+  const calendarEl = document.getElementById('calendar');
+  calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    locale: 'pt-br',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,listMonth'
+    },
+    buttonText: {
+      today: 'Hoje',
+      month: 'Mês',
+      week: 'Semana',
+      list: 'Lista'
+    },
+    events: function(fetchInfo, successCallback, failureCallback) {
+      const eventos = reservas.map(r => {
+        // Cruza a reserva com os veículos para localizar o nome_frota (ex: ARVO 11)
+        const veic = (veiculos || []).find(v => 
+          String(v.placa) === String(r.veiculo_id) || 
+          String(v.id) === String(r.veiculo_id) || 
+          String(v.uuid_veiculos) === String(r.veiculo_id) ||
+          String(v.nome_frota) === String(r.veiculo_id)
+        );
+
+        const nomeFrotaExibicao = veic?.nome_frota || r.veiculo_id || 'ARVO';
+
+        return {
+          id: r.id.toString(),
+          title: `${nomeFrotaExibicao} - ${(r.responsavel || '').split('@')[0]}`,
+          start: r.data_inicio,
+          end: r.data_fim,
+          backgroundColor: coresCarros[nomeFrotaExibicao] || coresCarros[r.veiculo_id] || coresCarros.DEFAULT,
+          extendedProps: {
+            responsavel: r.responsavel,
+            finalidade: r.finalidade,
+            veiculo: nomeFrotaExibicao
+          }
+        };
       });
-      calendar.render();
+      successCallback(eventos);
+    },
+    eventClick: function(info) {
+      const p = info.event.extendedProps;
+      alert(`🚗 Veículo: ${p.veiculo}\n👤 Condutor: ${p.responsavel}\n🎯 Finalidade: ${p.finalidade}\n📅 Início: ${new Date(info.event.start).toLocaleString('pt-BR')}\n📅 Término: ${new Date(info.event.end).toLocaleString('pt-BR')}`);
     }
+  });
+  calendar.render();
+}
 
     function ajustarCamposModalidade(tipo) {
       const boxHoras = document.getElementById('box-horas');
@@ -235,37 +250,50 @@
     }
 
     function renderizarTabelaReservas() {
-      const tbody = document.getElementById('tabelaListaReservas');
-      tbody.innerHTML = '';
+  const tbody = document.getElementById('tabelaListaReservas');
+  if (!tbody) return;
+  tbody.innerHTML = '';
 
-      const ehAdmin = usuarioLogado.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const ehAdmin = (usuarioLogado?.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
-      reservas.forEach(r => {
-        const ehDono = usuarioLogado.email.toLowerCase() === r.responsavel.toLowerCase();
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50";
-        tr.innerHTML = `
-          <td class="py-3 px-3 font-extrabold text-slate-800">${r.veiculo_id}</td>
-          <td class="py-3 px-3 text-slate-600">${r.responsavel}</td>
-          <td class="py-3 px-3 font-mono text-[11px] text-slate-500">
-            ${new Date(r.data_inicio).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })} até 
-            ${new Date(r.data_fim).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
-          </td>
-          <td class="py-3 px-3">
-            <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold">${r.finalidade}</span>
-          </td>
-          <td class="py-3 px-3 text-center">
-            ${(ehAdmin || ehDono) ? `
-              <button onclick="cancelarReserva(${r.id}, '${r.responsavel}')" class="text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 mx-auto" title="Cancelar Agendamento">
-                <i class="ph-bold ph-x-circle text-sm"></i> Cancelar
-              </button>
-            ` : '<span class="text-slate-300">-</span>'}
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
+  reservas.forEach(r => {
+    const ehDono = (usuarioLogado?.email || '').toLowerCase() === (r.responsavel || '').toLowerCase();
 
-      document.getElementById('badge-total-reservas').innerText = `${reservas.length} reservas`;
-    }
+    // Localiza o objeto veículo correspondente
+    const veic = (veiculos || []).find(v => 
+      String(v.placa) === String(r.veiculo_id) || 
+      String(v.id) === String(r.veiculo_id) || 
+      String(v.uuid_veiculos) === String(r.veiculo_id) ||
+      String(v.nome_frota) === String(r.veiculo_id)
+    );
+
+    const nomeFrotaExibicao = veic?.nome_frota || r.veiculo_id || 'Veículo';
+
+    const tr = document.createElement('tr');
+    tr.className = "hover:bg-slate-50";
+    tr.innerHTML = `
+      <td class="py-3 px-3 font-extrabold text-slate-800">${nomeFrotaExibicao}</td>
+      <td class="py-3 px-3 text-slate-600">${r.responsavel}</td>
+      <td class="py-3 px-3 font-mono text-[11px] text-slate-500">
+        ${new Date(r.data_inicio).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })} até 
+        ${new Date(r.data_fim).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
+      </td>
+      <td class="py-3 px-3">
+        <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold">${r.finalidade}</span>
+      </td>
+      <td class="py-3 px-3 text-center">
+        ${(ehAdmin || ehDono) ? `
+          <button onclick="cancelarReserva(${r.id}, '${r.responsavel}')" class="text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 mx-auto" title="Cancelar Agendamento">
+            <i class="ph-bold ph-x-circle text-sm"></i> Cancelar
+          </button>
+        ` : '<span class="text-slate-300">-</span>'}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const badge = document.getElementById('badge-total-reservas');
+  if (badge) badge.innerText = `${reservas.length} reservas`;
+}
 
     window.onload = init;
