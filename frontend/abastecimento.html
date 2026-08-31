@@ -6,6 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>ARVO - Registro de Abastecimento</title>
 
+  <!-- Favicon / Ícones -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/imagens/logo3d192.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/imagens/logo3d192.png" />
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Phosphor Icons -->
@@ -45,14 +49,13 @@
         </div>
         <div>
           <span class="text-lg font-black tracking-tight">ARVOCAR</span>
-          <span
-            class="text-brand-300 text-xs font-semibold uppercase tracking-wider block leading-none">Abastecimento</span>
+          <span class="text-brand-300 text-xs font-semibold uppercase tracking-wider block leading-none">Abastecimento</span>
         </div>
       </div>
       <a href="/frontend/paginainicial.html" id="link-voltar"
         class="flex items-center gap-1 text-xs bg-brand-800 hover:bg-brand-700 text-white px-3 py-2 rounded-xl border border-brand-700 font-bold transition">
         <i class="ph-bold ph-arrow-left text-sm"></i>
-        <span>Voltar</span>
+        <span>Voltar ao Painel</span>
       </a>
     </div>
   </header>
@@ -85,8 +88,7 @@
 
         <!-- Local do Posto / Estabelecimento -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Posto / Local de
-            Abastecimento</label>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Posto / Local de Abastecimento</label>
           <input type="text" id="abast-local" required placeholder="Ex: Posto Ipiranga Alegre, Auto Posto Shell..."
             class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:ring-2 focus:ring-brand-500 uppercase" />
         </div>
@@ -94,8 +96,7 @@
         <!-- Quantidade de Litros e Preço por Litro -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Quantidade de
-              Litros</label>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Quantidade de Litros</label>
             <div class="relative">
               <input type="number" step="0.001" min="0.1" id="abast-litros" oninput="calcularTotalAbastecimento()"
                 required placeholder="Ex: 35.500"
@@ -118,8 +119,7 @@
         <!-- Valor Total Calculado Automaticamente -->
         <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between">
           <div>
-            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block">Valor Total do
-              Abastecimento</span>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block">Valor Total do Abastecimento</span>
             <span class="text-[11px] text-emerald-600">Calculado automaticamente (Litros × Preço)</span>
           </div>
           <div class="text-right">
@@ -129,8 +129,7 @@
 
         <!-- Upload da Imagem do Cupom Fiscal -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Cupom Fiscal / Nota (Foto
-            ou Arquivo)</label>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Cupom Fiscal / Nota (Foto ou Arquivo)</label>
           <div
             class="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 text-center transition bg-slate-50 relative">
             <input type="file" id="abast-foto" accept="image/*" capture="environment"
@@ -161,20 +160,71 @@
       <div class="flex items-center justify-between pb-3 border-b border-slate-100">
         <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Histórico de Abastecimentos</h3>
         <span id="badge-total-abast"
-          class="text-[11px] bg-brand-50 text-brand-700 font-bold px-2.5 py-0.5 rounded-full border border-brand-200">0
-          registros</span>
+          class="text-[11px] bg-brand-50 text-brand-700 font-bold px-2.5 py-0.5 rounded-full border border-brand-200">0 registros</span>
       </div>
 
       <div id="lista-abastecimentos" class="space-y-2.5">
-        <!-- Renderizado dinamicamente -->
+        <!-- Renderizado dinamicamente via JS -->
       </div>
     </div>
 
   </main>
 
-  <script src="/backend/abastecimento.js">
+  <!-- ========================================================================= -->
+  <!-- MODAL DE DETALHES DO ABASTECIMENTO (INSERIDO AQUI)                       -->
+  <!-- ========================================================================= -->
+  <div id="modal-detalhes-abast" class="hidden fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 max-h-[90vh] overflow-y-auto">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shadow-inner">
+            <i class="ph-bold ph-receipt text-xl"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-black text-slate-800" id="modal-abast-veiculo">Detalhes do Abastecimento</h3>
+            <p class="text-[11px] text-slate-400">Informações completas do registro</p>
+          </div>
+        </div>
+        <button type="button" onclick="fecharModalAbastecimento()" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
 
-  </script>
+      <!-- Informações Detalhadas -->
+      <div class="space-y-2.5 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+        <div class="flex justify-between items-center"><span class="text-slate-500 font-medium">Posto / Local:</span> <b id="modal-abast-posto" class="text-slate-800 text-right">-</b></div>
+        <div class="flex justify-between items-center"><span class="text-slate-500 font-medium">Combustível:</span> <b id="modal-abast-tipo" class="text-slate-800">-</b></div>
+        <div class="flex justify-between items-center"><span class="text-slate-500 font-medium">Responsável:</span> <b id="modal-abast-resp" class="text-slate-800">-</b></div>
+        <div class="flex justify-between items-center"><span class="text-slate-500 font-medium">Odômetro (KM):</span> <b id="modal-abast-km" class="text-slate-800 font-mono">-</b></div>
+        <div class="flex justify-between items-center"><span class="text-slate-500 font-medium">Litros / Preço Unit.:</span> <b id="modal-abast-litros-preco" class="text-slate-800 font-mono">-</b></div>
+        <div class="flex justify-between items-center pt-2 border-t border-slate-200/70"><span class="text-emerald-800 font-bold">Valor Total:</span> <b id="modal-abast-total" class="text-emerald-700 font-mono font-bold text-base">-</b></div>
+        <div class="flex justify-between items-center"><span class="text-slate-400 text-[11px]">Data e Hora:</span> <span id="modal-abast-data" class="text-slate-500 text-[11px] font-mono">-</span></div>
+      </div>
+
+      <!-- Área da Imagem / Download -->
+      <div id="modal-box-comprovante" class="space-y-3">
+        <div class="rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 max-h-60 flex items-center justify-center p-1">
+          <img id="modal-img-preview" src="" alt="Comprovante Fiscal" class="w-full h-auto object-contain max-h-56 rounded-xl" />
+        </div>
+        <div class="flex gap-2">
+          <a id="btn-ver-imagem" href="#" target="_blank" class="flex-1 text-center bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-1.5">
+            <i class="ph-bold ph-arrow-square-out text-base"></i> Abrir Imagem
+          </a>
+          <button type="button" id="btn-baixar-imagem" onclick="baixarImagemComprovante()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-1.5">
+            <i class="ph-bold ph-download-simple text-base"></i> Baixar Arquivo
+          </button>
+        </div>
+      </div>
+
+      <div id="modal-sem-comprovante" class="hidden text-center py-4 text-xs text-slate-400 italic bg-slate-50 rounded-2xl border border-slate-100">
+        Nenhum comprovante fiscal anexado neste registro.
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/backend/abastecimento.js"></script>
 </body>
 
 </html>

@@ -321,17 +321,33 @@ async function carregarHistoricoReservas() {
     const ehAdmin = (usuarioLogado.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
     container.innerHTML = '';
 
+    // Cache unificado dos veículos carregados
+    const listaVeiculos = (typeof veiculosReserva !== 'undefined' && veiculosReserva.length > 0) 
+      ? veiculosReserva 
+      : (typeof veiculos !== 'undefined' ? veiculos : []);
+
     listaReservas.forEach(r => {
       const ehDono = (usuarioLogado.email || '').toLowerCase() === (r.responsavel || '').toLowerCase();
       const dataIni = new Date(r.data_inicio).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       const dataFim = new Date(r.data_fim).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+      // Busca o nome_frota com base no ID, Placa ou UUID gravado
+      const veic = listaVeiculos.find(v => 
+        String(v.id) === String(r.veiculo_id) ||
+        String(v.placa) === String(r.veiculo_id) ||
+        String(v.nome_frota) === String(r.veiculo_id) ||
+        String(v.uuid_veiculos) === String(r.uuid_veiculos || r.veiculo_id)
+      );
+
+      const nomeExibicao = veic?.nome_frota || r.nome_frota || r.veiculo_id || 'Veículo';
+      const placaExibicao = (veic?.placa && veic.placa !== nomeExibicao) ? ` [${veic.placa}]` : '';
 
       const card = document.createElement('div');
       card.className = "bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2";
       card.innerHTML = `
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-            <i class="ph-bold ph-car text-brand-600"></i> ${r.veiculo_id}
+            <i class="ph-bold ph-car text-brand-600"></i> ${nomeExibicao}${placaExibicao}
           </span>
           <span class="text-[10px] bg-brand-50 text-brand-700 font-bold px-2 py-0.5 rounded-full border border-brand-200">
             ${r.tipo_reserva || 'DIAS'}

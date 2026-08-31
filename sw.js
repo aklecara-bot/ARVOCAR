@@ -3,7 +3,7 @@ const ASSETS_TO_CACHE = [
   '/arvocarmobile/frontendmobile/mobile.html',
   '/arvocarmobile/frontendmobile/instalar.html',
   '/manifest.json',
-  '/imagens/arvocarico.ico'
+  '/imagens/logo3d192.png',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/@phosphor-icons/web'
 ];

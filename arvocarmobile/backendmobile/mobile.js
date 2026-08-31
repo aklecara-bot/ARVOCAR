@@ -93,6 +93,15 @@ async function handleMobileLogin(e) {
 
     salvarSessaoUnificada(usuarioLogado);
     iniciarAppMobile();
+
+    // ✅ Redireciona para a checagem de instalação:
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (!isStandalone) {
+      window.location.href = "instalar.html";
+    } else {
+      iniciarAppMobile();
+    }
+
   } catch (err) {
     console.error("Erro no login mobile:", err);
     if (erroMsg) erroMsg.innerText = err.message || "E-mail ou senha inválidos.";
@@ -613,6 +622,15 @@ function exibirPopUpAlerta(rota, horasAbertas) {
 // INICIALIZAÇÃO NO CARREGAMENTO DA PÁGINA
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isMobileDevice = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1);
+
+  // Se estiver no celular/tablet acessando pelo navegador comum, força a tela de instalação
+  if (!isStandalone && isMobileDevice) {
+    window.location.replace("instalar.html");
+    return;
+  }
+
   const sessao = obterSessaoAtiva();
   if (sessao) {
     usuarioLogado = sessao;

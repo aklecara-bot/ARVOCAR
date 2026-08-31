@@ -1,9 +1,8 @@
 {
   "name": "ARVO - Controle de Rota",
   "short_name": "ARVO Rota",
-  "description": "App de Operação de Rotas e Frotas ARVO",
   "start_url": "/arvocarmobile/frontendmobile/mobile.html",
-  "scope": "./",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#14532d",
@@ -12,12 +11,14 @@
     {
       "src": "/imagens/logo3d192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/imagens/logo3d512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

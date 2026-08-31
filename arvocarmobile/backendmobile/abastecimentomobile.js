@@ -305,7 +305,7 @@ let listaAbastecimentosCache = [];
 let urlComprovanteAtual = null;
 
 // =========================================================================
-// CARREGAR HISTÓRICO COM BOTÃO DE DETALHES
+// CARREGAR HISTÓRICO COM NOME DE FROTA E BOTÃO DE DETALHES
 // =========================================================================
 async function carregarHistoricoAbastecimento() {
   const container = document.getElementById('lista-abastecimentos');
@@ -331,34 +331,45 @@ async function carregarHistoricoAbastecimento() {
 
     container.innerHTML = '';
     listaAbastecimentosCache.forEach((a, index) => {
-      const card = document.createElement('div');
-      card.className = "bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5 transition hover:border-slate-300";
+      // Localiza o veículo no cache para buscar o nome_frota (ex: "ARVO 10")
+      const veic = (typeof veiculosAbast !== 'undefined' ? veiculosAbast : []).find(v =>
+        String(v.id) === String(a.veiculo_id) ||
+        String(v.uuid_veiculos) === String(a.uuid_veiculos || a.veiculo_id) ||
+        String(v.placa) === String(a.placa || a.veiculo_id) ||
+        String(v.nome_frota) === String(a.veiculo_id)
+      );
+
+      const nomeExibicao = veic?.nome_frota || a.nome_frota || a.veiculo_id || a.placa || 'Veículo';
+      const placaExibicao = a.placa ? ` [${a.placa}]` : (veic?.placa ? ` [${veic.placa}]` : '');
       const valorFormatado = Number(a.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+      const card = document.createElement('div');
+      card.className = "bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5 transition hover:border-slate-300";
+
       card.innerHTML = `
-      <div class="flex items-center justify-between">
-      <span class="text-xs font-black text-slate-800 flex items-center gap-1.5 font-mono">
-      <i class="ph-bold ph-gas-pump text-amber-500"></i> ${a.placa || 'Sem Placa'}
-      </span>
-      <span class="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-        ${valorFormatado}
-      </span>
-      </div>
-      <div class="text-xs text-slate-600 font-medium">
-      <i class="ph-bold ph-map-pin text-slate-400"></i> ${a.local_posto || '-'} • <span class="text-slate-500 font-normal">${a.tipo_combustivel || 'Combustível'}</span>
-      </div>
-      <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-1.5 border-t border-slate-100">
-      <span>${a.quantidade_litros} L (R$ ${Number(a.preco_litro).toFixed(2)}/L)</span>
-      <span>${new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-      </div>
-      <div class="pt-1 flex items-center justify-between border-t border-slate-100">
-      <span class="text-[10px] text-slate-400 truncate max-w-[150px]">
-      <i class="ph-bold ph-user"></i> ${(a.responsavel || '').split('@')[0]}
-      </span>
-      <button onclick="abrirModalAbastecimento(${index})" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 transition">
-      <i class="ph-bold ph-eye"></i> Ver Detalhes
-      </button>
-      </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-black text-slate-800 flex items-center gap-1.5 font-mono">
+            <i class="ph-bold ph-gas-pump text-amber-500"></i> ${nomeExibicao}${placaExibicao}
+          </span>
+          <span class="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+            ${valorFormatado}
+          </span>
+        </div>
+        <div class="text-xs text-slate-600 font-medium">
+          <i class="ph-bold ph-map-pin text-slate-400"></i> ${a.local_posto || '-'} • <span class="text-slate-500 font-normal">${a.tipo_combustivel || 'Combustível'}</span>
+        </div>
+        <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-1.5 border-t border-slate-100">
+          <span>${a.quantidade_litros} L (R$ ${Number(a.preco_litro).toFixed(2)}/L)</span>
+          <span>${new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+        <div class="pt-1 flex items-center justify-between border-t border-slate-100">
+          <span class="text-[10px] text-slate-400 truncate max-w-[150px]">
+            <i class="ph-bold ph-user"></i> ${(a.responsavel || '').split('@')[0]}
+          </span>
+          <button onclick="abrirModalAbastecimento(${index})" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 transition">
+            <i class="ph-bold ph-eye"></i> Ver Detalhes
+          </button>
+        </div>
       `;
       container.appendChild(card);
     });
@@ -378,7 +389,19 @@ function abrirModalAbastecimento(index) {
 
   urlComprovanteAtual = item.url_comprovante;
 
-  document.getElementById('modal-abast-veiculo').innerText = `${item.veiculo_id}`;
+  // Cruza com a lista de veículos para recuperar o nome_frota (ex: "ARVO 10")
+  const veic = (typeof veiculosAbast !== 'undefined' ? veiculosAbast : []).find(v =>
+    String(v.id) === String(item.veiculo_id) ||
+    String(v.uuid_veiculos) === String(item.uuid_veiculos || item.veiculo_id) ||
+    String(v.placa) === String(item.placa || item.veiculo_id) ||
+    String(v.nome_frota) === String(item.veiculo_id)
+  );
+
+  const nomeExibicaoModal = veic?.nome_frota || item.nome_frota || item.veiculo_id || 'Veículo';
+  const placaModal = item.placa ? ` [${item.placa}]` : (veic?.placa ? ` [${veic.placa}]` : '');
+
+  // Atualização dos elementos na tela
+  document.getElementById('modal-abast-veiculo').innerText = `${nomeExibicaoModal}${placaModal}`;
   document.getElementById('modal-abast-posto').innerText = item.local_posto || '-';
   document.getElementById('modal-abast-tipo').innerText = item.tipo_combustivel || 'Não informado';
   document.getElementById('modal-abast-resp').innerText = item.responsavel || '-';
@@ -393,16 +416,17 @@ function abrirModalAbastecimento(index) {
   const btnVer = document.getElementById('btn-ver-imagem');
 
   if (item.url_comprovante) {
-    imgPreview.src = item.url_comprovante;
-    btnVer.href = item.url_comprovante;
-    boxComprovante.classList.remove('hidden');
-    semComprovante.classList.add('hidden');
+    if (imgPreview) imgPreview.src = item.url_comprovante;
+    if (btnVer) btnVer.href = item.url_comprovante;
+    if (boxComprovante) boxComprovante.classList.remove('hidden');
+    if (semComprovante) semComprovante.classList.add('hidden');
   } else {
-    boxComprovante.classList.add('hidden');
-    semComprovante.classList.remove('hidden');
+    if (boxComprovante) boxComprovante.classList.add('hidden');
+    if (semComprovante) semComprovante.classList.remove('hidden');
   }
 
-  document.getElementById('modal-detalhes-abast').classList.remove('hidden');
+  const modal = document.getElementById('modal-detalhes-abast');
+  if (modal) modal.classList.remove('hidden');
 }
 
 function fecharModalAbastecimento() {
