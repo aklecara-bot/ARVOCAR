@@ -1109,6 +1109,9 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   const modalId = `modal-alerta-${rota.id}`;
   if (document.getElementById(modalId)) return; // Evita duplicar o mesmo pop-up
 
+  const nomeCarro = rota.nome_frota || rota.veiculo_id || 'Veículo';
+  const placaCarro = rota.placa ? ` [${rota.placa}]` : '';
+
   const popUp = document.createElement('div');
   popUp.id = modalId;
   popUp.className = "fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in";
@@ -1120,17 +1123,17 @@ function exibirPopUpAlerta(rota, horasAbertas) {
       <div>
         <h3 class="text-base font-black text-slate-900">Atenção: Rota Pendente!</h3>
         <p class="text-xs text-slate-500 mt-1">
-          A rota <b class="text-slate-800">${rota.id}</b> com o veículo <b class="text-slate-800">${rota.veiculo_id}</b> está aberta há mais de <span class="text-rose-600 font-bold">${horasAbertas.toFixed(1)} horas</span>.
+          A rota <b class="text-slate-800">#${rota.id}</b> com o veículo <b class="text-slate-800">${nomeCarro}${placaCarro}</b> está aberta há mais de <span class="text-rose-600 font-bold">${Math.floor(horasAbertas)} horas</span>.
         </p>
       </div>
-      <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium">
+      <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium text-left">
         Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento.
       </div>
       <div class="flex gap-2 pt-2">
         <button onclick="document.getElementById('${modalId}').remove()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
           Lembrar Depois
         </button>
-        <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDireta('${rota.veiculo_id}');" class="flex-1 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md transition">
+        <button onclick="document.getElementById('${modalId}').remove(); redirecionarEncerramentoRota('${rota.id}');" class="flex-1 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md transition">
           Finalizar Agora
         </button>
       </div>
@@ -1139,38 +1142,106 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   document.body.appendChild(popUp);
 }
 
-// 4. Verificador automático de rotas > 12h
-async function verificarRotasExcedidas12h() {
-  const sessao = JSON.parse(localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user'));
-  if (!sessao) return;
-
-  const agora = new Date();
-
-  // Consulta rotas em uso
-  const { data: rotasAtivas, error } = await db
-    .from('rotas')
-    .select('*')
-    .eq('status', 'Em Uso');
-
-  if (error || !rotasAtivas) return;
-
-  rotasAtivas.forEach(rota => {
-    if (!rota.data_saida) return;
-
-    const dataSaida = new Date(rota.data_saida);
-    const diferencaHoras = (agora - dataSaida) / (1000 * 60 * 60);
-
-    // Se passou de 12 horas e pertence ao condutor ou se o usuário for o Admin
-    if (diferencaHoras >= 12) {
-      if (rota.responsavel === sessao.email || sessao.email === "admin@arvo.tec.br") {
-        exibirPopUpAlerta(rota, diferencaHoras);
-        dispararNotificacaoNativa(
-          "⚠️ ARVO - Fechamento de Rota Pendente",
-          `A rota ${rota.id} (${rota.veiculo_id}) está aberta há ${diferencaHoras.toFixed(0)}h. Realize a devolução.`
-        );
-      }
+// Função auxiliar para redirecionar tanto no ambiente Web quanto no Mobile
+function redirecionarEncerramentoRota(rotaId) {
+  if (typeof abrirFinalizacaoDiretaMobile === 'function') {
+    abrirFinalizacaoDiretaMobile(rotaId); // Ambiente Mobile
+  } else if (typeof abrirFinalizacaoDireta === 'function') {
+    abrirFinalizacaoDireta(rotaId); // Ambiente Web Desktop
+  } else {
+    // Fallback: busca o select da rota na tela
+    const select = document.getElementById('m-fim-rota-select') || document.getElementById('fim-rota-select');
+    if (select) {
+      select.value = rotaId;
+      if (typeof selecionarRotaFimMobile === 'function') selecionarRotaFimMobile();
     }
-  });
+  }
+}
+
+// Solicita permissão nativa do navegador logo na inicialização
+async function solicitarPermissaoNotificacoes() {
+  if ("Notification" in window && Notification.permission === "default") {
+    await Notification.requestPermission();
+  }
+}
+
+// Disparador seguro de notificação nativa
+function dispararNotificacaoNativa(titulo, corpo) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification(titulo, {
+        body: corpo,
+        icon: "/imagens/logo3d192.png",
+        badge: "/imagens/logo3d192.png"
+      });
+    } catch (e) {
+      console.warn("Falha ao emitir notificação nativa:", e);
+    }
+  }
+}
+
+// Verificador de rotas excedidas (> 12h)
+async function verificarRotasExcedidas12h() {
+  try {
+    const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+    if (!rawSessao) return;
+
+    let sessao;
+    try {
+      sessao = JSON.parse(rawSessao);
+    } catch {
+      sessao = { email: rawSessao };
+    }
+
+    const emailUsuario = (sessao?.email || '').toLowerCase().trim();
+    if (!emailUsuario) return;
+
+    // Consulta rotas em aberto no banco
+    const { data: rotasAtivas, error } = await db
+      .from('rotas')
+      .select('*')
+      .eq('status', 'Em Uso');
+
+    if (error || !rotasAtivas) {
+      console.error("Erro ao consultar rotas ativas:", error);
+      return;
+    }
+
+    const agora = new Date().getTime();
+
+    rotasAtivas.forEach(rota => {
+      const dataRef = rota.data_saida || rota.created_at;
+      if (!dataRef) return;
+
+      const dataSaida = new Date(dataRef).getTime();
+      if (isNaN(dataSaida)) return;
+
+      const diferencaHoras = (agora - dataSaida) / (1000 * 60 * 60);
+
+      if (diferencaHoras >= 12) {
+        const responsavelRota = (rota.responsavel || '').toLowerCase().trim();
+        const isAdmin = emailUsuario === "admin@arvo.tec.br";
+
+        if (responsavelRota === emailUsuario || isAdmin) {
+          const nomeCarro = rota.nome_frota || rota.veiculo_id || rota.carro || 'Veículo';
+          const placaCarro = rota.placa ? ` [${rota.placa}]` : '';
+
+          // 1. Alerta na tela (Pop-up HTML)
+          if (typeof exibirPopUpAlerta === 'function') {
+            exibirPopUpAlerta(rota, diferencaHoras);
+          }
+
+          // 2. Notificação nativa do sistema operacional / navegador
+          dispararNotificacaoNativa(
+            "⚠️ ARVO - Rota Excedida",
+            `A rota #${rota.id} (${nomeCarro}${placaCarro}) está aberta há ${Math.floor(diferencaHoras)}h. Realize o encerramento.`
+          );
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Falha ao verificar rotas excedidas:", err);
+  }
 }
 
 // Executa na inicialização e verifica a cada 10 minutos
