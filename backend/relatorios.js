@@ -374,7 +374,7 @@
         tr.className = "hover:bg-slate-50";
         tr.innerHTML = `
           <td class="py-3 px-4 font-mono font-bold text-slate-800">${r.id}</td>
-          <td class="py-3 px-4 font-extrabold text-slate-700">${r.veiculo_id}</td>
+          <td class="py-3 px-4 font-mono font-bold text-slate-800">${r.placa || '-'}</td>
           <td class="py-3 px-4 text-slate-600">${r.responsavel}</td>
           <td class="py-3 px-4 font-medium text-slate-700">${r.origem || '-'}</td>
           <td class="py-3 px-4 font-medium text-slate-800">${r.finalidade || '-'}</td>

@@ -30,8 +30,8 @@
       const sel = document.getElementById('abast-veiculo');
       sel.innerHTML = '<option value="">Selecione o carro...</option>';
       veiculos.forEach(v => {
-        sel.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}]</option>`;
-      });
+      sel.innerHTML += `<option value="${v.placa}" data-uuid="${v.nome_frota || ''}" data-placa="${v.placa}">${v.placa} - ${v.nome_frota}</option>`;
+    });
     }
 
     async function carregarAbastecimentos() {

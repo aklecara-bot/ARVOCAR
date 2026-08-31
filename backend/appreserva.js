@@ -38,15 +38,35 @@
     }
 
     async function carregarVeiculos() {
-      const { data } = await db.from('veiculos').select('*').order('id');
-      veiculos = data || [];
+  const sel = document.getElementById('res-veiculo');
+  if (!sel) return;
 
-      const sel = document.getElementById('res-veiculo');
-      sel.innerHTML = '<option value="">Selecione um carro...</option>';
-      veiculos.forEach(v => {
-        sel.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}]</option>`;
-      });
+  sel.innerHTML = '<option value="">Carregando veículos...</option>';
+
+  try {
+    const { data, error } = await db
+      .from('veiculos')
+      .select('*')
+      .order('id');
+
+    if (error) throw error;
+    veiculos = data || [];
+
+    if (veiculos.length === 0) {
+      sel.innerHTML = '<option value="">Nenhum carro cadastrado</option>';
+      return;
     }
+
+    sel.innerHTML = '<option value="">Selecione um carro...</option>';
+    veiculos.forEach(v => {
+      sel.innerHTML += `<option value="${v.placa}" data-uuid="${v.nome_frota || ''}" data-placa="${v.placa}">${v.placa} - ${v.nome_frota}</option>`;
+    });
+
+  } catch (err) {
+    console.error("Erro ao carregar veículos:", err);
+    sel.innerHTML = '<option value="">Erro ao carregar veículos</option>';
+  }
+}
 
     async function carregarReservas() {
       const { data } = await db.from('reservas').select('*').eq('status', 'CONFIRMADA').order('data_inicio', { ascending: true });

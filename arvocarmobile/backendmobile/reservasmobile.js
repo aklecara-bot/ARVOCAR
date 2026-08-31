@@ -95,7 +95,9 @@ async function carregarVeiculosReservas() {
   try {
     const { data, error } = await db
       .from('veiculos')
-      .select('*');
+      .select('*')
+      .neq('status', 'Fora de Uso')
+      .order('nome_frota');
 
     if (error) throw error;
     veiculosReserva = data || [];
@@ -107,9 +109,8 @@ async function carregarVeiculosReservas() {
 
     sel.innerHTML = '<option value="">Selecione o veículo...</option>';
     veiculosReserva.forEach(v => {
-      const vId = v.id || v.identificador;
-      const vDesc = v.marca ? `${v.marca} [${v.placa || 'S/ Placa'}]` : (v.placa || `Veículo ${vId}`);
-      sel.innerHTML += `<option value="${vId}">${vId} - ${vDesc}</option>`;
+      const nome = v.nome_frota || v.id;
+      sel.innerHTML += `<option value="${v.placa}" data-uuid="${v.nome_frota || ''}" data-placa="${v.placa}">${v.placa} - ${v.nome_frota}</option>`;;
     });
 
   } catch (err) {

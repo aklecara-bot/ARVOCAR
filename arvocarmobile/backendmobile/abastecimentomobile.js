@@ -55,7 +55,8 @@ async function carregarVeiculosAbastecimento() {
     const { data, error } = await db
       .from('veiculos')
       .select('*')
-      .order('id');
+      .neq('status', 'Fora de Uso')
+      .order('placa');
 
     if (error) {
       console.error("Erro retornado pelo Supabase:", error);
@@ -69,9 +70,9 @@ async function carregarVeiculosAbastecimento() {
       return;
     }
 
-    sel.innerHTML = '<option value="">Selecione o veículo...</option>';
+   sel.innerHTML = '<option value="">Selecione o veículo...</option>';
     veiculosAbast.forEach(v => {
-      sel.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}]</option>`;
+      sel.innerHTML += `<option value="${v.placa}" data-uuid="${v.nome_frota || ''}" data-placa="${v.placa}">${v.placa} - ${v.nome_frota}</option>`;
     });
 
   } catch (err) {
@@ -145,12 +146,17 @@ async function salvarAbastecimento(e) {
 
   try {
     const selVeiculo = document.getElementById('abs-veiculo');
+    const optSelecionada = selVeiculo ? selVeiculo.options[selVeiculo.selectedIndex] : null;
     const veiculo_id = selVeiculo ? selVeiculo.value : '';
 
     if (!veiculo_id) {
       alert("Por favor, selecione um veículo.");
       return;
     }
+
+    // 1. Captura do UUID e da Placa vinculados ao select
+    const uuid_veiculos = optSelecionada?.dataset?.uuid || null;
+    const placa = optSelecionada?.dataset?.placa || null;
 
     const local_posto = (document.getElementById('abs-posto')?.value || '').trim().toUpperCase();
     const tipo_combustivel = document.getElementById('abs-tipo')?.value || 'Gasolina Comum';
@@ -173,7 +179,7 @@ async function salvarAbastecimento(e) {
 
     let url_comprovante = null;
 
-    // 1. Upload do comprovante para o Bucket 'comprovantes' no Storage
+    // 2. Upload do comprovante para o Bucket 'comprovantes' no Storage
     if (fotoInput && fotoInput.files && fotoInput.files[0]) {
       try {
         const file = fotoInput.files[0];
@@ -200,11 +206,13 @@ async function salvarAbastecimento(e) {
       }
     }
 
-    // 2. Montagem do payload alinhado às colunas da tabela 'abastecimentos'
+    // 3. Montagem do payload alinhado às colunas da tabela 'abastecimentos'
     const emailResp = (usuarioLogado && usuarioLogado.email) ? usuarioLogado.email : 'admin@arvo.tec.br';
 
     const payload = {
-      veiculo_id: veiculo_id,
+      veiculo_id: veiculo_id,                 // Rótulo de frota (ex: "ARVO 11")
+      uuid_veiculos: uuid_veiculos,           // Chave UUID única vinculada ao banco
+      placa: placa,                           // Placa congelada do momento
       responsavel: emailResp,
       local_posto: local_posto,
       tipo_combustivel: tipo_combustivel,
@@ -219,7 +227,7 @@ async function salvarAbastecimento(e) {
       payload.km_atual = km_atual;
     }
 
-    // 3. Inserção do registro no Supabase
+    // 4. Inserção do registro no Supabase
     const { error: insertErr } = await db
       .from('abastecimentos')
       .insert([payload]);
@@ -229,13 +237,18 @@ async function salvarAbastecimento(e) {
       throw insertErr;
     }
 
-    // 4. Atualização opcional do KM na tabela 'veiculos' (protegido contra RLS)
+    // 5. Atualização do KM na tabela 'veiculos' (filtrando por uuid_veiculos ou nome_frota)
     if (km_atual && !isNaN(km_atual)) {
       try {
-        await db.from('veiculos')
-          .update({ km_atual: km_atual })
-          .eq('id', veiculo_id)
-          .lt('km_atual', km_atual);
+        let query = db.from('veiculos').update({ km_atual: km_atual });
+        
+        if (uuid_veiculos) {
+          query = query.eq('uuid_veiculos', uuid_veiculos);
+        } else {
+          query = query.eq('nome_frota', veiculo_id);
+        }
+
+        await query.lt('km_atual', km_atual);
       } catch (vErr) {
         console.warn("Aviso ao atualizar KM do veículo:", vErr);
       }
@@ -243,7 +256,7 @@ async function salvarAbastecimento(e) {
 
     alert('✅ Abastecimento registrado com sucesso!');
 
-    // 5. Limpeza do formulário e atualização de interface
+    // 6. Limpeza do formulário e atualização de interface
     const form = document.getElementById('form-abastecimento');
     if (form) form.reset();
 
@@ -272,7 +285,6 @@ async function salvarAbastecimento(e) {
     }
   }
 }
-
 let listaAbastecimentosCache = [];
 let urlComprovanteAtual = null;
 
@@ -308,33 +320,29 @@ async function carregarHistoricoAbastecimento() {
       const valorFormatado = Number(a.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
       card.innerHTML = `
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-black text-slate-800 flex items-center gap-1.5">
-            <i class="ph-bold ph-gas-pump text-amber-500"></i> ${a.veiculo_id}
-          </span>
-          <span class="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-            ${valorFormatado}
-          </span>
-        </div>
-
-        <div class="text-xs text-slate-600 font-medium">
-          <i class="ph-bold ph-map-pin text-slate-400"></i> ${a.local_posto || '-'} • <span class="text-slate-500 font-normal">${a.tipo_combustivel || 'Combustível'}</span>
-        </div>
-
-        <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-1.5 border-t border-slate-100">
-          <span>${a.quantidade_litros} L (R$ ${Number(a.preco_litro).toFixed(2)}/L)</span>
-          <span>${new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
-
-        <div class="pt-1 flex items-center justify-between border-t border-slate-100">
-          <span class="text-[10px] text-slate-400 truncate max-w-[150px]">
-            <i class="ph-bold ph-user"></i> ${(a.responsavel || '').split('@')[0]}
-          </span>
-          
-          <button onclick="abrirModalAbastecimento(${index})" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 transition">
-            <i class="ph-bold ph-eye"></i> Ver Detalhes
-          </button>
-        </div>
+      <div class="flex items-center justify-between">
+      <span class="text-xs font-black text-slate-800 flex items-center gap-1.5 font-mono">
+      <i class="ph-bold ph-gas-pump text-amber-500"></i> ${a.placa || 'Sem Placa'}
+      </span>
+      <span class="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+        ${valorFormatado}
+      </span>
+      </div>
+      <div class="text-xs text-slate-600 font-medium">
+      <i class="ph-bold ph-map-pin text-slate-400"></i> ${a.local_posto || '-'} • <span class="text-slate-500 font-normal">${a.tipo_combustivel || 'Combustível'}</span>
+      </div>
+      <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-1.5 border-t border-slate-100">
+      <span>${a.quantidade_litros} L (R$ ${Number(a.preco_litro).toFixed(2)}/L)</span>
+      <span>${new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+      </div>
+      <div class="pt-1 flex items-center justify-between border-t border-slate-100">
+      <span class="text-[10px] text-slate-400 truncate max-w-[150px]">
+      <i class="ph-bold ph-user"></i> ${(a.responsavel || '').split('@')[0]}
+      </span>
+      <button onclick="abrirModalAbastecimento(${index})" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 transition">
+      <i class="ph-bold ph-eye"></i> Ver Detalhes
+      </button>
+      </div>
       `;
       container.appendChild(card);
     });

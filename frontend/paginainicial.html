@@ -302,7 +302,7 @@
               <thead class="bg-slate-50 border-b border-slate-200 font-bold text-slate-700 uppercase tracking-wider text-xs">
                 <tr>
                   <th class="py-3 px-3">ID Rota</th>
-                  <th class="py-3 px-3">Veículo</th>
+                  <th class="py-3 px-3">ID Arvo</th>
                   <th class="py-3 px-3">Condutor</th>
                   <th class="py-3 px-3">Trajeto</th>
                   <th class="py-3 px-3">Finalidade</th>
@@ -435,13 +435,13 @@
               <table class="w-full text-left text-xs text-slate-600">
                 <thead class="bg-slate-50 border-b border-slate-200 font-bold text-slate-700 uppercase">
                   <tr>
-                    <th class="py-3 px-3">Carro</th>
-                    <th class="py-3 px-3">Placa</th>
+                    <th class="py-3 px-3">ID Arvo</th>
                     <th class="py-3 px-3">Modelo</th>
+                    <th class="py-3 px-3">Placa</th>
                     <th class="py-3 px-3 text-center">Tanque</th>
-                    <th class="py-3 px-3 text-center">Consumo</th>
-                    <th class="py-3 px-3 text-right">KM Atual</th>
-                    <th class="py-3 px-3 text-center">Status</th>
+                    <th class="py-3 px-3">Consumo</th>
+                    <th class="py-3 px-3 text-center">KM Atual</th>
+                    <th class="py-3 px-3 text-right">Status</th>                    
                     <th class="py-3 px-3 text-center">Ações</th>
                   </tr>
                 </thead>
@@ -569,7 +569,8 @@
             <select id="edit-v-status" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold">
               <option value="Disponivel">Disponível</option>
               <option value="Em Uso">Em Uso</option>
-            </select>
+              <option value="Fora de Uso">Fora de Uso</option>
+           </select>
           </div>
         </div>
 

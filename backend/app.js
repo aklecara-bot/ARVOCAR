@@ -454,14 +454,18 @@ function formatarDataHora(dataIso) {
 
 async function handleCadVeiculo(e) {
   e.preventDefault();
+  
+  const placa = document.getElementById('cad-v-placa').value.toUpperCase().trim();
+  const idInformado = document.getElementById('cad-v-id')?.value?.toUpperCase().trim();
+
   const novoCarro = {
-    id: document.getElementById('cad-v-id').value.toUpperCase().trim(),
-    placa: document.getElementById('cad-v-placa').value.toUpperCase().trim(),
+    nome_frota: idInformado || placa,
+    placa: placa,
     marca: document.getElementById('cad-v-marca').value.trim(),
-    tanque: parseFloat(document.getElementById('cad-v-tanque').value),
-    consumo_min: parseFloat(document.getElementById('cad-v-consumomin').value),
-    consumo_max: parseFloat(document.getElementById('cad-v-consumomax').value),
-    km_atual: parseFloat(document.getElementById('cad-v-kminicial').value),
+    tanque: parseFloat(document.getElementById('cad-v-tanque').value) || 0,
+    consumo_min: parseFloat(document.getElementById('cad-v-consumomin').value) || 0,
+    consumo_max: parseFloat(document.getElementById('cad-v-consumomax').value) || 0,
+    km_atual: parseFloat(document.getElementById('cad-v-kminicial').value) || 0,
     status: 'Disponivel',
     anomalias: ''
   };
@@ -471,28 +475,40 @@ async function handleCadVeiculo(e) {
     if (error) throw error;
 
     e.target.reset();
-    alert(`Veículo ${novoCarro.id} cadastrado com sucesso!`);
+    alert(`✅ Veículo [${novoCarro.placa}] cadastrado com sucesso!`);
     await carregarTodosDadosDoBanco();
   } catch (err) {
+    console.error("Erro ao cadastrar veículo:", err);
     alert("Erro ao cadastrar veículo: " + err.message);
   }
 }
 
 function abrirModalEditVeiculo(veiculoId) {
-  const v = veiculos.find(item => item.id === veiculoId);
-  if (!v) return;
+  // Procura de forma segura pelo id, uuid_veiculos ou placa
+  const v = veiculos.find(item => 
+    String(item.id) === String(veiculoId) || 
+    String(item.uuid_veiculos) === String(veiculoId) || 
+    String(item.placa) === String(veiculoId)
+  );
 
-  document.getElementById('edit-v-id').value = v.id;
-  document.getElementById('modal-edit-v-title').innerText = v.id;
-  document.getElementById('edit-v-placa').value = v.placa;
-  document.getElementById('edit-v-marca').value = v.marca;
-  document.getElementById('edit-v-tanque').value = v.tanque;
-  document.getElementById('edit-v-consumomin').value = v.consumo_min;
-  document.getElementById('edit-v-consumomax').value = v.consumo_max;
-  document.getElementById('edit-v-kmatual').value = v.km_atual;
-  document.getElementById('edit-v-status').value = v.status;
+  if (!v) {
+    console.error("Veículo não encontrado:", veiculoId);
+    return;
+  }
+
+  // Preenche os campos do formulário
+  document.getElementById('edit-v-id').value = v.uuid_veiculos || v.id;
+  document.getElementById('modal-edit-v-title').innerText = v.placa || v.nome_frota || v.id;
+  document.getElementById('edit-v-placa').value = v.placa || '';
+  document.getElementById('edit-v-marca').value = v.marca || '';
+  document.getElementById('edit-v-tanque').value = v.tanque || 0;
+  document.getElementById('edit-v-consumomin').value = v.consumo_min || 0;
+  document.getElementById('edit-v-consumomax').value = v.consumo_max || 0;
+  document.getElementById('edit-v-kmatual').value = v.km_atual || 0;
+  document.getElementById('edit-v-status').value = v.status || 'Disponivel';
   document.getElementById('edit-v-anomalias').value = v.anomalias || '';
 
+  // Exibe a modal
   document.getElementById('modal-edit-veiculo').classList.remove('hidden');
 }
 
@@ -502,7 +518,7 @@ function fecharModalEditVeiculo() {
 
 async function handleSalvarEditVeiculo(e) {
   e.preventDefault();
-  const id = document.getElementById('edit-v-id').value;
+  const idChave = document.getElementById('edit-v-id').value;
 
   const dadosAtualizados = {
     placa: document.getElementById('edit-v-placa').value.toUpperCase().trim(),
@@ -516,31 +532,59 @@ async function handleSalvarEditVeiculo(e) {
   };
 
   try {
-    const { error } = await db.from('veiculos').update(dadosAtualizados).eq('id', id);
-    if (error) throw error;
+    // Tenta atualizar pelo 'id'
+    let { error } = await db
+      .from('veiculos')
+      .update(dadosAtualizados)
+      .eq('id', idChave);
+
+    if (error) {
+      // Caso a chave primária esteja vinculada a uuid_veiculos
+      const { error: errUuid } = await db
+        .from('veiculos')
+        .update(dadosAtualizados)
+        .eq('uuid_veiculos', idChave);
+
+      if (errUuid) throw errUuid;
+    }
 
     fecharModalEditVeiculo();
-    alert(`Veículo ${id} atualizado com sucesso!`);
+    alert(`✅ Veículo ${dadosAtualizados.placa} atualizado com sucesso!`);
     await carregarTodosDadosDoBanco();
   } catch (err) {
-    alert("Erro ao atualizar veículo: " + err.message);
+    console.error("Erro ao atualizar veículo:", err);
+    alert("Erro ao atualizar veículo: " + (err.message || 'Verifique sua conexão.'));
   }
 }
 
 async function handleApagarVeiculo(veiculoId) {
-  const confirmacao = confirm(`Tem certeza que deseja APAGAR o veículo ${veiculoId}? Esta ação não pode ser desfeita.`);
+  const confirmacao = confirm(`Tem certeza que deseja APAGAR o veículo selecionado? Esta ação não pode ser desfeita.`);
   if (!confirmacao) return;
 
   try {
-    const { error } = await db.from('veiculos').delete().eq('id', veiculoId);
-    if (error) throw error;
+    let { error } = await db.from('veiculos').delete().eq('id', veiculoId);
+    
+    if (error) {
+      const { error: errUuid } = await db.from('veiculos').delete().eq('uuid_veiculos', veiculoId);
+      if (errUuid) throw errUuid;
+    }
 
-    alert(`Veículo ${veiculoId} removido com sucesso!`);
+    alert(`✅ Veículo removido com sucesso!`);
     await carregarTodosDadosDoBanco();
   } catch (err) {
+    console.error("Erro ao excluir veículo:", err);
     alert("Erro ao excluir veículo (verifique se há rotas associadas): " + err.message);
   }
 }
+
+// =========================================================================
+// EXPOSIÇÃO GLOBAL PARA ACESSO DIRETO VIA ONCLICK DO HTML
+// =========================================================================
+window.handleCadVeiculo = handleCadVeiculo;
+window.abrirModalEditVeiculo = abrirModalEditVeiculo;
+window.fecharModalEditVeiculo = fecharModalEditVeiculo;
+window.handleSalvarEditVeiculo = handleSalvarEditVeiculo;
+window.handleApagarVeiculo = handleApagarVeiculo;
 
 // =========================================================================
 // 7. GESTÃO DE USUÁRIOS (CADASTRO, EDIÇÃO COM SENHA VISÍVEL E EXCLUSÃO)
@@ -761,7 +805,7 @@ function renderFleetGrid() {
     card.innerHTML = `
       <div>
         <div class="flex items-center justify-between mb-2">
-          <span class="text-base font-extrabold text-slate-900">${v.id}</span>
+          <span class="text-base font-extrabold text-slate-900">${v._fro}</span>
           <span class="text-[11px] px-2.5 py-0.5 rounded-full font-bold ${isEmUso ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">
             ${isEmUso ? '• Em Rota' : '• Disponível'}
           </span>
@@ -805,28 +849,41 @@ function renderTabelaVeiculosCad() {
   const tbody = document.getElementById('tabelaVeiculosCadastrados');
   if (!tbody) return;
   tbody.innerHTML = '';
+  
   veiculos.forEach(v => {
+    const nomeCarroArvo = v.nome_frota || v.id || '-';
     const isEmUso = v.status === 'Em Uso';
+    const isForaUso = v.status === 'Fora de Uso';
+    const identificador = v.uuid_veiculos || v.id;
+
+    let statusClass = 'bg-emerald-100 text-emerald-800';
+    if (isEmUso) {
+      statusClass = 'bg-amber-100 text-amber-800';
+    } else if (isForaUso) {
+      statusClass = 'bg-rose-100 text-rose-800';
+    }
+
     const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50 transition";
+    tr.className = `hover:bg-slate-50 transition ${isForaUso ? 'opacity-60 bg-slate-50' : ''}`;
+    
     tr.innerHTML = `
-      <td class="py-3 px-3 font-extrabold text-slate-900">${v.id}</td>
-      <td class="py-3 px-3 font-mono font-bold text-slate-700">${v.placa}</td>
-      <td class="py-3 px-3">${v.marca}</td>
-      <td class="py-3 px-3 text-center font-mono">${v.tanque} L</td>
-      <td class="py-3 px-3 text-center font-mono">${v.consumo_min} ~ ${v.consumo_max}</td>
-      <td class="py-3 px-3 text-right font-mono font-bold text-brand-700">${Number(v.km_atual).toLocaleString('pt-BR')} km</td>
+      <td class="py-3 px-3 font-extrabold text-slate-900">${nomeCarroArvo}</td>
+      <td class="py-3 px-3">${v.marca || '-'}</td>
+      <td class="py-3 px-3 font-mono font-bold text-slate-700">${v.placa || '-'}</td>      
+      <td class="py-3 px-3 text-center font-mono">${v.tanque || 0} L</td>
+      <td class="py-3 px-3 text-center font-mono">${v.consumo_min || 0} ~ ${v.consumo_max || 0}</td>
+      <td class="py-3 px-3 text-right font-mono font-bold text-brand-700">${Number(v.km_atual || 0).toLocaleString('pt-BR')} km</td>
       <td class="py-3 px-3 text-center">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isEmUso ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
-          ${v.status}
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${statusClass}">
+          ${v.status || 'Disponivel'}
         </span>
       </td>
       <td class="py-3 px-3 text-center">
         <div class="flex items-center justify-center gap-2">
-          <button onclick="abrirModalEditVeiculo('${v.id}')" title="Editar Veículo" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+          <button onclick="abrirModalEditVeiculo('${identificador}')" title="Editar Veículo" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition">
             <i class="ph-bold ph-pencil-simple text-sm"></i>
           </button>
-          <button onclick="handleApagarVeiculo('${v.id}')" title="Apagar Veículo" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition">
+          <button onclick="handleApagarVeiculo('${identificador}')" title="Apagar Veículo" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition">
             <i class="ph-bold ph-trash text-sm"></i>
           </button>
         </div>
@@ -834,6 +891,7 @@ function renderTabelaVeiculosCad() {
     `;
     tbody.appendChild(tr);
   });
+
   const b = document.getElementById('badge-total-carros');
   if (b) b.innerText = `${veiculos.length} carros`;
 }
@@ -872,11 +930,11 @@ function renderTabelaUsuariosCad() {
 }
 
 function renderSelectVeiculosInicio() {
-  const select = document.getElementById('form-inicio-veiculo');
+ const select = document.getElementById('form-inicio-veiculo');
   if (!select) return;
-  select.innerHTML = '<option value="">Selecione um carro da frota...</option>';
+  select.innerHTML = '<option value="">Selecione um veículo...</option>';
   veiculos.filter(v => v.status === 'Disponivel').forEach(v => {
-    select.innerHTML += `<option value="${v.id}">${v.id} - ${v.marca} [${v.placa}] (${Number(v.km_atual).toLocaleString('pt-BR')} km)</option>`;
+    select.innerHTML += `<option value="${v.placa}">${v.placa} - ${v.nome_frota} (${Number(v.km_atual).toLocaleString('pt-BR')} km)</option>`;
   });
 }
 
@@ -915,7 +973,7 @@ function selecionarRotaFim() {
     const consMax = Number(v.consumo_max) || 14;
     const medConsumo = ((consMin + consMax) / 2).toFixed(1);
 
-    document.getElementById('fim-info-veiculo').innerText = `${rota.veiculo_id} (${v.marca || 'N/D'})`;
+    document.getElementById('fim-info-veiculo').innerText = `${rota.veiculo_id} (${v.nome_frota || 'N/D'})`;
     // Ajustado para fim-info-Usuario conforme index.html
     const infoUser = document.getElementById('fim-info-Usuario') || document.getElementById('fim-info-condutor');
     if (infoUser) infoUser.innerText = rota.responsavel;
@@ -989,34 +1047,21 @@ function renderHistorico() {
     const tr = document.createElement('tr');
     tr.className = "hover:bg-slate-50 transition";
     tr.innerHTML = `
-      <td class="py-3 px-3 font-mono font-bold text-slate-800">${r.id}</td>
-      <td class="py-3 px-3 font-extrabold text-slate-700">${r.veiculo_id}</td>
+     <td class="py-3 px-3 font-mono font-bold text-slate-800">${r.id}</td>
+      <td class="py-3 px-3 font-extrabold text-slate-900 text-sm">
+        ${r.nome_frota || r.veiculo_id || '-'}
+      </td>
+      </td>
       <td class="py-3 px-3 text-slate-600">${r.responsavel}</td>
-      <td class="py-3 px-3 font-medium">
-        ${r.origem} &rarr; ${r.destino || 'Em Trânsito'}
-      </td>
+      <td class="py-3 px-3 font-medium">${r.origem} &rarr; ${r.destino || 'Em Trânsito'}</td>
       <td class="py-3 px-3 font-semibold text-slate-800">
-        <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] border border-slate-200">
-          ${r.finalidade || '-'}
-        </span>
+        <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] border border-slate-200">${r.finalidade || '-'}</span>
       </td>
-      <td class="py-3 px-3 font-mono text-[11px] text-slate-600">
-        <div>${formatarDataHora(r.data_saida)}</div>
-        <div class="text-slate-400 font-semibold">${Number(r.km_saida).toLocaleString('pt-BR')} km</div>
-      </td>
-      <td class="py-3 px-3 font-mono text-[11px] text-slate-600">
-        <div>${r.data_retorno ? formatarDataHora(r.data_retorno) : '<span class="text-amber-600 font-bold">Em trânsito</span>'}</div>
-        <div class="text-slate-400 font-semibold">${r.km_retorno ? `${Number(r.km_retorno).toLocaleString('pt-BR')} km` : '-'}</div>
-      </td>
-      <td class="py-3 px-3 text-center font-mono font-bold ${r.km_total > 0 ? 'text-brand-700' : 'text-slate-400'}">
-        ${r.status === 'Concluida' ? `${r.km_total} km` : '-'}
-      </td>
-      <td class="py-3 px-3 text-center font-mono text-slate-600 text-[11px]">
-        ${r.consumo_litros ? `${r.consumo_litros} L` : '-'}
-      </td>
-      <td class="py-3 px-3 max-w-xs">
-        ${r.anomalia ? `<span class="text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded text-[11px] font-medium">${r.anomalia}</span>` : '<span class="text-slate-400">-</span>'}
-      </td>
+      <td class="py-3 px-3 font-mono text-[11px] text-slate-600">${formatarDataHora(r.data_saida)}</td>
+      <td class="py-3 px-3 font-mono text-[11px] text-slate-600">${r.data_retorno ? formatarDataHora(r.data_retorno) : '<span class="text-amber-600 font-bold">Em trânsito</span>'}</td>
+      <td class="py-3 px-3 text-center font-mono font-bold">${r.km_total ? `${r.km_total} km` : '-'}</td>
+      <td class="py-3 px-3 text-center font-mono text-slate-600 text-[11px]">${r.consumo_litros ? `${r.consumo_litros} L` : '-'}</td>
+      <td class="py-3 px-3 max-w-xs">${r.anomalia ? `<span class="text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded text-[11px] font-medium">${r.anomalia}</span>` : '<span class="text-slate-400">-</span>'}</td>
       <td class="py-3 px-3 text-center">
         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Concluida' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}">
           ${r.status}
