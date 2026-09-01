@@ -77,6 +77,7 @@
       const localPosto = document.getElementById('abast-local').value.trim();
       const litros = parseFloat(document.getElementById('abast-litros').value);
       const precoLitro = parseFloat(document.getElementById('abast-preco-litro').value);
+      const tipo_combustivel = document.getElementById('abast-tipo')?.value || 'Gasolina Comum';
       const valorTotal = Number((litros * precoLitro).toFixed(2));
       const fileInput = document.getElementById('abast-foto');
       const arquivoFoto = fileInput.files[0];
