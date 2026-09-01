@@ -1,19 +1,20 @@
 // =========================================================================
-// MÓDULO: OPERAÇÃO MOBILE DE ROTAS - SUPORTE OFFLINE ARVO
+// MÓDULO: OPERAÇÃO MOBILE DE ROTAS - SUPORTE OFFLINE ARVO 2026
 // =========================================================================
 const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
+const ADMIN_EMAIL = "admin@arvo.tec.br";
 
 const db = window.db || (window.supabase && typeof window.supabase.createClient === 'function'
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+  : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } }));
 
 let usuarioLogado = null;
 let veiculos = [];
 let rotas = [];
 
 // =========================================================================
-// SESSÃO E FILA LOCAL (OFFLINE QUEUE)
+// CONTROLE DE SESSÃO E LOGIN (ONLINE E OFFLINE)
 // =========================================================================
 function obterSessaoAtiva() {
   const sessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
@@ -28,6 +29,24 @@ function salvarSessaoUnificada(usuario) {
   const dados = JSON.stringify(usuario);
   localStorage.setItem('arvo_mobile_user', dados);
   localStorage.setItem('arvo_usuario_logado', dados);
+}
+
+function salvarCredenciaisOffline(email, senha, dadosUsuario) {
+  const creds = JSON.parse(localStorage.getItem('arvo_creds_cache') || '{}');
+  creds[email] = {
+    senha: senha,
+    usuario: dadosUsuario
+  };
+  localStorage.setItem('arvo_creds_cache', JSON.stringify(creds));
+}
+
+function validarCredenciaisOffline(email, senha) {
+  const creds = JSON.parse(localStorage.getItem('arvo_creds_cache') || '{}');
+  const conta = creds[email];
+  if (conta && conta.senha === senha) {
+    return conta.usuario;
+  }
+  return null;
 }
 
 function toggleSenhaMobile() {
@@ -65,28 +84,41 @@ async function handleMobileLogin(e) {
 
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Entrando...`;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Autenticando...`;
   }
 
   try {
-    // Se offline, tenta autenticar com a última sessão local
+    // 1. SE ESTIVER OFFLINE, VALIDA NA BASE LOCAL
     if (!navigator.onLine) {
-      const sessaoLocal = obterSessaoAtiva();
-      if (sessaoLocal && sessaoLocal.email === email) {
-        usuarioLogado = sessaoLocal;
+      const usuarioOff = validarCredenciaisOffline(email, senha);
+      if (usuarioOff) {
+        usuarioLogado = usuarioOff;
+        salvarSessaoUnificada(usuarioLogado);
         iniciarAppMobile();
         return;
       }
-      throw new Error("Sem conexão com a internet para validar novo login.");
+      throw new Error("Acesso offline indisponível para este usuário. Conecte-se à internet no primeiro login.");
     }
 
+    // 2. SE ESTIVER ONLINE, VALIDA NO SUPABASE
     const { data, error } = await db
       .from('usuarios')
       .select('*')
       .eq('email', email)
       .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      // Fallback: Se der erro de timeout/rede, tenta validação offline
+      const usuarioOff = validarCredenciaisOffline(email, senha);
+      if (usuarioOff) {
+        usuarioLogado = usuarioOff;
+        salvarSessaoUnificada(usuarioLogado);
+        iniciarAppMobile();
+        return;
+      }
+      throw new Error("Falha na conexão com o banco de dados.");
+    }
+
     if (!data) throw new Error("Usuário não cadastrado.");
     if (String(data.senha).trim() !== senha) throw new Error("Senha incorreta.");
     if (data.status && data.status.toLowerCase() === 'inativo') {
@@ -101,7 +133,9 @@ async function handleMobileLogin(e) {
     };
 
     salvarSessaoUnificada(usuarioLogado);
+    salvarCredenciaisOffline(email, senha, usuarioLogado);
     iniciarAppMobile();
+
   } catch (err) {
     console.error("Erro no login mobile:", err);
     if (erroMsg) erroMsg.innerText = err.message || "E-mail ou senha inválidos.";
@@ -163,7 +197,6 @@ function switchMobileTab(tab) {
 // CARREGAMENTO DE DADOS COM CACHE LOCAL
 // =========================================================================
 async function carregarDadosMobile() {
-  // 1. Tenta carregar do Cache Local primeiro
   const veiculosCache = localStorage.getItem('arvo_cache_veiculos');
   const rotasCache = localStorage.getItem('arvo_cache_rotas');
 
@@ -174,7 +207,6 @@ async function carregarDadosMobile() {
   renderizarOpcoesRotasAtivas();
   renderizarHistoricoMobile();
 
-  // 2. Se houver internet, atualiza os dados do Supabase
   if (navigator.onLine) {
     try {
       const { data: dadosV } = await db.from('veiculos').select('*').neq('status', 'Fora de Uso').order('nome_frota');
@@ -186,13 +218,15 @@ async function carregarDadosMobile() {
 
       const { data: dadosR } = await db.from('rotas').select('*').order('data_saida', { ascending: false });
       if (dadosR) {
-        rotas = dadosR;
-        localStorage.setItem('arvo_cache_rotas', JSON.stringify(dadosR));
+        // Mantém rotas offline pendentes não sincronizadas no topo
+        const pendentes = rotas.filter(r => String(r.id).startsWith('temp_'));
+        rotas = [...pendentes, ...dadosR.filter(r => !pendentes.some(p => p.id === r.id))];
+        localStorage.setItem('arvo_cache_rotas', JSON.stringify(rotas));
         renderizarOpcoesRotasAtivas();
         renderizarHistoricoMobile();
       }
     } catch (err) {
-      console.warn("Modo offline ativo: usando dados em cache.");
+      console.warn("Sem conexão: utilizando dados de veículos e rotas salvos localmente.");
     }
   }
 }
@@ -289,7 +323,7 @@ async function handleMobileInicioRota(e) {
   const selectOrigem = document.getElementById('m-inicio-origem')?.value;
   const outroOrigem = document.getElementById('m-inicio-origem-outro')?.value?.trim();
   const origemFinal = selectOrigem === 'OUTRO' ? outroOrigem : selectOrigem;
-  const finalidade = document.getElementById('res-finalidade')?.value;
+  const finalidade = document.getElementById('res-finalidade')?.value || document.getElementById('m-inicio-finalidade')?.value || 'MONITORAMENTO';
   const kmSaida = Number(document.getElementById('m-inicio-km')?.value || veiculo.km_atual || 0);
 
   if (!origemFinal) {
@@ -317,13 +351,13 @@ async function handleMobileInicioRota(e) {
     offline_sync: !navigator.onLine
   };
 
-  // Se estiver sem internet, enfileira localmente
+  // Se estiver sem internet, registra localmente e atualiza memória
   if (!navigator.onLine) {
     salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadRota });
     rotas.unshift(payloadRota);
     veiculo.status = 'Em Uso';
     salvarCachesLocais();
-    alert(`📶 Rota iniciada em Modo Offline! Será sincronizada assim que a internet voltar.`);
+    alert(`📶 Rota iniciada Offline! Será sincronizada quando o sinal voltar.`);
     e.target.reset();
     renderizarOpcoesVeiculos();
     renderizarOpcoesRotasAtivas();
@@ -351,7 +385,7 @@ async function handleMobileInicioRota(e) {
     await carregarDadosMobile();
     switchMobileTab('finalizar');
   } catch (err) {
-    console.warn("Falha de envio, salvando na fila offline:", err);
+    console.warn("Falha de rede, salvando na fila offline:", err);
     payloadRota.id = tempId;
     salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadRota });
     rotas.unshift(payloadRota);
@@ -390,8 +424,10 @@ function selecionarRotaFimMobile() {
   const inputKm = document.getElementById('m-fim-km');
 
   if (rota) {
-    document.getElementById('m-info-veiculo').innerText = `${rota.veiculo_id} (${rota.placa || '-'})`;
-    document.getElementById('m-info-kmsaida').innerText = `${Number(rota.km_saida).toLocaleString('pt-BR')} km`;
+    const elVeiculo = document.getElementById('m-info-veiculo');
+    const elKm = document.getElementById('m-info-kmsaida');
+    if (elVeiculo) elVeiculo.innerText = `${rota.veiculo_id} (${rota.placa || '-'})`;
+    if (elKm) elKm.innerText = `${Number(rota.km_saida).toLocaleString('pt-BR')} km`;
     if (inputKm) {
       inputKm.min = rota.km_saida;
       inputKm.value = rota.km_saida;
@@ -407,7 +443,7 @@ function calcularKmPercorridoMobile() {
   const rotaId = document.getElementById('m-fim-rota-select')?.value;
   const rota = rotas.find(r => String(r.id) === String(rotaId));
   const inputKm = document.getElementById('m-fim-km');
-  const txtPercorrido = document.getElementById('m-info-percorrido');
+  const txtPercorrido = document.getElementById('m-info-percorrido') || document.getElementById('m-km-feedback');
 
   if (rota && inputKm && txtPercorrido) {
     const kmFim = Number(inputKm.value) || 0;
@@ -455,19 +491,21 @@ async function handleMobileFimRota(e) {
     anomalia: anomaliaMarcada ? (relatorioAnomalia || 'Anomalia sem detalhes') : null
   };
 
-  // Modo offline para finalização
+  // Se estiver offline ou a rota for um ID temporário
   if (!navigator.onLine || String(rota.id).startsWith('temp_')) {
     salvarNaFilaRotas({ tipo: 'FIM', payload: payloadFim });
     rota.status = 'Concluida';
     rota.km_total = kmTotal;
     rota.data_retorno = payloadFim.data_retorno;
+    rota.destino = destinoFinal;
+
     const v = veiculos.find(ve => ve.nome_frota === rota.veiculo_id || ve.id === rota.veiculo_id);
     if (v) {
       v.km_atual = kmRetorno;
       v.status = 'Disponivel';
     }
     salvarCachesLocais();
-    alert(`📶 Rota encerrada Offline! Será sincronizada quando o sinal retornar.`);
+    alert(`📶 Rota encerrada Offline! Será sincronizada quando houver conexão.`);
     e.target.reset();
     renderizarHistoricoMobile();
     renderizarOpcoesRotasAtivas();
@@ -481,10 +519,23 @@ async function handleMobileFimRota(e) {
   }
 
   try {
-    const { error: errRota } = await db.from('rotas').update(payloadFim).eq('id', rota.id);
+    const { error: errRota } = await db.from('rotas').update({
+      destino: destinoFinal,
+      km_retorno: kmRetorno,
+      km_total: kmTotal,
+      data_retorno: payloadFim.data_retorno,
+      status: 'Concluida',
+      anomalia: payloadFim.anomalia
+    }).eq('id', rota.id);
     if (errRota) throw errRota;
 
     await db.from('veiculos').update({ km_atual: kmRetorno, status: 'Disponivel' }).eq('id', rota.veiculo_id);
+
+    // Encerra eventual reserva confirmada vinculada ao veículo e motorista
+    await db.from('reservas').update({ status: 'CONCLUIDA' })
+      .eq('veiculo_id', rota.veiculo_id)
+      .eq('responsavel', rota.responsavel)
+      .eq('status', 'CONFIRMADA');
 
     alert(`✅ Rota concluída com sucesso! Distância: ${kmTotal} km.`);
     e.target.reset();
@@ -526,21 +577,39 @@ async function sincronizarFilaRotas() {
   const fila = JSON.parse(localStorage.getItem('arvo_sync_rotas_queue') || '[]');
   if (fila.length === 0) return;
 
-  console.log(`-> Sincronizando ${fila.length} itens pendentes de rotas...`);
   const itensRestantes = [];
 
   for (const item of fila) {
     try {
       if (item.tipo === 'INICIO') {
         const payload = { ...item.payload };
+        const tempId = payload.id;
         delete payload.id;
         delete payload.offline_sync;
-        await db.from('rotas').insert([payload]);
+
+        const { data: rotaCriada, error: errInsert } = await db.from('rotas').insert([payload]).select().single();
+        if (errInsert) throw errInsert;
+
         await db.from('veiculos').update({ status: 'Em Uso' }).eq('id', payload.veiculo_id);
+
+        // Atualiza referências de 'temp_' para o ID oficial gerado no Supabase
+        fila.forEach(outroItem => {
+          if (outroItem.tipo === 'FIM' && outroItem.payload.rota_id === tempId) {
+            outroItem.payload.rota_id = rotaCriada.id;
+          }
+        });
       } else if (item.tipo === 'FIM') {
         const { rota_id, ...dadosFim } = item.payload;
         if (!String(rota_id).startsWith('temp_')) {
           await db.from('rotas').update(dadosFim).eq('id', rota_id);
+          if (dadosFim.km_retorno) {
+            const rota = rotas.find(r => r.id === rota_id);
+            if (rota) {
+              await db.from('veiculos').update({ km_atual: dadosFim.km_retorno, status: 'Disponivel' }).eq('id', rota.veiculo_id);
+            }
+          }
+        } else {
+          itensRestantes.push(item);
         }
       }
     } catch (e) {
@@ -551,12 +620,12 @@ async function sincronizarFilaRotas() {
 
   localStorage.setItem('arvo_sync_rotas_queue', JSON.stringify(itensRestantes));
   if (itensRestantes.length === 0) {
-    console.log("-> Sincronização concluída com sucesso!");
+    console.log("-> Sincronização offline concluída com sucesso!");
     await carregarDadosMobile();
   }
 }
 
-// Monitora volta da conexão
+// Escuta retorno de rede
 window.addEventListener('online', sincronizarFilaRotas);
 
 function renderizarHistoricoMobile() {
@@ -601,7 +670,7 @@ function renderizarHistoricoMobile() {
   });
 }
 
-// Inicialização
+// Inicialização automática
 document.addEventListener('DOMContentLoaded', () => {
   const sessao = obterSessaoAtiva();
   if (sessao) {
@@ -610,7 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Bindings Globais
+// Exportações Globais
 window.toggleSenhaMobile = toggleSenhaMobile;
 window.handleMobileLogin = handleMobileLogin;
 window.handleMobileLogout = handleMobileLogout;
