@@ -24,7 +24,52 @@ const coresCarros = {
 };
 
 // =========================================================================
-// INICIALIZAÇÃO SEGURA
+// FUNÇÕES AUXILIARES DE FORMATAÇÃO E PARSE SEGURO DE DATAS (SEM BUG DE FUSO)
+// =========================================================================
+
+/**
+ * Cria uma data no fuso local sem conversão prematura para UTC.
+ * Evita que '2026-09-15' caia em 14/09 21:00.
+ */
+function parseDataLocal(dataStr, horaStr = '00:00:00') {
+  if (!dataStr) return new Date();
+  const [ano, mes, dia] = dataStr.split('T')[0].split('-').map(Number);
+  const [hora, min, sec] = horaStr.split(':').map(n => Number(n) || 0);
+  return new Date(ano, mes - 1, dia, hora, min, sec);
+}
+
+/**
+ * Formata strings ISO ou YYYY-MM-DD para exibição em pt-BR (DD/MM/AAAA HH:mm)
+ */
+function formatarDataHora(dataIso) {
+  if (!dataIso) return '-';
+  const data = new Date(dataIso);
+  if (isNaN(data.getTime())) return dataIso;
+  return data.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+/**
+ * Formata apenas a data (DD/MM/AAAA) sem sofrer deslocamento de fuso
+ */
+function formatarApenasData(dataStr) {
+  if (!dataStr) return '-';
+  const limpo = dataStr.split('T')[0];
+  const partes = limpo.split('-');
+  if (partes.length === 3) {
+    const [ano, mes, dia] = partes;
+    return `${dia}/${mes}/${ano}`;
+  }
+  return new Date(dataStr).toLocaleDateString('pt-BR');
+}
+
+// =========================================================================
+// 1. INICIALIZAÇÃO
 // =========================================================================
 async function initReservasMobile() {
   try {
@@ -36,7 +81,7 @@ async function initReservasMobile() {
         usuarioLogado = { email: sessaoStr, nome: sessaoStr };
       }
 
-      const userDisplay = document.getElementById('user-display') || document.getElementById('m-top-username');
+      const userDisplay = document.getElementById('user-display') || document.getElementById('m-top-username') || document.getElementById('m-user-label');
       if (userDisplay && usuarioLogado) {
         userDisplay.innerText = `${usuarioLogado.nome || usuarioLogado.email || 'Condutor'}`;
       }
@@ -45,12 +90,28 @@ async function initReservasMobile() {
     console.warn("Aviso na leitura da sessão:", err);
   }
 
-  // Preenche datas padrão (Hoje)
-  const hojeStr = new Date().toISOString().split('T')[0];
-  const inputDtIni = document.getElementById('res-data-inicio');
-  const inputDtFim = document.getElementById('res-data-fim');
+  // Preenche datas padrão com o dia de hoje no fuso local
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+  const dia = String(hoje.getDate()).padStart(2, '0');
+  const hojeStr = `${ano}-${mes}-${dia}`;
+
+  const inputDtIni = document.getElementById('res-data-inicio') || document.getElementById('m-res-data-inicio');
+  const inputDtFim = document.getElementById('res-data-fim') || document.getElementById('m-res-data-fim');
   if (inputDtIni) inputDtIni.value = hojeStr;
   if (inputDtFim) inputDtFim.value = hojeStr;
+
+  // Recalcular Semanas/Mês caso o usuário altere a data inicial
+  if (inputDtIni) {
+    inputDtIni.addEventListener('change', () => {
+      const tipoSel = document.getElementById('res-tipo') || document.getElementById('m-res-tipo');
+      if (tipoSel) ajustarCamposModalidade(tipoSel.value);
+    });
+  }
+
+  const tipoIni = document.getElementById('res-tipo') || document.getElementById('m-res-tipo');
+  if (tipoIni) ajustarCamposModalidade(tipoIni.value);
 
   await carregarVeiculosReservas();
   await carregarHistoricoReservas();
@@ -59,7 +120,7 @@ async function initReservasMobile() {
 }
 
 // =========================================================================
-// CONTROLE DE NAVEGAÇÃO DE ABAS SUPERIORES (NOVO / CALENDÁRIO)
+// 2. CONTROLE DE ABAS (NOVO / CALENDÁRIO)
 // =========================================================================
 function trocarAba(aba) {
   const viewNovo = document.getElementById('view-novo');
@@ -72,7 +133,7 @@ function trocarAba(aba) {
     if (viewCal) viewCal.classList.add('hidden');
 
     if (btnNovo) {
-      btnNovo.className = "flex-1 py-2.5 text-center font-bold text-emerald-400 border-b-2 border-emerald-400 flex items-center justify-center gap-1.5 transition";
+      btnNovo.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
     }
     if (btnCal) {
       btnCal.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
@@ -82,13 +143,12 @@ function trocarAba(aba) {
     if (viewCal) viewCal.classList.remove('hidden');
 
     if (btnCal) {
-      btnCal.className = "flex-1 py-2.5 text-center font-bold text-emerald-400 border-b-2 border-emerald-400 flex items-center justify-center gap-1.5 transition";
+      btnCal.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
     }
     if (btnNovo) {
       btnNovo.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
     }
 
-    // Recalcula tamanho do FullCalendar ao ficar visível
     setTimeout(() => {
       if (calendar) {
         calendar.updateSize();
@@ -101,7 +161,7 @@ function trocarAba(aba) {
 }
 
 // =========================================================================
-// CARREGAMENTO DE VEÍCULOS (CACHE FIRST)
+// 3. CARREGAMENTO DE VEÍCULOS
 // =========================================================================
 async function carregarVeiculosReservas() {
   const sel = document.getElementById('res-veiculo') || document.getElementById('m-res-veiculo');
@@ -143,68 +203,86 @@ function renderSelectVeiculos(sel) {
 }
 
 // =========================================================================
-// FULLCALENDAR MOBILE
+// 4. DIFERENCIAÇÃO DE MODALIDADES (HORAS, TURNO, DIAS, SEMANAS, MÊS)
 // =========================================================================
-function initCalendario() {
-  const calendarEl = document.getElementById('calendar');
-  if (!calendarEl || typeof FullCalendar === 'undefined') return;
+function ajustarCamposModalidade(tipo) {
+  const boxHoras = document.getElementById('box-horas') || document.getElementById('box-horas-mobile');
+  const boxTurno = document.getElementById('box-turno') || document.getElementById('box-turno-mobile');
+  const boxDataFim = document.getElementById('box-data-fim') || document.getElementById('box-data-fim-mobile');
+  const inputDtIni = document.getElementById('res-data-inicio') || document.getElementById('m-res-data-inicio');
+  const inputDtFim = document.getElementById('res-data-fim') || document.getElementById('m-res-data-fim');
 
-  calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: 'dayGridMonth',
-    locale: 'pt-br',
-    height: 'auto',
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: 'dayGridMonth,listMonth'
-    },
-    buttonText: {
-      today: 'Hoje',
-      month: 'Mês',
-      list: 'Lista'
-    },
-    events: function(fetchInfo, successCallback, failureCallback) {
-      const eventos = listaReservas.map(r => {
-        const veic = (veiculosReserva || []).find(v =>
-          String(v.placa) === String(r.veiculo_id) ||
-          String(v.id) === String(r.veiculo_id) ||
-          String(v.nome_frota) === String(r.veiculo_id) ||
-          String(v.uuid_veiculos) === String(r.uuid_veiculos || r.veiculo_id)
-        );
+  if (boxHoras) boxHoras.classList.add('hidden');
+  if (boxTurno) boxTurno.classList.add('hidden');
+  if (boxDataFim) boxDataFim.classList.remove('hidden');
+  if (inputDtFim) inputDtFim.readOnly = false;
 
-        const nomeFrotaExibicao = veic?.nome_frota || r.nome_frota || r.veiculo_id || 'ARVO';
+  const dtBase = inputDtIni && inputDtIni.value ? parseDataLocal(inputDtIni.value) : new Date();
 
-        return {
-          id: String(r.id),
-          title: `${nomeFrotaExibicao} - ${(r.responsavel || '').split('@')[0]}`,
-          start: r.data_inicio,
-          end: r.data_fim,
-          backgroundColor: coresCarros[nomeFrotaExibicao] || coresCarros[r.veiculo_id] || coresCarros.DEFAULT,
-          borderColor: coresCarros[nomeFrotaExibicao] || coresCarros[r.veiculo_id] || coresCarros.DEFAULT,
-          extendedProps: {
-            responsavel: r.responsavel,
-            finalidade: r.finalidade,
-            veiculo: nomeFrotaExibicao
-          }
-        };
-      });
-      successCallback(eventos);
-    },
-    eventClick: function(info) {
-      const p = info.event.extendedProps;
-      alert(`🚗 Reserva: ${p.veiculo}\n👤 Condutor: ${p.responsavel}\n🎯 Finalidade: ${p.finalidade}\n📅 Início: ${new Date(info.event.start).toLocaleString('pt-BR')}\n📅 Fim: ${new Date(info.event.end).toLocaleString('pt-BR')}`);
-    }
-  });
+  switch (tipo) {
+    case 'HORAS':
+      if (boxHoras) boxHoras.classList.remove('hidden');
+      if (boxDataFim) boxDataFim.classList.add('hidden');
+      if (inputDtFim && inputDtIni) inputDtFim.value = inputDtIni.value;
+      break;
 
-  calendar.render();
+    case 'TURNO':
+      if (boxTurno) boxTurno.classList.remove('hidden');
+      if (boxDataFim) boxDataFim.classList.add('hidden');
+      if (inputDtFim && inputDtIni) inputDtFim.value = inputDtIni.value;
+      break;
+
+    case 'SEMANAS':
+      // 7 dias a partir da data de início escolhida
+      if (inputDtIni && inputDtFim && inputDtIni.value) {
+        const dataFimSemana = new Date(dtBase);
+        dataFimSemana.setDate(dataFimSemana.getDate() + 6);
+
+        const a = dataFimSemana.getFullYear();
+        const m = String(dataFimSemana.getMonth() + 1).padStart(2, '0');
+        const d = String(dataFimSemana.getDate()).padStart(2, '0');
+
+        inputDtFim.value = `${a}-${m}-${d}`;
+        inputDtFim.readOnly = true;
+      }
+      break;
+
+    case 'MES':
+      // Do dia 1 ao último dia do mês (28, 29, 30 ou 31)
+      if (inputDtIni && inputDtFim && inputDtIni.value) {
+        const ano = dtBase.getFullYear();
+        const mesIndex = dtBase.getMonth();
+
+        const primeiroDia = new Date(ano, mesIndex, 1);
+        const ultimoDia = new Date(ano, mesIndex + 1, 0);
+
+        const a1 = primeiroDia.getFullYear();
+        const m1 = String(primeiroDia.getMonth() + 1).padStart(2, '0');
+        const d1 = String(primeiroDia.getDate()).padStart(2, '0');
+
+        const a2 = ultimoDia.getFullYear();
+        const m2 = String(ultimoDia.getMonth() + 1).padStart(2, '0');
+        const d2 = String(ultimoDia.getDate()).padStart(2, '0');
+
+        inputDtIni.value = `${a1}-${m1}-${d1}`;
+        inputDtFim.value = `${a2}-${m2}-${d2}`;
+        inputDtFim.readOnly = true;
+      }
+      break;
+
+    case 'DIAS':
+    default:
+      if (inputDtFim) inputDtFim.readOnly = false;
+      break;
+  }
 }
 
 // =========================================================================
-// GRAVAÇÃO DE RESERVAS (ONLINE & OFFLINE)
+// 5. GRAVAÇÃO DE RESERVAS COM PARSE SEGURO
 // =========================================================================
 async function salvarReservaMobile(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
-  const btn = document.getElementById('btn-submit') || document.getElementById('btn-salvar-reserva');
+  const btn = document.getElementById('btn-submit') || document.getElementById('btn-salvar-reserva') || document.getElementById('btn-m-salvar-res');
 
   const selVeiculo = document.getElementById('res-veiculo') || document.getElementById('m-res-veiculo');
   const opt = selVeiculo ? selVeiculo.options[selVeiculo.selectedIndex] : null;
@@ -217,13 +295,84 @@ async function salvarReservaMobile(e) {
 
   const uuid_veiculos = opt?.dataset?.uuid || null;
   const placa = opt?.dataset?.placa || null;
-  const finalidade = (document.getElementById('res-finalidade')?.value || 'DEMANDAS INTERNAS').trim();
-  const tipo_reserva = document.getElementById('res-tipo')?.value || 'DIAS';
-  const data_inicio = document.getElementById('res-data-inicio')?.value;
-  const data_fim = document.getElementById('res-data-fim')?.value;
+  const finalidade = (document.getElementById('res-finalidade')?.value || document.getElementById('m-res-finalidade')?.value || 'DEMANDAS INTERNAS').trim();
+  const tipo_reserva = document.getElementById('res-tipo')?.value || document.getElementById('m-res-tipo')?.value || 'DIAS';
+  const dtInicioStr = document.getElementById('res-data-inicio')?.value || document.getElementById('m-res-data-inicio')?.value;
+  let dtFimStr = document.getElementById('res-data-fim')?.value || document.getElementById('m-res-data-fim')?.value || dtInicioStr;
 
-  if (!data_inicio || !data_fim) {
-    alert("Informe o período do agendamento.");
+  if (!dtInicioStr) {
+    alert("Informe a data de início do agendamento.");
+    return;
+  }
+
+  let dInicio, dFim;
+
+  if (tipo_reserva === 'HORAS') {
+    const hIni = document.getElementById('res-hora-inicio')?.value || document.getElementById('m-res-hora-inicio')?.value || '08:00';
+    const hFim = document.getElementById('res-hora-fim')?.value || document.getElementById('m-res-hora-fim')?.value || '12:00';
+    dInicio = parseDataLocal(dtInicioStr, `${hIni}:00`);
+    dFim = parseDataLocal(dtInicioStr, `${hFim}:00`);
+  } else if (tipo_reserva === 'TURNO') {
+    const turno = document.getElementById('res-turno-sel')?.value || document.getElementById('m-res-turno-sel')?.value || 'MANHA';
+    if (turno === 'MANHA') {
+      dInicio = parseDataLocal(dtInicioStr, '07:00:00');
+      dFim = parseDataLocal(dtInicioStr, '12:00:00');
+    } else if (turno === 'TARDE') {
+      dInicio = parseDataLocal(dtInicioStr, '13:00:00');
+      dFim = parseDataLocal(dtInicioStr, '18:00:00');
+    } else {
+      dInicio = parseDataLocal(dtInicioStr, '18:00:00');
+      const dSeg = parseDataLocal(dtInicioStr);
+      dSeg.setDate(dSeg.getDate() + 1);
+      const a = dSeg.getFullYear();
+      const m = String(dSeg.getMonth() + 1).padStart(2, '0');
+      const d = String(dSeg.getDate()).padStart(2, '0');
+      dFim = parseDataLocal(`${a}-${m}-${d}`, '06:00:00');
+    }
+  } else if (tipo_reserva === 'SEMANAS') {
+    dInicio = parseDataLocal(dtInicioStr, '00:00:00');
+    const dFimSem = parseDataLocal(dtInicioStr);
+    dFimSem.setDate(dFimSem.getDate() + 6);
+    const a = dFimSem.getFullYear();
+    const m = String(dFimSem.getMonth() + 1).padStart(2, '0');
+    const d = String(dFimSem.getDate()).padStart(2, '0');
+    dFim = parseDataLocal(`${a}-${m}-${d}`, '23:59:59');
+  } else if (tipo_reserva === 'MES') {
+    const base = parseDataLocal(dtInicioStr);
+    const primDia = new Date(base.getFullYear(), base.getMonth(), 1);
+    const ultDia = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+
+    const a1 = primDia.getFullYear();
+    const m1 = String(primDia.getMonth() + 1).padStart(2, '0');
+    const d1 = String(primDia.getDate()).padStart(2, '0');
+
+    const a2 = ultDia.getFullYear();
+    const m2 = String(ultDia.getMonth() + 1).padStart(2, '0');
+    const d2 = String(ultDia.getDate()).padStart(2, '0');
+
+    dInicio = parseDataLocal(`${a1}-${m1}-${d1}`, '00:00:00');
+    dFim = parseDataLocal(`${a2}-${m2}-${d2}`, '23:59:59');
+  } else {
+    // DIAS
+    dInicio = parseDataLocal(dtInicioStr, '00:00:00');
+    dFim = parseDataLocal(dtFimStr, '23:59:59');
+  }
+
+  if (dFim <= dInicio) {
+    alert("A data e hora de término deve ser posterior ao início da reserva.");
+    return;
+  }
+
+  // Validação de Conflito de Agendamentos
+  const conflito = listaReservas.some(r => {
+    if (String(r.veiculo_id) !== String(veiculo_id)) return false;
+    const rIni = new Date(r.data_inicio).getTime();
+    const rFim = new Date(r.data_fim).getTime();
+    return (dInicio.getTime() < rFim && dFim.getTime() > rIni);
+  });
+
+  if (conflito) {
+    alert(`❌ O veículo ${veiculo_id} já está reservado neste período por outro condutor.`);
     return;
   }
 
@@ -241,8 +390,9 @@ async function salvarReservaMobile(e) {
     responsavel: (usuarioLogado && usuarioLogado.email) ? usuarioLogado.email : 'admin@arvo.tec.br',
     finalidade,
     tipo_reserva,
-    data_inicio: new Date(data_inicio).toISOString(),
-    data_fim: new Date(data_fim).toISOString(),
+    data_inicio: dInicio.toISOString(),
+    data_fim: dFim.toISOString(),
+    observacao: (document.getElementById('res-obs')?.value || document.getElementById('m-res-obs')?.value || '').trim(),
     status: 'CONFIRMADA'
   };
 
@@ -287,8 +437,18 @@ async function salvarReservaMobile(e) {
 }
 
 function limparFormularioReserva() {
-  const form = document.getElementById('form-reserva');
+  const form = document.getElementById('form-reserva') || document.getElementById('formReservaMobile');
   if (form) form.reset();
+
+  const hoje = new Date();
+  const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+
+  const inputDtIni = document.getElementById('res-data-inicio') || document.getElementById('m-res-data-inicio');
+  const inputDtFim = document.getElementById('res-data-fim') || document.getElementById('m-res-data-fim');
+  if (inputDtIni) inputDtIni.value = hojeStr;
+  if (inputDtFim) inputDtFim.value = hojeStr;
+
+  ajustarCamposModalidade('DIAS');
 }
 
 function salvarFilaReserva(item) {
@@ -322,7 +482,7 @@ async function sincronizarFilaReservas() {
 window.addEventListener('online', sincronizarFilaReservas);
 
 // =========================================================================
-// CARREGAR HISTÓRICO & PRÓXIMOS AGENDAMENTOS
+// 6. HISTÓRICO & CALENDÁRIO
 // =========================================================================
 async function carregarHistoricoReservas() {
   const localRes = localStorage.getItem('arvo_cache_reservas');
@@ -353,8 +513,8 @@ async function carregarHistoricoReservas() {
 }
 
 function renderHistoricoCards() {
-  const container = document.getElementById('lista-reservas');
-  const badge = document.getElementById('badge-total-reservas');
+  const container = document.getElementById('lista-reservas') || document.getElementById('lista-reservas-mobile') || document.getElementById('m-lista-reservas');
+  const badge = document.getElementById('badge-total-reservas') || document.getElementById('m-badge-reservas');
   if (!container) return;
 
   if (badge) badge.innerText = `${listaReservas.length} reservas`;
@@ -370,8 +530,10 @@ function renderHistoricoCards() {
 
   listaReservas.forEach(r => {
     const ehDono = (usuarioLogado?.email || '').toLowerCase() === (r.responsavel || '').toLowerCase();
-    const dataIni = new Date(r.data_inicio).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    const dataFim = new Date(r.data_fim).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    
+    // Formatação de data/hora segura
+    const dataIni = formatarDataHora(r.data_inicio);
+    const dataFim = formatarDataHora(r.data_fim);
 
     const veic = (veiculosReserva || []).find(v =>
       String(v.id) === String(r.veiculo_id) ||
@@ -419,6 +581,60 @@ function renderHistoricoCards() {
   }
 }
 
+function initCalendario() {
+  const calendarEl = document.getElementById('calendar');
+  if (!calendarEl || typeof FullCalendar === 'undefined') return;
+
+  calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    locale: 'pt-br',
+    height: 'auto',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,listMonth'
+    },
+    buttonText: {
+      today: 'Hoje',
+      month: 'Mês',
+      list: 'Lista'
+    },
+    events: function(fetchInfo, successCallback, failureCallback) {
+      const eventos = listaReservas.map(r => {
+        const veic = (veiculosReserva || []).find(v =>
+          String(v.placa) === String(r.veiculo_id) ||
+          String(v.id) === String(r.veiculo_id) ||
+          String(v.nome_frota) === String(r.veiculo_id) ||
+          String(v.uuid_veiculos) === String(r.uuid_veiculos || r.veiculo_id)
+        );
+
+        const nomeFrotaExibicao = veic?.nome_frota || r.nome_frota || r.veiculo_id || 'ARVO';
+
+        return {
+          id: String(r.id),
+          title: `${nomeFrotaExibicao} - ${(r.responsavel || '').split('@')[0]}`,
+          start: r.data_inicio,
+          end: r.data_fim,
+          backgroundColor: coresCarros[nomeFrotaExibicao] || coresCarros[r.veiculo_id] || coresCarros.DEFAULT,
+          borderColor: coresCarros[nomeFrotaExibicao] || coresCarros[r.veiculo_id] || coresCarros.DEFAULT,
+          extendedProps: {
+            responsavel: r.responsavel,
+            finalidade: r.finalidade,
+            veiculo: nomeFrotaExibicao
+          }
+        };
+      });
+      successCallback(eventos);
+    },
+    eventClick: function(info) {
+      const p = info.event.extendedProps;
+      alert(`🚗 Reserva: ${p.veiculo}\n👤 Condutor: ${p.responsavel}\n🎯 Finalidade: ${p.finalidade}\n📅 Início: ${formatarDataHora(info.event.start)}\n📅 Fim: ${formatarDataHora(info.event.end)}`);
+    }
+  });
+
+  calendar.render();
+}
+
 async function cancelarReservaMobile(reservaId, responsavel) {
   const ehAdmin = (usuarioLogado?.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
   const ehDono = (usuarioLogado?.email || '').toLowerCase() === (responsavel || '').toLowerCase();
@@ -457,12 +673,16 @@ function handleMobileLogout() {
   }
 }
 
-// =========================================================================
-// EXPOSIÇÃO GLOBAL DE FUNÇÕES (VINCULAÇÃO COM O HTML)
-// =========================================================================
+// Vinculação Global de Funções
 window.trocarAba = trocarAba;
+window.ajustarCamposModalidade = ajustarCamposModalidade;
+window.ajustarModalidadeReserva = ajustarCamposModalidade;
 window.salvarReservaMobile = salvarReservaMobile;
+window.handleSalvarReserva = salvarReservaMobile;
+window.handleSalvarReservaMobile = salvarReservaMobile;
 window.cancelarReservaMobile = cancelarReservaMobile;
 window.handleMobileLogout = handleMobileLogout;
+window.formatarDataHora = formatarDataHora;
+window.formatarApenasData = formatarApenasData;
 
 document.addEventListener('DOMContentLoaded', initReservasMobile);
