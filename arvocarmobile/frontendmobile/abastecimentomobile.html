@@ -222,23 +222,23 @@
     class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 flex justify-around items-center z-40 shadow-lg pb-safe">
     <!-- 1. Iniciar Rota -->
     <button onclick="switchMobileTab('iniciar')" id="nav-btn-iniciar"
-      class="flex flex-col items-center gap-1 text-brand-700 font-bold transition">
-      <i class="ph-bold ph-key text-xl"></i>
-      <span class="text-[10px]">Iniciar</span>
-    </button>
+        class="flex flex-col items-center gap-1 text-brand-700 font-bold transition">
+        <i class="ph-bold ph-key text-xl"></i>
+        <span class="text-[10px]">Iniciar</span>
+      </button>
 
     <!-- 2. Finalizar Rota -->
     <button onclick="switchMobileTab('finalizar')" id="nav-btn-finalizar"
-      class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-      <i class="ph-bold ph-map-pin-line text-xl"></i>
-      <span class="text-[10px]">Finalizar</span>
+        class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
+        <i class="ph-bold ph-map-pin-line text-xl"></i>
+        <span class="text-[10px]">Finalizar</span>
     </button>
 
     <!-- 3. Minhas Rotas -->
     <button onclick="switchMobileTab('historico')" id="nav-btn-historico"
-      class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-      <i class="ph-bold ph-clock-counter-clockwise text-xl"></i>
-      <span class="text-[10px]">Rotas</span>
+        class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
+        <i class="ph-bold ph-clock-counter-clockwise text-xl"></i>
+        <span class="text-[10px]">Rotas</span>
     </button>
 
     <!-- 4. Agenda / Reservas (Link direto para a tela de reservas) -->
@@ -248,10 +248,12 @@
       <span class="text-[10px]">Reservas</span>
 
     </a>
-    <a href="/arvocarmobile/frontendmobile/abastecimentomobile.html"
+    
+    <a href="/arvocarmobile/frontendmobile/abastecimentomobile.html" id="nav-btn-reservas"
       class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
-      <i class="ph-bold ph-gas-pump text-base"></i>
-      <span>Abastecer</span>
+      <i class="ph-bold ph-calendar-check text-xl"></i>
+      <span class="text-[10px]">Abastecer</span>
+
     </a>
   </nav>
 

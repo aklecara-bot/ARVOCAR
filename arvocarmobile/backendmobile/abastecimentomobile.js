@@ -208,6 +208,21 @@ async function salvarAbastecimento(e) {
   }
 }
 
+function switchMobileTab(tab) {
+  const abas = ['iniciar', 'finalizar', 'historico'];
+  abas.forEach(t => {
+    const el = document.getElementById(`tab-${t}`);
+    const btn = document.getElementById(`nav-btn-${t}`);
+    if (el) el.classList.add('hidden');
+    if (btn) btn.className = "flex flex-col items-center gap-1 text-slate-400 font-semibold transition";
+  });
+
+  const activeView = document.getElementById(`tab-${tab}`);
+  const activeBtn = document.getElementById(`nav-btn-${tab}`);
+  if (activeView) activeView.classList.remove('hidden');
+  if (activeBtn) activeBtn.className = "flex flex-col items-center gap-1 text-brand-700 font-bold transition";
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
