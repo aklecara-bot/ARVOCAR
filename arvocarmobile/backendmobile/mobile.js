@@ -289,7 +289,7 @@ async function handleMobileInicioRota(e) {
   const selectOrigem = document.getElementById('m-inicio-origem')?.value;
   const outroOrigem = document.getElementById('m-inicio-origem-outro')?.value?.trim();
   const origemFinal = selectOrigem === 'OUTRO' ? outroOrigem : selectOrigem;
-  const finalidade = document.getElementById('m-inicio-finalidade')?.value;
+  const finalidade = document.getElementById('res-finalidade')?.value;
   const kmSaida = Number(document.getElementById('m-inicio-km')?.value || veiculo.km_atual || 0);
 
   if (!origemFinal) {
