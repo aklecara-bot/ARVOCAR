@@ -719,17 +719,34 @@ function renderFleetGrid() {
 
   veiculos.forEach(v => {
     const isEmUso = v.status === 'Em Uso';
+    const isForaUso = v.status === 'Fora de Uso';
+    const isManutencao = v.status === 'Em Manutenção';
     const nomeVeiculo = v.nome_frota || v.identificador || v.placa || v.id || 'Veículo';
     const idAcao = v.id || v.uuid_veiculos || v.placa;
 
+    // Definição das cores e rótulo do status
+    let statusBg = 'bg-emerald-100 text-emerald-700';
+    let statusTexto = '• Disponível';
+
+    if (isEmUso) {
+      statusBg = 'bg-amber-100 text-amber-700';
+      statusTexto = '• Em Rota';
+    } else if (isForaUso) {
+      statusBg = 'bg-rose-100 text-rose-700';
+      statusTexto = '• Fora de Uso';
+    } else if (isManutencao) {
+      statusBg = 'bg-purple-100 text-purple-700 border border-purple-200';
+      statusTexto = '• Em Manutenção';
+    }
+
     const card = document.createElement('div');
-    card.className = "bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-slate-300 transition";
+    card.className = `bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-slate-300 transition ${isForaUso || isManutencao ? 'opacity-75 bg-slate-50' : ''}`;
     card.innerHTML = `
       <div>
         <div class="flex items-center justify-between mb-2">
           <span class="text-base font-extrabold text-slate-900">${nomeVeiculo}</span>
-          <span class="text-[11px] px-2.5 py-0.5 rounded-full font-bold ${isEmUso ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">
-            ${isEmUso ? '• Em Rota' : '• Disponível'}
+          <span class="text-[11px] px-2.5 py-0.5 rounded-full font-bold ${statusBg}">
+            ${statusTexto}
           </span>
         </div>
         <div class="flex items-center justify-between text-xs text-slate-500 mb-3">
@@ -759,7 +776,10 @@ function renderFleetGrid() {
       <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
         ${isEmUso ? 
           `<button onclick="abrirFinalizacaoDireta('${idAcao}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` : 
-          `<button onclick="abrirInicioDireto('${idAcao}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
+          (isForaUso || isManutencao ? 
+            `<span class="text-xs font-bold text-slate-400 cursor-not-allowed">Indisponível</span>` : 
+            `<button onclick="abrirInicioDireto('${idAcao}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
+          )
         }
       </div>
     `;
@@ -776,6 +796,7 @@ function renderTabelaVeiculosCad() {
     const nomeCarroArvo = v.nome_frota || v.identificador || v.placa || v.id || '-';
     const isEmUso = v.status === 'Em Uso';
     const isForaUso = v.status === 'Fora de Uso';
+    const isManutencao = v.status === 'Em Manutenção';
     const identificador = v.uuid_veiculos || v.id;
 
     let statusClass = 'bg-emerald-100 text-emerald-800';
@@ -783,6 +804,8 @@ function renderTabelaVeiculosCad() {
       statusClass = 'bg-amber-100 text-amber-800';
     } else if (isForaUso) {
       statusClass = 'bg-rose-100 text-rose-800';
+    } else if (isManutencao) {
+      statusClass = 'bg-purple-100 text-purple-800 border border-purple-200';
     }
 
     const tr = document.createElement('tr');
