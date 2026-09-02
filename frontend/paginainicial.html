@@ -27,7 +27,8 @@
               900: '#14532d',
             }
           }
-        }      }
+        }
+      }
     }
   </script>
   
@@ -37,7 +38,6 @@
  
   <!-- Header -->
   <header class="bg-brand-900 text-white shadow sticky top-0 z-50">
-    
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       
       <div class="flex items-center space-x-3">
@@ -51,24 +51,24 @@
       </div>
 
       <!-- Módulos -->
-        
       <div class="flex bg-brand-950/60 p-1 rounded-xl border border-brand-800 text-xs font-semibold">
         <button id="btn-mod-operacao" onclick="setModule('operacao')" class="module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
           <i class="ph-bold ph-paper-plane-tilt"></i> Rotas
         </button>
         <!-- Oculto por padrão via classe 'hidden' -->
         <button id="btn-mod-gestao" onclick="setModule('gestao')" class="hidden text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
-        <i class="ph-bold ph-chart-pie-slice"></i> Painel de Gestão
+          <i class="ph-bold ph-chart-pie-slice"></i> Painel de Gestão
         </button>
       </div>
+
       <a href="reservas.html" class="flex items-center gap-1.5 text-xs bg-brand-700 hover:bg-brand-800 text-white font-bold px-3.5 py-2 rounded-xl shadow transition">
         <i class="ph-bold ph-calendar-check text-base"></i>
         <span>Reservas</span>
-        </a>
+      </a>
       <a href="abastecimento.html" class="flex items-center gap-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-2 rounded-xl shadow transition">
         <i class="ph-bold ph-gas-pump text-base"></i>
         <span>Abastecimento</span>
-        </a>
+      </a>
 
       <!-- Usuário Ativo -->
       <div class="flex items-center space-x-3">
@@ -90,7 +90,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <nav class="flex space-x-8 -mb-px">
         <button onclick="setSubTab('operacao', 'saida')" id="subtab-saida" class="subtab-active py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-brand-600 text-brand-600 flex items-center gap-2">
-          <i class="ph-bold ph-key text-base"></i> 1. Iniciar Rota (Check-int)
+          <i class="ph-bold ph-key text-base"></i> 1. Iniciar Rota (Check-in)
         </button>
         <button onclick="setSubTab('operacao', 'retorno')" id="subtab-retorno" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
           <i class="ph-bold ph-map-pin-line text-base"></i> 2. Finalizar Rota (Check-out & Avarias)
@@ -98,7 +98,6 @@
         <button onclick="setSubTab('operacao', 'minhas-rotas')" id="subtab-minhas-rotas" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
           <i class="ph-bold ph-clock-counter-clockwise text-base"></i> Log de Rotas
         </button>
-        
       </nav>
     </div>
   </div>
@@ -118,10 +117,10 @@
         </button>
       </nav>
       <div class="py-2">
-      <a href="relatorios.html" class="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition">
-        <i class="ph-bold ph-chart-line-up text-base"></i>
-        <span>Relatórios e Gráficos</span>
-      </a>
+        <a href="relatorios.html" class="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition">
+          <i class="ph-bold ph-chart-line-up text-base"></i>
+          <span>Relatórios e Gráficos</span>
+        </a>
       </div>
     </div>
   </div>
@@ -160,12 +159,12 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">KM Inicial (Bloqueado)</label>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">KM Inicial</label>
                 <div class="relative">
                   <input type="number" id="form-inicio-km" readonly class="w-full bg-slate-100 border border-slate-200 text-slate-800 font-mono font-bold rounded-lg px-3.5 py-2 text-sm focus:outline-none" />
                   <span class="absolute right-3 top-2 text-xs text-slate-400 font-medium">km</span>
                 </div>
-                <span class="text-[11px] text-slate-500 mt-1 block">Carregado da última devolução.</span>
+                <span class="text-[11px] text-slate-500 mt-1 block">Carregado da última devolução ou ajustável se externo.</span>
               </div>
 
               <div>
@@ -175,7 +174,7 @@
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
                   <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
-                  <option value="LOCADORA CACHOEIRO">lOCADORA CACHOEIRO</option>
+                  <option value="LOCADORA CACHOEIRO">LOCADORA CACHOEIRO</option>
                   <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
                 </select>
               </div>
@@ -251,7 +250,7 @@
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
                   <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
-                  <option value="LOCADORA CACHOEIRO">lOCADORA CACHOEIRO</option>
+                  <option value="LOCADORA CACHOEIRO">LOCADORA CACHOEIRO</option>
                   <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
                 </select>
               </div>
@@ -281,8 +280,8 @@
 
             <div class="pt-4">
               <button id="btn-submit-fim" type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2">
-    <i class="ph-bold ph-check-circle text-lg"></i> Finalizar Rota
-  </button>
+                <i class="ph-bold ph-check-circle text-lg"></i> Finalizar Rota
+              </button>
             </div>
           </form>
         </div>
@@ -375,6 +374,7 @@
         </div>
       </section>
 
+      <!-- Cadastro de Veículos -->
       <section id="view-cad-veiculos" class="hidden space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
@@ -419,6 +419,13 @@
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">KM Inicial no Hodômetro</label>
                 <input type="number" id="cad-v-kminicial" required min="0" placeholder="Ex: 54000" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-mono font-bold" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Tipo de Frota</label>
+                <select id="cad-v-tipofrota" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold">
+                  <option value="PROPRIO">Frota Própriar</option>
+                  <option value="EXTERNO">Uso Esporádico</option>
+                </select>
               </div>
 
               <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition text-xs flex items-center justify-center gap-1.5 mt-2">
@@ -474,8 +481,8 @@
                 <input type="email" id="cad-u-email" required placeholder="nome@arvo.tec.br" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
               </div>
               <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Senha de Acesso</label>
-              <input type="password" id="cad-u-senha" required placeholder="••••••••" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500" />
+                <label class="block text-xs font-bold text-slate-700 mb-1">Senha de Acesso</label>
+                <input type="password" id="cad-u-senha" required placeholder="••••••••" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500" />
               </div>
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">Nº Carteira (CNH)</label>
@@ -561,20 +568,26 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-2">
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">KM Atual</label>
             <input type="number" id="edit-v-kmatual" required min="0" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold" />
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Status</label>
-            <select id="edit-v-status" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold">
+            <select id="edit-v-status" required class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold">
               <option value="Disponivel">Disponível</option>
               <option value="Em Manutenção">Em Manutenção</option>
               <option value="Em Uso">Em Uso</option>
               <option value="Fora de Uso">Fora de Uso</option>
-              
-           </select>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Tipo Frota</label>
+            <select id="edit-v-tipofrota" required class="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs font-bold">
+              <option value="PROPRIO">Frota Regular</option>
+              <option value="EXTERNO">Externo / Esporádico</option>
+            </select>
           </div>
         </div>
 
@@ -618,23 +631,24 @@
           <input type="email" id="edit-u-email" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
         </div>
         <div>
-        <label class="block text-xs font-bold text-slate-700 mb-1">Senha de Acesso</label>
-        <div class="relative">
-          <input 
-            type="text" 
-            id="edit-u-senha" 
-            required
-            placeholder="Digite a senha..." 
-            class="w-full bg-slate-50 border border-slate-300 text-slate-800 font-mono font-semibold rounded-lg pl-3 pr-10 py-2 text-xs focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none" 
-          />
-          <button 
-            type="button" 
-            onclick="toggleVerSenhaEdicao()" 
-            title="Mostrar / Ocultar Senha"
-            class="absolute right-3 top-2 text-slate-400 hover:text-slate-600 focus:outline-none"
-          >
-            <i id="icone-senha-edit" class="ph-bold ph-eye text-base"></i>
-          </button>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Senha de Acesso</label>
+          <div class="relative">
+            <input 
+              type="password" 
+              id="edit-u-senha" 
+              required
+              placeholder="Digite a senha..." 
+              class="w-full bg-slate-50 border border-slate-300 text-slate-800 font-mono font-semibold rounded-lg pl-3 pr-10 py-2 text-xs focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none" 
+            />
+            <button 
+              type="button" 
+              onclick="toggleVerSenhaEdicao()" 
+              title="Mostrar / Ocultar Senha"
+              class="absolute right-3 top-2 text-slate-400 hover:text-slate-600 focus:outline-none"
+            >
+              <i id="icone-senha-edit" class="ph-bold ph-eye text-base"></i>
+            </button>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -659,6 +673,7 @@
       </form>
     </div>
   </div>
-  </body>
-</html>
+
   <script src="/backend/app.js"></script>
+</body>
+</html>

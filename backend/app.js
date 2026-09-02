@@ -300,6 +300,22 @@ async function handleInicioRota(e) {
     return;
   }
 
+  // --- REGRA DE ODÔMETRO (PROPRIO vs EXTERNO) ---
+  const isExterno = (veiculo.tipo_frota || '').toUpperCase() === 'EXTERNO';
+  const kmInformadoInput = parseFloat(document.getElementById('form-inicio-km')?.value);
+  const kmBanco = Number(veiculo.km_atual || 0);
+
+  let kmSaidaFinal = kmBanco;
+
+  if (isExterno) {
+    if (!isNaN(kmInformadoInput) && kmInformadoInput > 0) {
+      kmSaidaFinal = kmInformadoInput;
+    }
+  } else {
+    // Frota normal: força a manutenção do último KM registrado
+    kmSaidaFinal = kmBanco;
+  }
+
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Gravando...`;
@@ -318,7 +334,7 @@ async function handleInicioRota(e) {
     finalidade: document.getElementById('form-inicio-finalidade')?.value || 'DEMANDAS INTERNAS',
     data_saida: dataHoraSaidaAtual,
     data_retorno: null,
-    km_saida: Number(veiculo.km_atual || 0),
+    km_saida: kmSaidaFinal,
     km_retorno: null,
     km_total: 0,
     consumo_litros: null,
@@ -335,8 +351,14 @@ async function handleInicioRota(e) {
 
     if (erroRota) throw erroRota;
 
+    // Atualiza o status do veículo (e atualiza o odômetro inicial caso o carro externo tenha entrado com KM superior)
+    const payloadUpdateVeiculo = { status: 'Em Uso' };
+    if (isExterno && kmSaidaFinal > kmBanco) {
+      payloadUpdateVeiculo.km_atual = kmSaidaFinal;
+    }
+
     await db.from('veiculos')
-      .update({ status: 'Em Uso' })
+      .update(payloadUpdateVeiculo)
       .eq('placa', placaCarro);
 
     e.target.reset();
@@ -354,6 +376,8 @@ async function handleInicioRota(e) {
     }
   }
 }
+
+
 async function handleFimRota(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-submit-fim');
@@ -523,9 +547,11 @@ async function handleCadVeiculo(e) {
     consumo_min: parseFloat(document.getElementById('cad-v-consumomin').value) || 0,
     consumo_max: parseFloat(document.getElementById('cad-v-consumomax').value) || 0,
     km_atual: parseFloat(document.getElementById('cad-v-kminicial').value) || 0,
+    tipo_frota: document.getElementById('cad-v-tipofrota')?.value || 'Frota Regular',
     status: 'Disponivel',
     anomalias: ''
   };
+
 
   try {
     const { error } = await db.from('veiculos').insert([novoCarro]);
@@ -570,15 +596,19 @@ function fecharModalEditVeiculo() {
 async function handleSalvarEditVeiculo(e) {
   e.preventDefault();
   const idChave = document.getElementById('edit-v-id').value;
+  const placaVal = document.getElementById('edit-v-placa').value.toUpperCase().trim();
+  const tipoFrotaVal = document.getElementById('edit-v-tipofrota')?.value || 'PROPRIO';
 
   const dadosAtualizados = {
-    placa: document.getElementById('edit-v-placa').value.toUpperCase().trim(),
+    placa: placaVal,
     marca: document.getElementById('edit-v-marca').value.trim(),
     tanque: parseFloat(document.getElementById('edit-v-tanque').value),
     consumo_min: parseFloat(document.getElementById('edit-v-consumomin').value),
     consumo_max: parseFloat(document.getElementById('edit-v-consumomax').value),
     km_atual: parseFloat(document.getElementById('edit-v-kmatual').value),
+    tipo_frota: document.getElementById('cad-v-tipofrota')?.value || 'Frota Regular',
     status: document.getElementById('edit-v-status').value,
+    tipo_frota: tipoFrotaVal, // Captura 'EXTERNO' ou 'PROPRIO',
     anomalias: document.getElementById('edit-v-anomalias').value.trim()
   };
 
@@ -588,7 +618,15 @@ async function handleSalvarEditVeiculo(e) {
       .update(dadosAtualizados)
       .or(`uuid_veiculos.eq.${idChave},id.eq.${idChave},placa.eq.${idChave}`);
 
-    if (error) throw error;
+    if (error) {
+      // Fallback caso o identificador passado seja a placa
+      const { error: errPlaca } = await db
+        .from('veiculos')
+        .update(dadosAtualizados)
+        .eq('placa', placaVal);
+
+      if (errPlaca) throw errPlaca;
+    }
 
     fecharModalEditVeiculo();
     alert(`✅ Veículo ${dadosAtualizados.placa} atualizado com sucesso!`);
@@ -864,6 +902,12 @@ function renderTabelaVeiculosCad() {
     const isManutencao = v.status === 'Em Manutenção';
     const identificador = v.uuid_veiculos || v.id;
 
+    // Diferenciação de tipo de frota (Externo vs Frota Própria)
+    const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
+    const badgeTipo = isExterno
+      ? `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-indigo-100 text-indigo-700 border border-indigo-200" title="Veículo de uso esporádico / terceirizado">EXTERNO</span>`
+      : `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200">FROTA</span>`;
+
     let statusClass = 'bg-emerald-100 text-emerald-800';
     if (isEmUso) {
       statusClass = 'bg-amber-100 text-amber-800';
@@ -879,7 +923,9 @@ function renderTabelaVeiculosCad() {
     tr.innerHTML = `
       <td class="py-3 px-3 font-extrabold text-slate-900">${nomeCarroArvo}</td>
       <td class="py-3 px-3">${v.marca || '-'}</td>
-      <td class="py-3 px-3 font-mono font-bold text-slate-700">${v.placa || '-'}</td>      
+      <td class="py-3 px-3 font-mono font-bold text-slate-700">
+        ${v.placa || '-'} ${badgeTipo}
+      </td>      
       <td class="py-3 px-3 text-center font-mono">${v.tanque || 0} L</td>
       <td class="py-3 px-3 text-center font-mono">${v.consumo_min || 0} ~ ${v.consumo_max || 0}</td>
       <td class="py-3 px-3 text-right font-mono font-bold text-brand-700">${Number(v.km_atual || 0).toLocaleString('pt-BR')} km</td>
@@ -905,6 +951,7 @@ function renderTabelaVeiculosCad() {
   const b = document.getElementById('badge-total-carros');
   if (b) b.innerText = `${veiculos.length} carros`;
 }
+
 
 function renderTabelaUsuariosCad() {
   const tbody = document.getElementById('tabelaUsuariosCadastrados');
@@ -951,13 +998,36 @@ function renderSelectVeiculosInicio() {
 
 function atualizarKmInicialPreenchido() {
   const vId = document.getElementById('form-inicio-veiculo')?.value;
-  const v = veiculos.find(item => 
-    String(item.id) === String(vId) || 
-    String(item.uuid_veiculos) === String(vId) || 
-    String(item.placa) === String(vId)
+  const v = (veiculos || []).find(item =>
+    String(item.id) === String(vId) ||
+    String(item.uuid_veiculos) === String(vId) ||
+    String(item.placa) === String(vId) ||
+    String(item.nome_frota) === String(vId)
   );
-  const inputKm = document.getElementById('form-inicio-km');
-  if (inputKm) inputKm.value = v ? v.km_atual : '';
+
+  const inputKm = document.getElementById('form-inicio-km') || document.getElementById('m-inicio-km');
+  if (!inputKm) return;
+
+  if (v) {
+    inputKm.value = v.km_atual || 0;
+    
+    // Regra do Carro Externo vs Frota Própria
+    const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
+    if (isExterno) {
+      inputKm.readOnly = false;
+      inputKm.classList.remove('bg-slate-100');
+      inputKm.classList.add('bg-white', 'border-indigo-300', 'focus:ring-2', 'focus:ring-indigo-500');
+      inputKm.title = "Carro Externo: Confirme ou ajuste o KM atual visualizado no painel.";
+    } else {
+      inputKm.readOnly = true;
+      inputKm.classList.remove('bg-white', 'border-indigo-300', 'focus:ring-2', 'focus:ring-indigo-500');
+      inputKm.classList.add('bg-slate-100');
+      inputKm.title = "KM sincronizado com o último registro.";
+    }
+  } else {
+    inputKm.value = '';
+    inputKm.readOnly = true;
+  }
 }
 
 function abrirInicioDireto(vId) {
