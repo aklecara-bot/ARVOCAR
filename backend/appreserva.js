@@ -297,5 +297,3 @@
 }
 
     window.onload = init;
-
-    //TEste

@@ -1,4 +1,3 @@
-
 name: Deploy cPanel HostGator
 
 on:
@@ -12,14 +11,17 @@ jobs:
     name: Sincronizar Arquivos
     runs-on: ubuntu-latest
     steps:
-      - name: Baixar o código do repositório
+      - name: Baixar o codigo
         uses: actions/checkout@v4
 
-      - name: Enviar para o cPanel via FTP
+      - name: Enviar para cPanel via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: ./
-          protocol: ftp
+          protocol: ftps
+          port: 21
+          security: loose
+          log-level: verbose
