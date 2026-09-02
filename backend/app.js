@@ -219,61 +219,66 @@ async function handleInicioRota(e) {
 
   const btn = document.getElementById('btn-submit-inicio');
   const veiculoId = document.getElementById('form-inicio-veiculo')?.value;
-  const veiculo = veiculos.find(v => 
-    String(v.id) === String(veiculoId) || 
-    String(v.uuid_veiculos) === String(veiculoId) || 
-    String(v.placa) === String(veiculoId) || 
+
+  const veiculo = (veiculos || []).find(v =>
+    String(v.id) === String(veiculoId) ||
+    String(v.uuid_veiculos) === String(veiculoId) ||
+    String(v.placa) === String(veiculoId) ||
     String(v.nome_frota) === String(veiculoId)
   );
-  const user = usuarios[currentUserIndex] || JSON.parse(localStorage.getItem('arvo_usuario_logado'));
 
-  if (!veiculoId || !veiculo) {
+  const rawSessao = localStorage.getItem('arvo_usuario_logado');
+  let user = (usuarios && usuarios[currentUserIndex]) ? usuarios[currentUserIndex] : null;
+  if (!user && rawSessao) {
+    try { user = JSON.parse(rawSessao); } catch { user = { email: rawSessao }; }
+  }
+
+  if (!veiculo) {
     alert("Por favor, selecione um veículo válido.");
     return;
   }
 
-  if (!user || !user.email) {
+  if (!user?.email) {
     alert("Condutor não identificado. Faça login novamente.");
     return;
   }
 
-  const placaCarro = veiculo.placa || null;
-  const uuidCarro = veiculo.uuid_veiculos || null;
+  // --- VALIDAÇÃO DE AGENDAMENTO (RESERVAS) ---
   const agoraTimestamp = new Date().getTime();
   const emailAtual = user.email.toLowerCase().trim();
-
-  // Identificador legível (ex: "ARVO 10")
-  const idLegivel = veiculo.nome_frota || veiculo.identificador || veiculo.id;
+  const nomeCarro = veiculo.nome_frota || veiculo.id;
+  const placaCarro = veiculo.placa;
 
   try {
     const { data: reservasCarro, error: errRes } = await db
       .from('reservas')
       .select('*')
-      .or(`veiculo_id.eq.${veiculo.id},veiculo_id.eq.${idLegivel}`)
       .eq('status', 'CONFIRMADA');
 
-    if (errRes) throw errRes;
-
-    if (reservasCarro && reservasCarro.length > 0) {
+    if (!errRes && reservasCarro) {
       const reservaAtiva = reservasCarro.find(r => {
+        const bateuCarro = String(r.veiculo_id) === String(nomeCarro) ||
+                           String(r.veiculo_id) === String(veiculo.id) ||
+                           String(r.veiculo_id) === String(placaCarro) ||
+                           String(r.placa) === String(placaCarro);
+
         const ini = new Date(r.data_inicio).getTime();
         const fim = new Date(r.data_fim).getTime();
-        return agoraTimestamp >= ini && agoraTimestamp <= fim;
+        return bateuCarro && agoraTimestamp >= ini && agoraTimestamp <= fim;
       });
 
       if (reservaAtiva) {
         const emailDono = (reservaAtiva.responsavel || '').toLowerCase().trim();
-        const ehDono = emailDono === emailAtual;
-        const ehAdmin = emailAtual === ADMIN_EMAIL.toLowerCase();
-
-        if (!ehDono && !ehAdmin) {
+        
+        // Bloqueia se o condutor logado não for o dono da reserva
+        if (emailDono !== emailAtual) {
           const dataFimFmt = new Date(reservaAtiva.data_fim).toLocaleString('pt-BR', {
             day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
           });
 
           alert(
             `⛔ VEÍCULO BLOQUEADO POR RESERVA!\n\n` +
-            `O veículo ${idLegivel} está reservado para:\n` +
+            `O veículo ${nomeCarro} [${placaCarro}] está reservado para:\n` +
             `👤 Condutor: ${reservaAtiva.responsavel}\n` +
             `🎯 Finalidade: ${reservaAtiva.finalidade}\n` +
             `📅 Reservado até: ${dataFimFmt}`
@@ -283,15 +288,15 @@ async function handleInicioRota(e) {
       }
     }
   } catch (err) {
-    console.warn("Aviso na verificação de reserva:", err.message);
+    console.warn("Aviso na verificação de reserva:", err);
   }
 
-  const selectOrigem = document.getElementById('form-inicio-origem').value;
-  const textoOrigem = document.getElementById('form-inicio-origem-texto')?.value.trim().toUpperCase() || '';
+  const selectOrigem = document.getElementById('form-inicio-origem')?.value;
+  const textoOrigem = document.getElementById('form-inicio-origem-texto')?.value?.trim().toUpperCase() || '';
   const origemFinal = selectOrigem === 'OUTRO' ? textoOrigem : selectOrigem;
 
   if (!origemFinal) {
-    alert("Por favor, informe a origem de saída.");
+    alert("Por favor, selecione ou digite a origem da saída.");
     return;
   }
 
@@ -301,19 +306,19 @@ async function handleInicioRota(e) {
   }
 
   const dataHoraSaidaAtual = new Date().toISOString();
-  
-  // Objeto corrigido de acordo com as colunas reais da tabela 'rotas'
+
+  // Objeto sem a chave 'id' para deixar o Supabase gerar automaticamente
   const novaRota = {
-    veiculo_id: idLegivel, // Salva diretamente o nome legível (ex: "ARVO 15")
+    veiculo_id: nomeCarro,
+    placa: placaCarro,
+    uuid_veiculos: veiculo.uuid_veiculos || null,
     responsavel: user.email,
-    placa: placaCarro,                       // <-- ADICIONADO: Grava na coluna placa
-    uuid_veiculos: uuidCarro,
     origem: origemFinal,
     destino: null,
-    finalidade: document.getElementById('form-inicio-finalidade').value,
+    finalidade: document.getElementById('form-inicio-finalidade')?.value || 'DEMANDAS INTERNAS',
     data_saida: dataHoraSaidaAtual,
     data_retorno: null,
-    km_saida: Number(veiculo.km_atual),
+    km_saida: Number(veiculo.km_atual || 0),
     km_retorno: null,
     km_total: 0,
     consumo_litros: null,
@@ -327,21 +332,16 @@ async function handleInicioRota(e) {
       .insert([novaRota])
       .select()
       .single();
+
     if (erroRota) throw erroRota;
 
-    let queryVeic = db.from('veiculos').update({ status: 'Em Uso' });
-    if (placaCarro) {
-      queryVeic = queryVeic.eq('placa', placaCarro);
-    } else {
-      queryVeic = queryVeic.eq('id', veiculo.id);
-    }
-    const { error: erroVeiculo } = await queryVeic;
-    if (erroVeiculo) throw erroVeiculo;
-    
+    await db.from('veiculos')
+      .update({ status: 'Em Uso' })
+      .eq('placa', placaCarro);
 
     e.target.reset();
-    toggleOutroOrigem('');
-    alert(`Rota ${novaRota.id} iniciada com sucesso às ${formatarDataHora(dataHoraSaidaAtual)}!`);
+    if (typeof toggleOutroOrigem === 'function') toggleOutroOrigem('');
+    alert(`Rota #${rotaCriada.id} iniciada com sucesso!`);
     await carregarTodosDadosDoBanco();
     setSubTab('operacao', 'minhas-rotas');
   } catch (err) {
@@ -354,7 +354,6 @@ async function handleInicioRota(e) {
     }
   }
 }
-
 async function handleFimRota(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-submit-fim');

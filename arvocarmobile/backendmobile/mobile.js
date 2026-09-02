@@ -294,13 +294,72 @@ async function handleMobileInicioRota(e) {
   const uuidVeiculo = optSelecionada?.dataset?.uuid || null;
   const placaVeiculo = optSelecionada?.dataset?.placa || null;
 
-  const veiculo = veiculos.find(v => (uuidVeiculo && v.uuid_veiculos === uuidVeiculo) || (v.nome_frota === veiculoId || v.id === veiculoId));
+  // 1. Identifica o veículo no array carregado
+  const veiculo = veiculos.find(v => 
+    (uuidVeiculo && String(v.uuid_veiculos) === String(uuidVeiculo)) || 
+    (placaVeiculo && String(v.placa) === String(placaVeiculo)) ||
+    String(v.nome_frota) === String(veiculoId) || 
+    String(v.id) === String(veiculoId)
+  );
 
   if (!veiculo || !usuarioLogado) {
     alert("Selecione um veículo disponível.");
     return;
   }
 
+  const placaFinal = veiculo.placa || placaVeiculo;
+  const nomeFrotaFinal = veiculo.nome_frota || veiculoId;
+  const emailAtual = (usuarioLogado.email || '').toLowerCase().trim();
+  const agoraTs = new Date().getTime();
+
+  // 2. BLOQUEIO DE AGENDAMENTO / RESERVA ATIVA
+  if (navigator.onLine) {
+    try {
+      const { data: reservasCarro, error: errRes } = await db
+        .from('reservas')
+        .select('*')
+        .eq('status', 'CONFIRMADA');
+
+      if (!errRes && reservasCarro && reservasCarro.length > 0) {
+        // Localiza se há agendamento para este carro no horário atual
+        const reservaAtiva = reservasCarro.find(r => {
+          const bateuCarro = (placaFinal && String(r.placa) === String(placaFinal)) ||
+                             String(r.veiculo_id) === String(nomeFrotaFinal) ||
+                             String(r.veiculo_id) === String(veiculo.id) ||
+                             (placaFinal && String(r.veiculo_id) === String(placaFinal));
+
+          const ini = new Date(r.data_inicio).getTime();
+          const fim = new Date(r.data_fim).getTime();
+          return bateuCarro && agoraTs >= ini && agoraTs <= fim;
+        });
+
+        if (reservaAtiva) {
+          const donoReserva = (reservaAtiva.responsavel || '').toLowerCase().trim();
+
+          // Se o condutor que está tentando abrir não for o dono da reserva, barra a rota
+          if (donoReserva !== emailAtual) {
+            const dataFimFmt = new Date(reservaAtiva.data_fim).toLocaleString('pt-BR', {
+              day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+            });
+
+            alert(
+              `⛔ VEÍCULO BLOQUEADO POR RESERVA!\n\n` +
+              `O veículo ${nomeFrotaFinal} [${placaFinal || '-'}] está agendado para:\n` +
+              `👤 Titular: ${reservaAtiva.responsavel}\n` +
+              `🎯 Finalidade: ${reservaAtiva.finalidade}\n` +
+              `📅 Período até: ${dataFimFmt}\n\n` +
+              `Apenas o titular pode retirar este carro.`
+            );
+            return;
+          }
+        }
+      }
+    } catch (errReserva) {
+      console.warn("Aviso ao validar reservas no mobile:", errReserva);
+    }
+  }
+
+  // 3. Validação dos campos do formulário
   const selectOrigem = document.getElementById('m-inicio-origem')?.value;
   const outroOrigem = document.getElementById('m-inicio-origem-outro')?.value?.trim();
   const origemFinal = selectOrigem === 'OUTRO' ? outroOrigem : selectOrigem;
@@ -318,32 +377,35 @@ async function handleMobileInicioRota(e) {
   }
 
   const tempId = `temp_${Date.now()}`;
+  const dataSaidaAtual = new Date().toISOString();
+
   const payloadRota = {
-    id: tempId,
-    veiculo_id: veiculo.nome_frota || veiculoId,
+    veiculo_id: nomeFrotaFinal,
     uuid_veiculos: veiculo.uuid_veiculos || uuidVeiculo || null,
-    placa: placaVeiculo || veiculo.placa,
+    placa: placaFinal,
     responsavel: usuarioLogado.email,
     origem: origemFinal,
     finalidade: finalidade,
     km_saida: kmSaida,
-    data_saida: new Date().toISOString(),
-    status: 'Em Uso',
-    offline_sync: !navigator.onLine
+    data_saida: dataSaidaAtual,
+    status: 'Em Uso'
   };
 
-  // Se estiver sem internet, registra localmente e atualiza memória
+  // 4. Fluxo Offline
   if (!navigator.onLine) {
-    salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadRota });
-    rotas.unshift(payloadRota);
+    const payloadOffline = { ...payloadRota, id: tempId, offline_sync: true };
+    salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadOffline });
+    rotas.unshift(payloadOffline);
     veiculo.status = 'Em Uso';
     salvarCachesLocais();
+
     alert(`📶 Rota iniciada Offline! Será sincronizada quando o sinal voltar.`);
     e.target.reset();
     renderizarOpcoesVeiculos();
     renderizarOpcoesRotasAtivas();
     renderizarHistoricoMobile();
     switchMobileTab('finalizar');
+
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = `<i class="ph-bold ph-key text-base"></i> Iniciar Rota`;
@@ -351,14 +413,24 @@ async function handleMobileInicioRota(e) {
     return;
   }
 
+  // 5. Fluxo Online no Supabase
   try {
-    delete payloadRota.id;
-    delete payloadRota.offline_sync;
+    const { data: inserido, error: insertErr } = await db
+      .from('rotas')
+      .insert([payloadRota])
+      .select()
+      .single();
 
-    const { data: inserido, error: insertErr } = await db.from('rotas').insert([payloadRota]).select().single();
     if (insertErr) throw insertErr;
 
-    await db.from('veiculos').update({ status: 'Em Uso' }).eq('id', veiculo.id);
+    // Atualiza status do veículo para 'Em Uso' pela Placa
+    let queryVeic = db.from('veiculos').update({ status: 'Em Uso' });
+    if (placaFinal) {
+      queryVeic = queryVeic.eq('placa', placaFinal);
+    } else {
+      queryVeic = queryVeic.eq('id', veiculo.id);
+    }
+    await queryVeic;
 
     alert(`✅ Rota iniciada com sucesso!`);
     e.target.reset();
@@ -367,11 +439,12 @@ async function handleMobileInicioRota(e) {
     switchMobileTab('finalizar');
   } catch (err) {
     console.warn("Falha de rede, salvando na fila offline:", err);
-    payloadRota.id = tempId;
-    salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadRota });
-    rotas.unshift(payloadRota);
+    const payloadOffline = { ...payloadRota, id: tempId, offline_sync: true };
+    salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadOffline });
+    rotas.unshift(payloadOffline);
     veiculo.status = 'Em Uso';
     salvarCachesLocais();
+
     alert(`📶 Salvo localmente! Será sincronizado ao reconectar.`);
     e.target.reset();
     renderizarOpcoesVeiculos();
