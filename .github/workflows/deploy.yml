@@ -1,0 +1,23 @@
+name: Deploy cPanel HostGator
+
+on:
+  push:
+    branches:
+      - main
+      - principal
+
+jobs:
+  web-deploy:
+    name: Sincronizar Arquivos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v4
+
+      - name: Enviar para o cPanel via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: /fronnil.com/
