@@ -31,35 +31,24 @@ function salvarSessaoUnificada(usuario) {
   localStorage.setItem('arvo_usuario_logado', dados);
 }
 
+// Salva as credenciais do usuário quando logar online com sucesso
 function salvarCredenciaisOffline(email, senha, dadosUsuario) {
   const creds = JSON.parse(localStorage.getItem('arvo_creds_cache') || '{}');
-  creds[email] = {
-    senha: senha,
+  creds[email.toLowerCase()] = {
+    senha: String(senha).trim(),
     usuario: dadosUsuario
   };
   localStorage.setItem('arvo_creds_cache', JSON.stringify(creds));
 }
 
+// Valida credenciais salvas no aparelho em caso de falta de sinal
 function validarCredenciaisOffline(email, senha) {
   const creds = JSON.parse(localStorage.getItem('arvo_creds_cache') || '{}');
-  const conta = creds[email];
-  if (conta && conta.senha === senha) {
+  const conta = creds[email.toLowerCase()];
+  if (conta && conta.senha === String(senha).trim()) {
     return conta.usuario;
   }
   return null;
-}
-
-function toggleSenhaMobile() {
-  const input = document.getElementById('m-senha');
-  const icone = document.getElementById('m-icone-senha');
-  if (!input) return;
-  if (input.type === 'password') {
-    input.type = 'text';
-    if (icone) icone.className = 'ph-bold ph-eye-slash text-base';
-  } else {
-    input.type = 'password';
-    if (icone) icone.className = 'ph-bold ph-eye text-base';
-  }
 }
 
 async function handleMobileLogin(e) {
@@ -84,41 +73,31 @@ async function handleMobileLogin(e) {
 
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Autenticando...`;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Entrando...`;
   }
 
   try {
-    // 1. SE ESTIVER OFFLINE, VALIDA NA BASE LOCAL
+    // 1. FLUXO OFFLINE: Se não há internet, valida pelo cache local do aparelho
     if (!navigator.onLine) {
-      const usuarioOff = validarCredenciaisOffline(email, senha);
-      if (usuarioOff) {
-        usuarioLogado = usuarioOff;
+      const usuarioOffline = validarCredenciaisOffline(email, senha);
+      if (usuarioOffline) {
+        usuarioLogado = usuarioOffline;
         salvarSessaoUnificada(usuarioLogado);
         iniciarAppMobile();
         return;
+      } else {
+        throw new Error("Sem internet. Conecte-se pelo menos uma vez para autenticar este usuário no aparelho.");
       }
-      throw new Error("Acesso offline indisponível para este usuário. Conecte-se à internet no primeiro login.");
     }
 
-    // 2. SE ESTIVER ONLINE, VALIDA NO SUPABASE
+    // 2. FLUXO ONLINE: Valida diretamente no Supabase
     const { data, error } = await db
       .from('usuarios')
       .select('*')
       .eq('email', email)
       .maybeSingle();
 
-    if (error) {
-      // Fallback: Se der erro de timeout/rede, tenta validação offline
-      const usuarioOff = validarCredenciaisOffline(email, senha);
-      if (usuarioOff) {
-        usuarioLogado = usuarioOff;
-        salvarSessaoUnificada(usuarioLogado);
-        iniciarAppMobile();
-        return;
-      }
-      throw new Error("Falha na conexão com o banco de dados.");
-    }
-
+    if (error) throw error;
     if (!data) throw new Error("Usuário não cadastrado.");
     if (String(data.senha).trim() !== senha) throw new Error("Senha incorreta.");
     if (data.status && data.status.toLowerCase() === 'inativo') {
@@ -132,8 +111,10 @@ async function handleMobileLogin(e) {
       cnh: data.cnh || ''
     };
 
+    // Salva a sessão ativa e o cache de credenciais para uso offline futuro
     salvarSessaoUnificada(usuarioLogado);
     salvarCredenciaisOffline(email, senha, usuarioLogado);
+
     iniciarAppMobile();
 
   } catch (err) {
