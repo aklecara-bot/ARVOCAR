@@ -567,14 +567,18 @@ async function handleCadVeiculo(e) {
 }
 
 function abrirModalEditVeiculo(veiculoId) {
-  const v = veiculos.find(item => 
-    String(item.id) === String(veiculoId) || 
-    String(item.uuid_veiculos) === String(veiculoId) || 
+  const v = veiculos.find(item =>
+    String(item.id) === String(veiculoId) ||
+    String(item.uuid_veiculos) === String(veiculoId) ||
     String(item.placa) === String(veiculoId)
   );
 
-  if (!v) return;
+  if (!v) {
+    console.error("Veículo não encontrado:", veiculoId);
+    return;
+  }
 
+  // Preenche os campos do formulário
   document.getElementById('edit-v-id').value = v.uuid_veiculos || v.id;
   document.getElementById('modal-edit-v-title').innerText = v.placa || v.nome_frota || v.id;
   document.getElementById('edit-v-placa').value = v.placa || '';
@@ -584,9 +588,60 @@ function abrirModalEditVeiculo(veiculoId) {
   document.getElementById('edit-v-consumomax').value = v.consumo_max || 0;
   document.getElementById('edit-v-kmatual').value = v.km_atual || 0;
   document.getElementById('edit-v-status').value = v.status || 'Disponivel';
+  
+  // 👉 Carrega o Tipo de Frota atual do veículo
+  const selectTipo = document.getElementById('edit-v-tipofrota');
+  if (selectTipo) {
+    selectTipo.value = (v.tipo_frota || 'PROPRIO').toUpperCase();
+  }
+
   document.getElementById('edit-v-anomalias').value = v.anomalias || '';
 
+  // Exibe a modal
   document.getElementById('modal-edit-veiculo').classList.remove('hidden');
+}
+
+async function handleSalvarEditVeiculo(e) {
+  e.preventDefault();
+  const idChave = document.getElementById('edit-v-id').value;
+  const placaVal = document.getElementById('edit-v-placa').value.toUpperCase().trim();
+  const tipoFrotaVal = document.getElementById('edit-v-tipofrota')?.value || 'PROPRIO';
+
+  const dadosAtualizados = {
+    placa: placaVal,
+    marca: document.getElementById('edit-v-marca').value.trim(),
+    tanque: parseFloat(document.getElementById('edit-v-tanque').value) || 0,
+    consumo_min: parseFloat(document.getElementById('edit-v-consumomin').value) || 0,
+    consumo_max: parseFloat(document.getElementById('edit-v-consumomax').value) || 0,
+    km_atual: parseFloat(document.getElementById('edit-v-kmatual').value) || 0,
+    status: document.getElementById('edit-v-status').value,
+    tipo_frota: tipoFrotaVal, // Captura 'EXTERNO' ou 'PROPRIO',
+    anomalias: document.getElementById('edit-v-anomalias').value.trim()
+  };
+
+  try {
+    const { error } = await db
+      .from('veiculos')
+      .update(dadosAtualizados)
+      .eq('uuid_veiculos', idChave);
+
+    if (error) {
+      // Fallback caso o identificador passado seja a placa
+      const { error: errPlaca } = await db
+        .from('veiculos')
+        .update(dadosAtualizados)
+        .eq('placa', placaVal);
+
+      if (errPlaca) throw errPlaca;
+    }
+
+    fecharModalEditVeiculo();
+    alert(`✅ Veículo ${dadosAtualizados.placa} atualizado com sucesso!`);
+    await carregarTodosDadosDoBanco(); // Recarrega os dados e a tabela
+  } catch (err) {
+    console.error("Erro ao atualizar veículo:", err);
+    alert("Erro ao atualizar veículo: " + (err.message || 'Verifique sua conexão.'));
+  }
 }
 
 function fecharModalEditVeiculo() {
@@ -827,6 +882,12 @@ function renderFleetGrid() {
     const nomeVeiculo = v.nome_frota || v.identificador || v.placa || v.id || 'Veículo';
     const idAcao = v.id || v.uuid_veiculos || v.placa;
 
+    // Badge FROTA vs EXTERNO
+    const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
+    const badgeTipo = isExterno
+      ? `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-indigo-100 text-indigo-700 border border-indigo-200">EXTERNO</span>`
+      : `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200">FROTA</span>`;
+
     // Definição das cores e rótulo do status
     let statusBg = 'bg-emerald-100 text-emerald-700';
     let statusTexto = '• Disponível';
@@ -844,6 +905,7 @@ function renderFleetGrid() {
 
     const card = document.createElement('div');
     card.className = `bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-slate-300 transition ${isForaUso || isManutencao ? 'opacity-75 bg-slate-50' : ''}`;
+    
     card.innerHTML = `
       <div>
         <div class="flex items-center justify-between mb-2">
@@ -854,7 +916,10 @@ function renderFleetGrid() {
         </div>
         <div class="flex items-center justify-between text-xs text-slate-500 mb-3">
           <span>${v.marca || '-'}</span>
-          <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded font-semibold text-slate-700">${v.placa || '-'}</span>
+          <div class="flex items-center">
+            <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded font-semibold text-slate-700">${v.placa || '-'}</span>
+            ${badgeTipo}
+          </div>
         </div>
 
         <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 mb-3 space-y-1">
@@ -889,6 +954,7 @@ function renderFleetGrid() {
     container.appendChild(card);
   });
 }
+
 
 function renderTabelaVeiculosCad() {
   const tbody = document.getElementById('tabelaVeiculosCadastrados');
@@ -1029,6 +1095,7 @@ function atualizarKmInicialPreenchido() {
     inputKm.readOnly = true;
   }
 }
+
 
 function abrirInicioDireto(vId) {
   setModule('operacao');
