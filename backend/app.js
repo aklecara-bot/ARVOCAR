@@ -237,6 +237,8 @@ async function handleInicioRota(e) {
     return;
   }
 
+  const placaCarro = veiculo.placa || null;
+  const uuidCarro = veiculo.uuid_veiculos || null;
   const agoraTimestamp = new Date().getTime();
   const emailAtual = user.email.toLowerCase().trim();
 
@@ -302,9 +304,10 @@ async function handleInicioRota(e) {
   
   // Objeto corrigido de acordo com as colunas reais da tabela 'rotas'
   const novaRota = {
-    id: `ROTA-2026-${String(rotas.length + 261).padStart(4, '0')}`,
     veiculo_id: idLegivel, // Salva diretamente o nome legível (ex: "ARVO 15")
     responsavel: user.email,
+    placa: placaCarro,                       // <-- ADICIONADO: Grava na coluna placa
+    uuid_veiculos: uuidCarro,
     origem: origemFinal,
     destino: null,
     finalidade: document.getElementById('form-inicio-finalidade').value,
@@ -319,11 +322,22 @@ async function handleInicioRota(e) {
   };
 
   try {
-    const { error: erroRota } = await db.from('rotas').insert([novaRota]);
+    const { data: rotaCriada, error: erroRota } = await db
+      .from('rotas')
+      .insert([novaRota])
+      .select()
+      .single();
     if (erroRota) throw erroRota;
 
-    const { error: erroVeiculo } = await db.from('veiculos').update({ status: 'Em Uso' }).eq('id', veiculo.id);
+    let queryVeic = db.from('veiculos').update({ status: 'Em Uso' });
+    if (placaCarro) {
+      queryVeic = queryVeic.eq('placa', placaCarro);
+    } else {
+      queryVeic = queryVeic.eq('id', veiculo.id);
+    }
+    const { error: erroVeiculo } = await queryVeic;
     if (erroVeiculo) throw erroVeiculo;
+    
 
     e.target.reset();
     toggleOutroOrigem('');
@@ -356,11 +370,18 @@ async function handleFimRota(e) {
     return;
   }
 
-  const rota = rotas.find(r => r.id === rotaId);
+  const rota = rotas.find(r => String(r.id) === String(rotaId));
+  if (!rota) {
+    alert("Erro: Rota não encontrada na lista.");
+    return;
+  }
+
+  // Localiza o veículo no cache local
   const veiculo = veiculos.find(v => 
     String(v.id) === String(rota?.veiculo_id) || 
+    String(v.uuid_veiculos) === String(rota?.veiculo_id) ||
     String(v.nome_frota) === String(rota?.veiculo_id) ||
-    String(v.uuid_veiculos) === String(rota?.veiculo_id)
+    String(v.placa) === String(rota?.veiculo_id)
   ) || {};
 
   if (kmFinal < rota.km_saida) {
@@ -381,7 +402,11 @@ async function handleFimRota(e) {
   const litrosEst = Number((deltaKm / medConsumo).toFixed(2));
   const dataHoraRetornoAtual = new Date().toISOString();
 
+  // Helper para testar se uma string é um UUID válido
+  const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str));
+
   try {
+    // 1. Atualiza a rota para 'Concluida'
     const { error: erroRota } = await db.from('rotas').update({
       km_retorno: kmFinal,
       km_total: deltaKm,
@@ -391,28 +416,69 @@ async function handleFimRota(e) {
       anomalia: anomaliaTexto,
       data_retorno: dataHoraRetornoAtual
     }).eq('id', rotaId);
+
     if (erroRota) throw erroRota;
 
-    if (veiculo.id) {
-      const { error: erroVeiculo } = await db.from('veiculos').update({
-        km_atual: kmFinal,
-        status: 'Disponivel',
-        anomalias: anomaliaTexto || veiculo.anomalias
-      }).eq('id', veiculo.id);
-      if (erroVeiculo) throw erroVeiculo;
+    // 2. Monta as condições seguras para atualizar a tabela 'veiculos'
+    const condicoesVeiculo = [];
+    if (veiculo.uuid_veiculos && isUUID(veiculo.uuid_veiculos)) {
+      condicoesVeiculo.push(`uuid_veiculos.eq.${veiculo.uuid_veiculos}`);
+    }
+    if (veiculo.id && isUUID(veiculo.id)) {
+      condicoesVeiculo.push(`id.eq.${veiculo.id}`);
+    }
+    if (veiculo.nome_frota) {
+      condicoesVeiculo.push(`nome_frota.eq.${veiculo.nome_frota}`);
+    }
+    if (veiculo.placa) {
+      condicoesVeiculo.push(`placa.eq.${veiculo.placa}`);
+    }
+    // Se rota.veiculo_id for nome textual (ex: "ARVO 11"), busca pela coluna nome_frota
+    if (rota.veiculo_id) {
+      if (isUUID(rota.veiculo_id)) {
+        condicoesVeiculo.push(`id.eq.${rota.veiculo_id}`);
+      } else {
+        condicoesVeiculo.push(`nome_frota.eq.${rota.veiculo_id}`);
+      }
     }
 
-    await db.from('reservas').update({ status: 'CONCLUIDA' })
-      .or(`veiculo_id.eq.${rota.veiculo_id},veiculo_id.eq.${veiculo.id}`)
-      .eq('responsavel', rota.responsavel)
-      .eq('status', 'CONFIRMADA');
+    const payloadVeiculo = {
+      km_atual: kmFinal,
+      status: 'Disponivel'
+    };
+    if (anomaliaTexto || veiculo.anomalias) {
+      payloadVeiculo.anomalias = anomaliaTexto || veiculo.anomalias;
+    }
 
+    if (condicoesVeiculo.length > 0) {
+      const { error: erroVeiculo } = await db.from('veiculos')
+        .update(payloadVeiculo)
+        .or(condicoesVeiculo.join(','));
+
+      if (erroVeiculo) console.warn("Aviso ao atualizar veículo:", erroVeiculo.message);
+    }
+
+    // 3. Atualiza reservas pendentes de forma segura
+    try {
+      const condicoesReserva = [`veiculo_id.eq.${rota.veiculo_id}`];
+      if (veiculo.uuid_veiculos && isUUID(veiculo.uuid_veiculos)) {
+        condicoesReserva.push(`uuid_veiculos.eq.${veiculo.uuid_veiculos}`);
+      }
+      await db.from('reservas').update({ status: 'CONCLUIDA' })
+        .or(condicoesReserva.join(','))
+        .eq('responsavel', rota.responsavel)
+        .eq('status', 'CONFIRMADA');
+    } catch (resErr) {
+      console.warn("Aviso ao concluir reservas:", resErr);
+    }
+
+    // 4. Limpeza da interface e recarregamento dos dados
     e.target.reset();
     toggleOutroDestino('');
     document.getElementById('fim-detalhes-viagem')?.classList.add('hidden');
     toggleAnomaliaInput(false);
 
-    alert(`Rota ${rotaId} encerrada com sucesso!`);
+    alert(`Rota #${rotaId} encerrada com sucesso!`);
     await carregarTodosDadosDoBanco();
     setSubTab('operacao', 'minhas-rotas');
   } catch (err) {

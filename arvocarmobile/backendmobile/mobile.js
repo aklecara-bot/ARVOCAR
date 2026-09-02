@@ -320,8 +320,8 @@ async function handleMobileInicioRota(e) {
   const tempId = `temp_${Date.now()}`;
   const payloadRota = {
     id: tempId,
-    veiculo_id: veiculoId,
-    uuid_veiculos: uuidVeiculo || veiculo.uuid_veiculos,
+    veiculo_id: veiculo.nome_frota || veiculoId,
+    uuid_veiculos: veiculo.uuid_veiculos || uuidVeiculo || null,
     placa: placaVeiculo || veiculo.placa,
     responsavel: usuarioLogado.email,
     origem: origemFinal,
@@ -510,7 +510,20 @@ async function handleMobileFimRota(e) {
     }).eq('id', rota.id);
     if (errRota) throw errRota;
 
-    await db.from('veiculos').update({ km_atual: kmRetorno, status: 'Disponivel' }).eq('id', rota.veiculo_id);
+    const veiculoAlvo = veiculos.find(v => 
+      String(v.id) === String(rota.veiculo_id) || 
+      String(v.uuid_veiculos) === String(rota.veiculo_id) || 
+      String(v.nome_frota) === String(rota.veiculo_id) ||
+      String(v.placa) === String(rota.veiculo_id)
+      );
+
+      const idFiltro = veiculoAlvo?.uuid_veiculos || veiculoAlvo?.id || rota.veiculo_id;
+
+    await db.from('veiculos')
+      .update({ 
+      km_atual: kmRetorno, 
+      status: 'Disponivel' 
+    })  .or(`uuid_veiculos.eq.${idFiltro},id.eq.${idFiltro},nome_frota.eq.${idFiltro}`);
 
     // Encerra eventual reserva confirmada vinculada ao veículo e motorista
     await db.from('reservas').update({ status: 'CONCLUIDA' })
