@@ -1056,9 +1056,27 @@ function renderSelectVeiculosInicio() {
   const select = document.getElementById('form-inicio-veiculo');
   if (!select) return;
   select.innerHTML = '<option value="">Selecione um veículo...</option>';
-  veiculos.filter(v => v.status === 'Disponivel').forEach(v => {
+
+  (veiculos || []).filter(v => v.status === 'Disponivel').forEach(v => {
     const nomeAmigavel = v.nome_frota || v.identificador || v.id;
-    select.innerHTML += `<option value="${v.id}">${v.placa} - ${nomeAmigavel} (${Number(v.km_atual || 0).toLocaleString('pt-BR')} km)</option>`;
+
+    // Busca no array de rotas a última rota CONCLUÍDA deste carro
+    const ultimasRotas = (typeof rotas !== 'undefined' && Array.isArray(rotas) ? rotas : [])
+      .filter(r => {
+        const bateuCarro = (v.placa && String(r.placa) === String(v.placa)) ||
+                           String(r.veiculo_id) === String(v.id) ||
+                           String(r.veiculo_id) === String(v.nome_frota) ||
+                           String(r.uuid_veiculos) === String(v.uuid_veiculos);
+        return bateuCarro && r.status === 'Concluida' && r.km_retorno;
+      })
+      .sort((a, b) => new Date(b.data_retorno || b.data_saida) - new Date(a.data_retorno || a.data_saida));
+
+    // Pega o último km_retorno registrado (12.472); se não tiver rota, usa o km_atual
+    const kmExibicao = (ultimasRotas.length > 0 && Number(ultimasRotas[0].km_retorno) > 0)
+      ? Number(ultimasRotas[0].km_retorno)
+      : Number(v.km_atual || 0);
+
+    select.innerHTML += `<option value="${v.id}">${v.placa} - ${nomeAmigavel} (${kmExibicao.toLocaleString('pt-BR')} km)</option>`;
   });
 }
 
@@ -1075,9 +1093,30 @@ function atualizarKmInicialPreenchido() {
   if (!inputKm) return;
 
   if (v) {
-    inputKm.value = v.km_atual || 0;
+    // 1. Busca no histórico a última rota CONCLUÍDA deste veículo
+    const ultimasRotasCarro = (typeof rotas !== 'undefined' && Array.isArray(rotas) ? rotas : [])
+      .filter(r => {
+        const bateuCarro = (v.placa && String(r.placa) === String(v.placa)) ||
+                           String(r.veiculo_id) === String(v.id) ||
+                           String(r.veiculo_id) === String(v.nome_frota) ||
+                           String(r.uuid_veiculos) === String(v.uuid_veiculos);
+        return bateuCarro && r.status === 'Concluida' && r.km_retorno;
+      })
+      .sort((a, b) => new Date(b.data_retorno || b.data_saida) - new Date(a.data_retorno || a.data_saida));
+
+    const ultimaRota = ultimasRotasCarro[0];
+
+    // 2. Prioriza o KM da última rota concluída; caso não haja rota registrada, usa o km_atual do veículo
+    let kmSincronizado = 0;
+    if (ultimaRota && Number(ultimaRota.km_retorno) > 0) {
+      kmSincronizado = Number(ultimaRota.km_retorno);
+    } else {
+      kmSincronizado = Number(v.km_atual || 0);
+    }
+
+    inputKm.value = kmSincronizado;
     
-    // Regra do Carro Externo vs Frota Própria
+    // Regra do Carro Externo vs Frota Própria (Preservada)
     const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
     if (isExterno) {
       inputKm.readOnly = false;
