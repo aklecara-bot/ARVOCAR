@@ -10,3 +10,30 @@
   color: #16a34a !important;
   font-weight: 700;
 }
+
+/* Botão de ação padrão */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem; /* gap-2 */
+  width: 100%; /* w-full */
+  padding: 0.75rem 1rem; /* py-3 px-4 */
+  background-color: #15803d; /* bg-brand-700 */
+  color: #ffffff; /* text-white */
+  font-weight: 700; /* font-bold */
+  font-size: 0.875rem; /* text-sm */
+  border-radius: 0.75rem; /* rounded-xl */
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 10px 15px -3px rgba(20, 83, 45, 0.1), 0 4px 6px -4px rgba(20, 83, 45, 0.1); /* shadow-lg shadow-brand-900/10 */
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primary:hover {
+  background-color: #166534; /* hover:bg-brand-800 */
+}
+
+.btn-primary:active {
+  transform: scale(0.98); /* active:scale-98 */
+}
