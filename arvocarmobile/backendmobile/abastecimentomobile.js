@@ -172,35 +172,73 @@ async function salvarAbastecimento(e) {
     salvarHistoricoLocal(payload);
     alert('📶 Abastecimento gravado em Modo Offline! Será enviado ao conectar.');
     limparFormularioAposSalvar();
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check text-base"></i><span>Registrar Abastecimento</span>`;
+    }
     return;
   }
 
-  // Se online, faz upload e salva no banco
+  // Se online, faz upload da imagem e salva no banco
   try {
     let url_comprovante = null;
+
     if (fotoInput && fotoInput.files && fotoInput.files[0]) {
       const file = fotoInput.files[0];
-      const fileName = `abast_${Date.now()}_${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
-      const { error: upErr } = await db.storage.from('comprovantes').upload(fileName, file);
-      if (!upErr) {
-        url_comprovante = db.storage.from('comprovantes').getPublicUrl(fileName).data?.publicUrl;
+      const extensao = file.name.split('.').pop();
+      const fileName = `abast_${Date.now()}_${Math.random().toString(36).substring(7)}.${extensao}`;
+
+      // Upload do arquivo para o bucket 'comprovantes'
+      const { error: upErr } = await db.storage
+        .from('comprovantes')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (upErr) {
+        console.error("Falha no upload da foto para o Storage:", upErr);
+        throw new Error(`Erro ao enviar foto do comprovante: ${upErr.message}`);
       }
+
+      // Resgata o link público da imagem
+      const { data: publicUrlData } = db.storage
+        .from('comprovantes')
+        .getPublicUrl(fileName);
+
+      url_comprovante = publicUrlData?.publicUrl || null;
     }
+
     payload.url_comprovante = url_comprovante;
 
+    // Inserção no Supabase
     const { error: insErr } = await db.from('abastecimentos').insert([payload]);
     if (insErr) throw insErr;
+
+    // Atualização opcional do KM na tabela veiculos (protegida contra erros de RLS)
+    if (km_atual && !isNaN(km_atual)) {
+      try {
+        let query = db.from('veiculos').update({ km_atual: km_atual });
+        if (uuid_veiculos) {
+          query = query.eq('uuid_veiculos', uuid_veiculos);
+        } else {
+          query = query.eq('id', veiculo_id);
+        }
+        await query.lt('km_atual', km_atual);
+      } catch (vErr) {
+        console.warn("Aviso ao atualizar KM do veículo:", vErr);
+      }
+    }
 
     alert('✅ Abastecimento registrado com sucesso!');
     limparFormularioAposSalvar();
     await carregarHistoricoAbastecimento();
-    trocarAba('historico');
+    if (typeof trocarAba === 'function') {
+      trocarAba('historico');
+    }
   } catch (err) {
-    console.warn("Erro online, desviando para fila offline:", err);
-    salvarFilaAbastecimento(payload);
-    alert('📶 Gravado localmente devido a oscilação no sinal.');
-    limparFormularioAposSalvar();
+    console.error("Erro no fluxo online:", err);
+    alert('Erro ao salvar: ' + (err.message || 'Verifique sua conexão.'));
   } finally {
     if (btn) {
       btn.disabled = false;
