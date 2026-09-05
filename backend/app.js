@@ -1336,16 +1336,22 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   const modalId = `modal-alerta-${rota.id}`;
   if (document.getElementById(modalId)) return;
 
-  const veic = veiculos.find(v => String(v.id) === String(rota.veiculo_id) || String(v.uuid_veiculos) === String(rota.veiculo_id));
+  const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v => 
+    String(v.id) === String(rota.veiculo_id) || 
+    String(v.uuid_veiculos) === String(rota.veiculo_id) ||
+    String(v.nome_frota) === String(rota.veiculo_id) ||
+    String(v.placa) === String(rota.veiculo_id)
+  );
+  
   const nomeCarro = rota.nome_frota || (veic ? (veic.nome_frota || veic.id) : rota.veiculo_id);
-  const placaCarro = (veic && veic.placa) ? ` [${veic.placa}]` : '';
+  const placaCarro = (veic && veic.placa) ? ` [${veic.placa}]` : (rota.placa ? ` [${rota.placa}]` : '');
 
   const popUp = document.createElement('div');
   popUp.id = modalId;
-  popUp.className = "fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in";
+  popUp.className = "modal-alerta-backdrop";
   popUp.innerHTML = `
-    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-rose-100 text-center space-y-4">
-      <div class="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+    <div class="modal-alerta-card">
+      <div class="modal-alerta-icon-box">
         <i class="ph-bold ph-warning-circle"></i>
       </div>
       <div>
@@ -1354,14 +1360,14 @@ function exibirPopUpAlerta(rota, horasAbertas) {
           A rota <b class="text-slate-800">#${rota.id}</b> com o veículo <b class="text-slate-800">${nomeCarro}${placaCarro}</b> está aberta há mais de <span class="text-rose-600 font-bold">${Math.floor(horasAbertas)} horas</span>.
         </p>
       </div>
-      <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium text-left">
+      <div class="modal-alerta-box-aviso">
         Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento.
       </div>
-      <div class="flex gap-2 pt-2">
-        <button onclick="document.getElementById('${modalId}').remove()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+      <div class="modal-alerta-actions">
+        <button onclick="document.getElementById('${modalId}').remove()" class="btn-alerta-lembrar">
           Lembrar Depois
         </button>
-        <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDireta('${rota.veiculo_id}');" class="flex-1 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md transition">
+        <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDireta('${rota.veiculo_id}');" class="btn-alerta-finalizar">
           Finalizar Agora
         </button>
       </div>

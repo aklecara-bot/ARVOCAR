@@ -23,7 +23,8 @@
   --slate-900: #0f172a;
 }
 
-body.app-body {
+body.app-body,
+body {
   background-color: var(--slate-100);
   color: var(--slate-800);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -47,7 +48,8 @@ body.app-body {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-.header-inner {
+.header-inner,
+.header-container {
   max-width: 80rem; /* 1280px */
   margin: 0 auto;
   padding: 0 1rem;
@@ -58,7 +60,14 @@ body.app-body {
   gap: 0.75rem;
 }
 
-.brand-badge-logo {
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-badge-logo,
+.brand-icon-box {
   background-color: var(--brand-600);
   padding: 0.5rem;
   border-radius: 0.75rem;
@@ -69,7 +78,8 @@ body.app-body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.brand-badge-logo img {
+.brand-badge-logo img,
+.brand-icon-box img {
   height: 1.5rem;
   width: auto;
 }
@@ -79,6 +89,7 @@ body.app-body {
   font-weight: 900;
   letter-spacing: -0.025em;
   line-height: 1;
+  color: #ffffff;
 }
 
 .brand-subtitle {
@@ -125,11 +136,61 @@ body.app-body {
 .module-nav-inactive:hover {
   color: #ffffff;
 }
+/* ========================================================
+  BARRA DE FERRAMENTAS / FILTROS DO HISTÓRICO
+  =======================================================*/
+ 
+  .toolbar-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 640px) {
+  .toolbar-filtro {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.input-busca-rotas {
+  max-width: 20rem;
+  width: 100%;
+}
+
+/* =====================================================
+  iNFORMAÇÕES DO =CONDUTOR NO CABEÇALHO
+=======================================================*/
+
+.user-meta-info {
+  text-align: right;
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .user-meta-info {
+    display: block;
+  }
+}
+
+.user-meta-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.user-meta-cnh {
+  font-size: 0.625rem;
+  color: var(--brand-100);
+}
 
 /* =========================================================================
    BOTÕES DE AÇÃO E LINKS DO SISTEMA (PADRONIZADOS)
    ========================================================================= */
-/* Botão Principal Formulários (Login / Iniciar Rota / Finalizar) */
+/* Botão Principal de Formulários */
 .btn-primary {
   display: flex;
   align-items: center;
@@ -156,8 +217,9 @@ body.app-body {
   transform: scale(0.98);
 }
 
-/* Botões Estilo Cápsula do Topo */
-.btn-nav-action {
+/* Botões do Cabeçalho (Pills / Ações Rápidas) */
+.btn-nav-action,
+.btn-header-action {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
@@ -170,6 +232,15 @@ body.app-body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
   white-space: nowrap;
+  background-color: var(--brand-700);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.btn-nav-action:hover,
+.btn-header-action:hover,
+.btn-nav-green:hover {
+  background-color: var(--brand-800);
 }
 
 .btn-nav-green {
@@ -177,18 +248,37 @@ body.app-body {
   color: #ffffff;
 }
 
-.btn-nav-green:hover {
-  background-color: var(--brand-800);
-}
-
-.btn-nav-amber {
-  background-color: #d97706;
-  color: #ffffff;
+.btn-nav-amber,
+.btn-header-amber {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
   border-color: rgba(245, 158, 11, 0.3);
 }
 
-.btn-nav-amber:hover {
-  background-color: #b45309;
+.btn-nav-amber:hover,
+.btn-header-amber:hover {
+  background-color: #b45309 !important;
+}
+
+/* Botão Voltar ao Painel (Reservas / Relatórios) */
+.header-voltar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--brand-800);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--brand-700);
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease-in-out;
+}
+
+.header-voltar-btn:hover {
+  background-color: var(--brand-700);
 }
 
 .btn-logout {
@@ -213,30 +303,50 @@ body.app-body {
 /* =========================================================================
    FORMULÁRIOS, ENTRADAS E SELETORES
    ========================================================================= */
-.form-label {
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.form-label,
+.label-reserva {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.6875rem; /* 11px */
   font-weight: 700;
   color: var(--slate-700);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
 }
 
-.form-control {
+.form-control,
+.input-reserva {
   width: 100%;
-  background-color: #ffffff;
+  background-color: var(--slate-50);
   border: 1px solid var(--slate-300);
   color: var(--slate-800);
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   padding: 0.625rem 0.875rem;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   box-sizing: border-box;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.form-control:focus {
+.form-control:focus,
+.input-reserva:focus {
+  background-color: #ffffff;
   border-color: var(--brand-500);
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
 }
@@ -249,22 +359,51 @@ body.app-body {
 }
 
 .form-sublabel {
-  font-size: 0.6875rem; /* 11px */
+  font-size: 0.6875rem;
   color: var(--slate-500);
   margin-top: 0.25rem;
   display: block;
 }
 
+.form-textarea {
+  min-height: 4rem;
+  resize: vertical;
+}
+
+.btn-confirmar-reserva {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--brand-700);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(21, 128, 61, 0.2);
+  transition: all 0.2s ease-in-out;
+  margin-top: 1rem;
+}
+
+.btn-confirmar-reserva:hover {
+  background-color: var(--brand-800);
+}
+
 /* =========================================================================
    CARDS DE PAINEL E ESTRUTURAS DE CONTEÚDO
    ========================================================================= */
-   
-.card-panel {
+.card-panel,
+.card-reservas {
   background-color: #ffffff;
-  border-radius: 1rem;
+  border-radius: 1.5rem;
   border: 1px solid var(--slate-200);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   padding: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
 .card-header-bar {
@@ -276,27 +415,68 @@ body.app-body {
   margin-bottom: 1.5rem;
 }
 
-.card-icon-box {
-  padding: 0.75rem;
-  background-color: var(--brand-50);
+.card-icon-box,
+.card-reservas-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  background-color: var(--brand-100);
   color: var(--brand-700);
-  border-radius: 0.75rem;
+  border-radius: 0.875rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 1.35rem;
 }
 
-.card-title {
-  font-size: 1.125rem;
-  font-weight: 700;
+.card-title,
+.card-reservas-title {
+  font-size: 1rem;
+  font-weight: 800;
   color: var(--slate-900);
+  line-height: 1.2;
   margin: 0;
 }
 
-.card-subtitle {
+.card-subtitle,
+.card-reservas-desc {
   font-size: 0.75rem;
   color: var(--slate-400);
-  margin: 0.125rem 0 0 0;
+  margin-top: 0.125rem;
+}
+
+/* Sub-abas Secundárias */
+.subtabs-bar {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--slate-200);
+  padding: 0 1.5rem;
+}
+
+.subtabs-container {
+  max-width: 80rem;
+  margin: 0 auto;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.subtab-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--slate-500);
+  border-bottom: 2px solid transparent;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.subtab-link:hover {
+  color: var(--slate-800);
 }
 
 .subtab-active {
@@ -305,3 +485,416 @@ body.app-body {
   font-weight: 700;
 }
 
+/* =========================================================================
+   LAYOUT DA TELA DE RESERVAS
+   ========================================================================= */
+.reservas-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .reservas-grid {
+    grid-template-columns: repeat(12, 1fr);
+  }
+  .reservas-col-form {
+    grid-column: span 4;
+  }
+  .reservas-col-main {
+    grid-column: span 8;
+  }
+}
+
+/* =========================================================================
+   TABELA PADRÃO DE DADOS
+   ========================================================================= */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--slate-600);
+  border-collapse: collapse;
+}
+
+.data-table th {
+  background-color: var(--slate-50);
+  border-bottom: 1px solid var(--slate-200);
+  font-weight: 700;
+  color: var(--slate-700);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem;
+}
+
+.data-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--slate-100);
+}
+
+.data-table tbody tr:hover {
+  background-color: var(--slate-50);
+}
+
+/* =========================================================================
+   BADGE DE CONTAGEM E TAGS
+   ========================================================================= */
+.badge-pill {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  background-color: var(--brand-50);
+  color: var(--brand-700);
+  border: 1px solid #bbf7d0;
+}
+
+.badge-tag {
+  background-color: var(--slate-100);
+  color: var(--slate-700);
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+.btn-table-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #e11d48;
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.btn-table-cancel:hover {
+  background-color: #ffe4e6;
+}
+
+/* =========================================================================
+   MODAL POPUP CENTRALIZADO
+   ========================================================================= */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-card {
+  background-color: #ffffff;
+  border-radius: 1.5rem;
+  max-width: 24rem;
+  width: 100%;
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--slate-100);
+}
+
+/* =======================================================================
+   CUSTOMIZAÇÃO DO FULLCALENDAR
+=========================================================================*/
+.fc .fc-toolbar-title {
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  color: var(--slate-900) !important;
+}
+
+.fc .fc-button-primary {
+  background-color: var(--slate-900) !important;
+  border-color: var(--slate-900) !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.35rem 0.75rem !important;
+}
+
+.fc .fc-button-primary:hover {
+  background-color: var(--slate-800) !important;
+  border-color: var(--slate-800) !important;
+}
+
+.fc .fc-button-active {
+  background-color: var(--brand-700) !important;
+  border-color: var(--brand-700) !important;
+}
+
+.fc .fc-today-button {
+  background-color: var(--slate-400) !important;
+  border-color: var(--slate-400) !important;
+  color: #ffffff !important;
+}
+
+.fc-theme-standard th {
+  background-color: #ffffff !important;
+  border-color: var(--slate-200) !important;
+  padding: 0.5rem 0 !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  color: var(--slate-800) !important;
+}
+
+.fc-theme-standard td {
+  border-color: var(--slate-200) !important;
+}
+
+.fc .fc-daygrid-day-number {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  color: var(--slate-600) !important;
+  padding: 0.25rem 0.5rem !important;
+}
+
+.fc-event {
+  border-radius: 0.375rem !important;
+  padding: 2px 4px !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  border: none !important;
+  cursor: pointer;
+}
+
+/* =======================================================================
+   CARDS DE INDICADORES (KPIs DO DASHBOARD
+=========================================================================*/
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.kpi-card {
+  background-color: #ffffff;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid var(--slate-200);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kpi-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kpi-value {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--slate-800);
+  margin-top: 0.5rem;
+  line-height: 1;
+}
+
+.kpi-subtext {
+  font-size: 0.75rem;
+  color: var(--slate-400);
+  margin-top: 0.25rem;
+  display: block;
+}
+
+/* =======================================================================
+   GRID DE VISÃO GERAL DOS VEICULOS
+=========================================================================*/
+
+.fleet-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .fleet-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .fleet-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* =========================================================================
+   POP-UP DE NOTIFICAÇÃO / ALERTA DE ROTA PENDENTE
+   ========================================================================= */
+.modal-alerta-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-alerta-card {
+  background-color: #ffffff;
+  border-radius: 1.5rem; /* rounded-3xl */
+  max-width: 24rem; /* max-w-sm */
+  width: 100%;
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid #ffe4e6;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.modal-alerta-icon-box {
+  width: 3.5rem;
+  height: 3.5rem;
+  background-color: #ffe4e6; /* rose-100 */
+  color: #e11d48; /* rose-600 */
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem auto;
+  font-size: 1.75rem;
+}
+
+.modal-alerta-box-aviso {
+  background-color: #fffbeb; /* amber-50 */
+  border: 1px solid #fde68a; /* amber-200 */
+  color: #92400e; /* amber-800 */
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.6875rem; /* 11px */
+  text-align: left;
+  line-height: 1.4;
+  margin: 1rem 0;
+}
+
+.modal-alerta-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.btn-alerta-lembrar {
+  flex: 1;
+  padding: 0.625rem;
+  background-color: #f1f5f9;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-alerta-lembrar:hover {
+  background-color: #e2e8f0;
+}
+
+.btn-alerta-finalizar {
+  flex: 1;
+  padding: 0.625rem;
+  background-color: #15803d; /* brand-700 */
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(21, 128, 61, 0.2);
+  transition: background-color 0.2s;
+}
+
+.btn-alerta-finalizar:hover {
+  background-color: #166534;
+}
+
+/* =========================================================================
+   RESPONSIVIDADE DO CABEÇALHO (HEADER)
+   ========================================================================= */
+.header-inner {
+  height: auto !important;
+  min-height: 4rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+/* Garante que botões e textos não estourem o container */
+.header-modules-wrapper {
+  flex-shrink: 0;
+}
+
+.header-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+/* Oculta textos secundários em telas intermediárias para poupar espaço */
+@media (max-width: 1100px) {
+  .brand-subtitle {
+    display: none !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .btn-nav-action span,
+  .btn-header-action span {
+    display: none; /* Mantém apenas os ícones em telas estreitas */
+  }
+  .btn-nav-action,
+  .btn-header-action {
+    padding: 0.45rem 0.6rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .header-inner {
+    justify-content: space-between;
+  }
+  .header-modules-wrapper {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.25rem;
+  }
+}
