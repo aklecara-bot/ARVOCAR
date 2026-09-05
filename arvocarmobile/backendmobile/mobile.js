@@ -506,6 +506,67 @@ function calcularKmPercorridoMobile() {
   }
 }
 
+/**
+ * Determina a média de km/L esperada para um veículo específico e combustível atual.
+ * @param {Object} veiculo - Objeto do veículo (com consumo_min, consumo_max, etc.)
+ * @param {string} tipoCombustivel - Ex: 'Gasolina Comum', 'Etanol', 'Diesel'
+ * @param {Array} listaAbastecimentos - Array global ou cache de abastecimentos
+ * @returns {number} Média de consumo apurada em km/L
+ */
+function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos = []) {
+  const placa = veiculo?.placa;
+  const vId = veiculo?.id;
+  const uuid = veiculo?.uuid_veiculos;
+  const nomeFrota = veiculo?.nome_frota;
+
+  // 1. Filtra registros válidos deste veículo ordenados do mais recente para o mais antigo
+  const abastsCarro = (listaAbastecimentos || [])
+    .filter(a => {
+      const bateuVeiculo = (placa && String(a.placa) === String(placa)) ||
+                           (vId && String(a.veiculo_id) === String(vId)) ||
+                           (uuid && String(a.uuid_veiculos) === String(uuid)) ||
+                           (nomeFrota && String(a.veiculo_id) === String(nomeFrota));
+      return bateuVeiculo && Number(a.km_atual) > 0 && Number(a.quantidade_litros) > 0;
+    })
+    .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
+
+  // Identifica o combustível corrente se não for informado diretamente
+  const combAtual = tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum';
+
+  // Filtra pelo combustível corrente
+  const abastsTipo = abastsCarro.filter(a => 
+    (a.tipo_combustivel || '').toUpperCase() === combAtual.toUpperCase()
+  );
+
+  // 2. Apuração por Histórico Real (requer ao menos 2 abastecimentos sequenciais com KM)
+  if (abastsTipo.length >= 2) {
+    const kmRecente = Number(abastsTipo[0].km_atual);
+    const kmAnterior = Number(abastsTipo[1].km_atual);
+    const litros = Number(abastsTipo[0].quantidade_litros);
+    const deltaKm = kmRecente - kmAnterior;
+
+    if (deltaKm > 0 && litros > 0) {
+      const mediaCalculada = deltaKm / litros;
+      // Trava de sanidade para evitar distorções operacionais (ex: esquecimento de anotar)
+      if (mediaCalculada >= 3 && mediaCalculada <= 35) {
+        return Number(mediaCalculada.toFixed(2));
+      }
+    }
+  }
+
+  // 3. Fallback: Dados nominais do fabricante
+  const cMin = Number(veiculo?.consumo_min || 10);
+  const cMax = Number(veiculo?.consumo_max || 14);
+  let mediaFabricante = (cMin + cMax) / 2;
+
+  // Fator de paridade: Etanol entrega em média 70% da eficiência da gasolina
+  if (combAtual.toUpperCase().includes('ETANOL')) {
+    mediaFabricante = mediaFabricante * 0.7;
+  }
+
+  return Number(mediaFabricante.toFixed(2));
+}
+
 async function handleMobileFimRota(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-m-confirmar-fim');
@@ -535,11 +596,46 @@ async function handleMobileFimRota(e) {
   }
 
   const kmTotal = kmRetorno - Number(rota.km_saida);
+
+  // Localiza o veículo associado no array local
+  const veiculoAlvo = veiculos.find(v =>
+    String(v.id) === String(rota.veiculo_id) ||
+    String(v.uuid_veiculos) === String(rota.veiculo_id) ||
+    String(v.nome_frota) === String(rota.veiculo_id) ||
+    String(v.placa) === String(rota.veiculo_id) ||
+    (rota.placa && String(v.placa) === String(rota.placa))
+  ) || {};
+
+  // --- CÁLCULO DINÂMICO DE CONSUMO E TANQUE VIRTUAL ---
+  let histCache = [];
+  try {
+    histCache = JSON.parse(localStorage.getItem('arvo_cache_abastecimentos') || '[]');
+  } catch (e) {
+    histCache = [];
+  }
+
+  let medConsumo;
+  if (typeof obterMediaConsumoEsperada === 'function') {
+    medConsumo = obterMediaConsumoEsperada(veiculoAlvo, null, histCache);
+  } else {
+    medConsumo = (Number(veiculoAlvo.consumo_min) + Number(veiculoAlvo.consumo_max)) / 2 || 12;
+  }
+
+  const litrosEst = Number((kmTotal / medConsumo).toFixed(2));
+  const capTanque = Number(veiculoAlvo.tanque || 45);
+  const tanqueAnterior = (veiculoAlvo.tanque_virtual !== null && veiculoAlvo.tanque_virtual !== undefined)
+    ? Number(veiculoAlvo.tanque_virtual)
+    : capTanque;
+
+  const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosEst).toFixed(2));
+
   const payloadFim = {
     rota_id: rota.id,
     destino: destinoFinal,
     km_retorno: kmRetorno,
     km_total: kmTotal,
+    consumo_litros: litrosEst,
+    tanque_virtual: novoTanqueVirtual,
     data_retorno: new Date().toISOString(),
     status: 'Concluida',
     anomalia: anomaliaMarcada ? (relatorioAnomalia || 'Anomalia sem detalhes') : null
@@ -550,16 +646,22 @@ async function handleMobileFimRota(e) {
     salvarNaFilaRotas({ tipo: 'FIM', payload: payloadFim });
     rota.status = 'Concluida';
     rota.km_total = kmTotal;
+    rota.consumo_litros = litrosEst;
     rota.data_retorno = payloadFim.data_retorno;
     rota.destino = destinoFinal;
 
-    const v = veiculos.find(ve => ve.nome_frota === rota.veiculo_id || ve.id === rota.veiculo_id);
+    const v = veiculos.find(ve => 
+      ve.nome_frota === rota.veiculo_id || 
+      ve.id === rota.veiculo_id ||
+      (veiculoAlvo.id && ve.id === veiculoAlvo.id)
+    );
     if (v) {
       v.km_atual = kmRetorno;
       v.status = 'Disponivel';
+      v.tanque_virtual = novoTanqueVirtual;
     }
     salvarCachesLocais();
-    alert(`📶 Rota encerrada Offline! Será sincronizada quando houver conexão.`);
+    alert(`📶 Rota encerrada Offline! Consumo: ~${litrosEst} L. Será sincronizada quando houver conexão.`);
     e.target.reset();
     renderizarHistoricoMobile();
     renderizarOpcoesRotasAtivas();
@@ -573,38 +675,47 @@ async function handleMobileFimRota(e) {
   }
 
   try {
+    // 1. Atualiza a rota com odômetro, trajeto e litros consumidos
     const { error: errRota } = await db.from('rotas').update({
       destino: destinoFinal,
       km_retorno: kmRetorno,
       km_total: kmTotal,
+      consumo_litros: litrosEst,
       data_retorno: payloadFim.data_retorno,
       status: 'Concluida',
       anomalia: payloadFim.anomalia
     }).eq('id', rota.id);
+    
     if (errRota) throw errRota;
 
-    const veiculoAlvo = veiculos.find(v => 
-      String(v.id) === String(rota.veiculo_id) || 
-      String(v.uuid_veiculos) === String(rota.veiculo_id) || 
-      String(v.nome_frota) === String(rota.veiculo_id) ||
-      String(v.placa) === String(rota.veiculo_id)
-      );
+    const idFiltro = veiculoAlvo?.uuid_veiculos || veiculoAlvo?.id || rota.veiculo_id;
 
-      const idFiltro = veiculoAlvo?.uuid_veiculos || veiculoAlvo?.id || rota.veiculo_id;
+    // 2. Atualiza o veículo com KM, status 'Disponivel' e saldo do tanque virtual
+    const payloadUpdateVeic = {
+      km_atual: kmRetorno,
+      status: 'Disponivel',
+      tanque_virtual: novoTanqueVirtual
+    };
 
-    await db.from('veiculos')
-      .update({ 
-      km_atual: kmRetorno, 
-      status: 'Disponivel' 
-    })  .or(`uuid_veiculos.eq.${idFiltro},id.eq.${idFiltro},nome_frota.eq.${idFiltro}`);
+    let queryVeic = db.from('veiculos').update(payloadUpdateVeic);
+    if (veiculoAlvo?.placa) {
+      queryVeic = queryVeic.or(`placa.eq.${veiculoAlvo.placa},uuid_veiculos.eq.${idFiltro},id.eq.${idFiltro},nome_frota.eq.${idFiltro}`);
+    } else {
+      queryVeic = queryVeic.or(`uuid_veiculos.eq.${idFiltro},id.eq.${idFiltro},nome_frota.eq.${idFiltro}`);
+    }
+    await queryVeic;
 
-    // Encerra eventual reserva confirmada vinculada ao veículo e motorista
-    await db.from('reservas').update({ status: 'CONCLUIDA' })
-      .eq('veiculo_id', rota.veiculo_id)
-      .eq('responsavel', rota.responsavel)
-      .eq('status', 'CONFIRMADA');
+    // 3. Encerra eventual reserva confirmada vinculada ao veículo e motorista
+    try {
+      await db.from('reservas').update({ status: 'CONCLUIDA' })
+        .eq('veiculo_id', rota.veiculo_id)
+        .eq('responsavel', rota.responsavel)
+        .eq('status', 'CONFIRMADA');
+    } catch (errRes) {
+      console.warn("Aviso ao atualizar reservas pendentes no mobile:", errRes);
+    }
 
-    alert(`✅ Rota concluída com sucesso! Distância: ${kmTotal} km.`);
+    alert(`✅ Rota concluída com sucesso!\nDistância: ${kmTotal} km | Consumo est.: ~${litrosEst} L\nTanque virtual: ~${novoTanqueVirtual} L restantes`);
     e.target.reset();
     toggleOutroDestinoMobile('');
     toggleAnomaliaMobile(false);
@@ -614,6 +725,10 @@ async function handleMobileFimRota(e) {
     console.warn("Salvando encerramento na fila offline:", err);
     salvarNaFilaRotas({ tipo: 'FIM', payload: payloadFim });
     rota.status = 'Concluida';
+    rota.consumo_litros = litrosEst;
+    if (veiculoAlvo) {
+      veiculoAlvo.tanque_virtual = novoTanqueVirtual;
+    }
     salvarCachesLocais();
     alert(`📶 Finalização salva localmente.`);
     switchMobileTab('historico');
@@ -624,6 +739,7 @@ async function handleMobileFimRota(e) {
     }
   }
 }
+
 
 // =========================================================================
 // FILA DE PERSISTÊNCIA OFFLINE E SINCRONIZAÇÃO EM SEGUNDO PLANO
@@ -745,6 +861,9 @@ document.addEventListener('DOMContentLoaded', () => {
     iniciarAppMobile();
   }
 });
+
+
+
 
 // Exportações Globais
 window.toggleSenhaMobile = toggleSenhaMobile;
