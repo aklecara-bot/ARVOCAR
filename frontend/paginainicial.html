@@ -12,27 +12,28 @@
 
   <!-- Arquivo de Estilos Centralizado -->
   <link rel="stylesheet" href="../EsTyle/style.css" />
+  <link rel="stylesheet" href="../EStyle/style.css" />
 </head>
 
 <body class="app-body">
 
   <!-- Cabeçalho Principal -->
   <header class="app-header">
-    <div class="header-inner">
+    <div class="header-inner flex items-center justify-between">
       
       <!-- Marca e Título -->
-      <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2 shrink-0">
         <div class="brand-badge-logo">
-          <img src="/imagens/arvocarwhite30.png" alt="ARVOCAR" />
+          <img src="/imagens/arvocarwhite30.png" alt="ARVOCAR" class="h-6 w-auto" />
         </div>
         <div class="flex items-baseline">
           <span class="brand-title">ARVOCAR</span>
-          <span class="brand-subtitle">Controle de Rota</span>
+          <span class="brand-subtitle hidden lg:inline">Controle de Rota</span>
         </div>
       </div>
 
       <!-- Módulos de Operação e Gestão -->
-      <div class="header-modules-wrapper">
+      <div class="header-modules-wrapper shrink-0">
         <button id="btn-mod-operacao" onclick="setModule('operacao')" class="btn-module-nav module-nav-active">
           <i class="ph-bold ph-paper-plane-tilt"></i>
           <span>Rotas</span>
@@ -44,53 +45,55 @@
       </div>
 
       <!-- Links Rápidos e Botão de Logout -->
-      <div class="flex items-center gap-2">
-        <a href="reservas.html" class="btn-nav-action btn-nav-green">
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <a href="reservas.html" class="btn-nav-action btn-nav-green" title="Reservas">
           <i class="ph-bold ph-calendar-check text-base"></i>
           <span>Reservas</span>
         </a>
 
-        <a href="abastecimento.html" class="btn-nav-action btn-nav-amber">
+        <a href="abastecimento.html" class="btn-nav-action btn-nav-amber" title="Abastecimento">
           <i class="ph-bold ph-gas-pump text-base"></i>
           <span>Abastecimento</span>
         </a>
 
-        <div class="hidden sm:flex flex-col text-right ml-2 mr-1">
-          <span id="header-user-nome" class="text-xs font-bold leading-tight text-white"></span>
-          <span id="header-user-cnh" class="text-[10px] text-brand-200"></span>
+        <div class="hidden xl:flex flex-col text-right ml-1 mr-1">
+          <span id="topUserDisplay" class="text-xs font-bold leading-tight text-white truncate max-w-[160px]"></span>
+          <span id="topUserCnh" class="text-[10px] text-brand-200"></span>
         </div>
 
-        <button onclick="handleLogout()" title="Sair" class="btn-logout">
+        <button onclick="fazerLogout()" title="Sair" class="btn-logout">
           <i class="ph-bold ph-sign-out text-sm"></i>
-          <span>Sair</span>
+          <span class="hidden sm:inline">Sair</span>
         </button>
       </div>
 
     </div>
-  </header>
+  </header
 
   <!-- Conteúdo Principal -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-    <!-- Módulo de Operação -->
+    <!-- =========================================================================
+         MÓDULO DE OPERAÇÃO
+         ========================================================================= -->
     <div id="module-operacao" class="space-y-6">
 
       <!-- Submenu / Abas de Rotas -->
-      <div class="flex items-center justify-between border-b border-slate-200 pb-2 mb-4">
-        <nav class="flex space-x-4">
-          <button id="tab-btn-saida" onclick="setSubTab('operacao', 'saida')" class="pb-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition subtab-active">
-            Iniciar Rota
+      <div class="subtabs-bar">
+        <div class="subtabs-container">
+          <button id="subtab-saida" onclick="setSubTab('operacao', 'saida')" class="subtab-link subtab-active">
+            <i class="ph-bold ph-key"></i> Iniciar Rota
           </button>
-          <button id="tab-btn-retorno" onclick="setSubTab('operacao', 'retorno')" class="pb-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition">
-            Finalizar Rota
+          <button id="subtab-retorno" onclick="setSubTab('operacao', 'retorno')" class="subtab-link">
+            <i class="ph-bold ph-map-pin"></i> Finalizar Rota
           </button>
-          <button id="tab-btn-minhas-rotas" onclick="setSubTab('operacao', 'minhas-rotas')" class="pb-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition">
-            Minhas Rotas
+          <button id="subtab-minhas-rotas" onclick="setSubTab('operacao', 'minhas-rotas')" class="subtab-link">
+            <i class="ph-bold ph-clock-counter-clockwise"></i> Minhas Rotas
           </button>
-        </nav>
+        </div>
       </div>
 
-      <!-- Iniciar Rota -->
+      <!-- 1. Iniciar Rota (Check-in) -->
       <section id="view-saida" class="max-w-2xl mx-auto">
         <div class="card-panel">
           <div class="card-header-bar">
@@ -98,24 +101,29 @@
               <i class="ph-bold ph-key text-xl"></i>
             </div>
             <div>
-              <h2 class="card-title">Iniciar Rota (Saída)</h2>
-              <p class="card-subtitle">Selecione o veículo disponível e registre a origem</p>
+              <h2 class="card-title">Iniciar Rota (Retirada)</h2>
+              <p class="card-subtitle">Rotas com limite de 12 horas</p>
             </div>
           </div>
 
-          <form id="form-inicio-rota" onsubmit="handleInicioRota(event)" class="space-y-4">
+          <form id="formInicioRota" onsubmit="handleInicioRota(event)" class="space-y-4">
             <div>
-              <label class="form-label">Veículo Disponível</label>
-              <select id="form-inicio-veiculo" onchange="handleVeiculoSelecionadoInicio()" required class="form-control">
+              <label class="form-label">Usuário</label>
+              <input type="text" id="form-inicio-Usuario" readonly class="form-control form-control-readonly" />
+            </div>
+
+            <div>
+              <label class="form-label">Selecione o Veículo Disponível</label>
+              <select id="form-inicio-veiculo" onchange="atualizarKmInicialPreenchido()" required class="form-control">
                 <option value="">Carregando veículos...</option>
               </select>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="form-grid-2">
               <div>
                 <label class="form-label">KM Inicial (Bloqueado)</label>
                 <div class="relative">
-                  <input type="number" id="form-inicio-km" readonly class="form-control form-control-readonly" />
+                  <input type="number" id="form-inicio-km" readonly class="form-control form-control-readonly" placeholder="km" />
                   <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">km</span>
                 </div>
                 <span class="form-sublabel">Carregado da última devolução.</span>
@@ -123,23 +131,25 @@
 
               <div>
                 <label class="form-label">Origem da Saída</label>
-                <select id="form-inicio-origem" required class="form-control">
+                <select id="form-inicio-origem" onchange="toggleOutroOrigem(this.value)" required class="form-control">
                   <option value="ALEGRE">ALEGRE</option>
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
                   <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
                   <option value="LOCADORA CACHOEIRO">LOCADORA CACHOEIRO</option>
                   <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
+                  <option value="OUTRO">OUTRO (Digitar...)</option>
                 </select>
+                <input type="text" id="form-inicio-origem-texto" placeholder="Digite o local de saída..." class="form-control hidden mt-2" />
               </div>
             </div>
 
             <div>
               <label class="form-label">Finalidade / Projeto</label>
               <select id="form-inicio-finalidade" required class="form-control">
-                <option value="">Selecione a finalidade...</option>
+                <option value="">...</option>
                 <option value="CO INVESTIMENTO WWF">CO INVESTIMENTO WWF</option>
-                <option value="DEMANDAS INTERNAS">DEMANDAS INTERNAS</option>
+                <option value="DEMANDAS INTERNAS" selected>DEMANDAS INTERNAS</option>
                 <option value="DEMANDAS EXTERNAS">DEMANDAS EXTERNAS</option>
                 <option value="IMPLANTACAO DE AREAS">IMPLANTAÇÃO DE ÁREAS</option>
                 <option value="REFLORESTAR">REFLORESTAR</option>
@@ -150,67 +160,511 @@
               </select>
             </div>
 
-            <div class="pt-4">
-              <button id="btn-submit-inicio" type="submit" class="btn-primary">
-                <i class="ph-bold ph-check-circle text-lg"></i>
-                <span>Iniciar Rota</span>
-              </button>
-            </div>
+            <button id="btn-submit-inicio" type="submit" class="btn-primary">
+              <i class="ph-bold ph-check-circle text-lg"></i>
+              <span>Iniciar Rota</span>
+            </button>
           </form>
         </div>
       </section>
 
-      <!-- Finalizar Rota -->
+      <!-- 2. Finalizar Rota (Check-out) -->
       <section id="view-retorno" class="hidden max-w-2xl mx-auto">
         <div class="card-panel">
           <div class="card-header-bar">
-            <div class="card-icon-box bg-amber-100 text-amber-700">
+            <div class="card-icon-box" style="background-color: #fef3c7; color: #b45309;">
               <i class="ph-bold ph-flag-checkered text-xl"></i>
             </div>
             <div>
               <h2 class="card-title">Finalizar Rota (Devolução)</h2>
-              <p class="card-subtitle">Informe o local de devolução e odômetro final</p>
+              <p class="card-subtitle">Informe o local de entrega e odômetro final</p>
             </div>
           </div>
 
-          <form id="form-fim-rota" onsubmit="handleFimRota(event)" class="space-y-4">
+          <form id="formFimRota" onsubmit="handleFimRota(event)" class="space-y-4">
             <div>
-              <label class="form-label">Sua Viagem em Andamento</label>
-              <select id="form-fim-rota-select" required class="form-control">
-                <option value="">Selecione uma rota ativa...</option>
+              <label class="form-label">Selecione sua Rota Ativa</label>
+              <select id="form-fim-rota-select" onchange="selecionarRotaFim()" required class="form-control">
+                <option value="">Selecione uma viagem em trânsito...</option>
               </select>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Resumo da rota ativa -->
+            <div id="fim-detalhes-viagem" class="info-summary-box hidden">
+              <div class="info-summary-row"><span>Veículo:</span> <b id="fim-info-veiculo">-</b></div>
+              <div class="info-summary-row"><span>Condutor:</span> <b id="fim-info-Usuario">-</b></div>
+              <div class="info-summary-row"><span>KM Saída:</span> <b id="fim-info-kmsaida" class="font-mono">-</b></div>
+              <div class="info-summary-row"><span>Consumo Estimado:</span> <b id="fim-info-consumo-est" class="font-mono">-</b></div>
+            </div>
+
+            <div class="form-grid-2">
               <div>
-                <label class="form-label">KM Final no Painel</label>
-                <input type="number" id="form-fim-km" required class="form-control" />
+                <label class="form-label">KM Final</label>
+                <div class="relative">
+                  <input type="number" id="form-fim-km" oninput="calcularKmPercorrido()" required class="form-control" />
+                  <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">km</span>
+                </div>
+                <span id="km-calc-feedback" class="text-[11px] font-bold mt-1 block"></span>
               </div>
 
               <div>
-                <label class="form-label">Destino / Local de Devolução</label>
-                <select id="form-fim-destino" required class="form-control">
+                <label class="form-label">Local de Devolução</label>
+                <select id="form-fim-destino" onchange="toggleOutroDestino(this.value)" required class="form-control">
                   <option value="ALEGRE">ALEGRE</option>
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
                   <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
                   <option value="LOCADORA CACHOEIRO">LOCADORA CACHOEIRO</option>
+                  <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
+                  <option value="OUTRO">OUTRO (Digitar...)</option>
                 </select>
+                <input type="text" id="form-fim-destino-texto" placeholder="Digite o local de devolução..." class="form-control hidden mt-2" />
               </div>
             </div>
 
-            <div class="pt-4">
-              <button id="btn-submit-fim" type="submit" class="btn-primary">
-                <i class="ph-bold ph-check-circle text-lg"></i>
-                <span>Finalizar Rota</span>
-              </button>
+            <!-- Situação de Avarias -->
+            <div class="pt-2 border-t border-slate-100">
+              <label class="form-label">Situação do Carro</label>
+              <div class="flex items-center gap-4 text-xs font-semibold mb-2">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="situacao_carro" value="SEM" checked onchange="toggleAnomaliaInput(false)" />
+                  <span class="text-emerald-700">Sem Problemas</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="situacao_carro" value="COM" onchange="toggleAnomaliaInput(true)" />
+                  <span class="text-rose-700">Com Avarias / Ruídos</span>
+                </label>
+              </div>
+              <div id="box-anomalia" class="hidden">
+                <textarea id="form-fim-anomalia" rows="2" placeholder="Descreva os danos ou problemas observados..." class="form-control form-textarea textarea-anomalia"></textarea>
+              </div>
             </div>
+
+            <button id="btn-submit-fim" type="submit" class="btn-primary" style="background-color: #d97706;">
+              <i class="ph-bold ph-check text-lg"></i>
+              <span>Finalizar Rota</span>
+            </button>
           </form>
+        </div>
+      </section>
+
+      <!-- 3. Minhas Rotas (Log / Histórico) -->
+      <section id="view-minhas-rotas" class="hidden">
+        <div class="card-panel">
+          
+          <div class="toolbar-filtro">
+            <div>
+              <h2 class="card-title">Histórico de Rotas</h2>
+              <p class="card-subtitle">Todas as viagens registradas no sistema</p>
+            </div>
+            <div>
+              <input type="text" id="filtro-rotas" oninput="filtrarHistorico()" placeholder="Buscar por veículo ou condutor..." class="form-control input-busca-rotas" />
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Cód.</th>
+                  <th>Veículo</th>
+                  <th>Condutor</th>
+                  <th>Trajeto</th>
+                  <th>Finalidade</th>
+                  <th>Saída</th>
+                  <th>Retorno</th>
+                  <th style="text-align: center;">KM</th>
+                  <th style="text-align: center;">Consumo</th>
+                  <th>Avarias</th>
+                  <th style="text-align: center;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaHistorico">
+                <tr>
+                  <td colspan="11" class="py-8 text-center text-slate-400 font-medium">Carregando rotas...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+
+    <!-- =========================================================================
+         MÓDULO DE GESTÃO (ADMINISTRADOR)
+         ========================================================================= -->
+    <div id="module-gestao" class="hidden space-y-6">
+
+      <!-- Sub-abas do Painel de Gestão -->
+      <div class="subtabs-bar">
+        <div class="subtabs-container" style="justify-content: space-between; align-items: center; width: 100%;">
+          <div style="display: flex; gap: 1.5rem;">
+            <button onclick="setSubTab('gestao', 'dashboard')" id="subtab-dashboard" class="subtab-link subtab-active">
+              <i class="ph-bold ph-gauge text-base"></i> Visão Geral da Frota
+            </button>
+            <button onclick="setSubTab('gestao', 'cad-veiculos')" id="subtab-cad-veiculos" class="subtab-link">
+              <i class="ph-bold ph-car text-base"></i> Gestão de Veículos
+            </button>
+            <button onclick="setSubTab('gestao', 'cad-usuarios')" id="subtab-cad-usuarios" class="subtab-link">
+              <i class="ph-bold ph-users-three text-base"></i> Gestão de Condutores / CNH
+            </button>
+          </div>
+          <div>
+            <a href="relatorios.html" class="btn-header-action" style="padding: 0.4rem 0.75rem;">
+              <i class="ph-bold ph-chart-line-up text-base"></i>
+              <span>Relatórios e Gráficos</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1. Aba: Visão Geral da Frota -->
+      <section id="view-dashboard" class="space-y-6">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Frota Total</span>
+              <div style="padding: 0.5rem; background-color: #f1f5f9; border-radius: 0.5rem; color: #475569;">
+                <i class="ph-bold ph-truck text-lg"></i>
+              </div>
+            </div>
+            <p id="kpi-total-veiculos" class="kpi-value">0</p>
+            <span class="kpi-subtext">Veículos cadastrados</span>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Em Rota Ativa</span>
+              <div style="padding: 0.5rem; background-color: #fef3c7; border-radius: 0.5rem; color: #d97706;">
+                <i class="ph-bold ph-road-horizon text-lg"></i>
+              </div>
+            </div>
+            <p id="kpi-em-rota" class="kpi-value" style="color: #d97706;">0</p>
+            <span class="kpi-subtext">Veículos em trânsito</span>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Disponíveis</span>
+              <div style="padding: 0.5rem; background-color: #dcfce7; border-radius: 0.5rem; color: #15803d;">
+                <i class="ph-bold ph-check-circle text-lg"></i>
+              </div>
+            </div>
+            <p id="kpi-disponiveis" class="kpi-value" style="color: #15803d;">0</p>
+            <span class="kpi-subtext">Prontos na base</span>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Alertas de Avaria</span>
+              <div style="padding: 0.5rem; background-color: #ffe4e6; border-radius: 0.5rem; color: #be123c;">
+                <i class="ph-bold ph-warning text-lg"></i>
+              </div>
+            </div>
+            <p id="kpi-anomalias" class="kpi-value" style="color: #be123c;">0</p>
+            <span class="kpi-subtext">Pendências mecânicas</span>
+          </div>
+        </div>
+
+        <div>
+          <h2 class="card-title mb-4 flex items-center gap-2">
+            <i class="ph-bold ph-car-profile text-brand-600"></i> Frotas e Status Operacional
+          </h2>
+          <div id="fleetGrid" class="fleet-grid"></div>
+        </div>
+      </section>
+
+      <!-- 2. Aba: Gestão de Veículos -->
+      <section id="view-cad-veiculos" class="hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Formulário Veículo -->
+          <div class="card-panel">
+            <div class="card-header-bar">
+              <div class="card-icon-box">
+                <i class="ph-bold ph-car-plus text-xl"></i>
+              </div>
+              <div>
+                <h3 class="card-title">Novo Veículo</h3>
+                <p class="card-subtitle">Cadastre carro na frota</p>
+              </div>
+            </div>
+
+            <form id="formCadVeiculo" onsubmit="handleCadVeiculo(event)" class="space-y-3.5">
+              <div>
+                <label class="form-label">Identificação / Nome na Frota</label>
+                <input type="text" id="cad-v-id" placeholder="ARVO 16" required class="form-control font-semibold uppercase" />
+              </div>
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">Placa</label>
+                  <input type="text" id="cad-v-placa" placeholder="ABC1D23" required class="form-control font-mono uppercase" />
+                </div>
+                <div>
+                  <label class="form-label">Marca / Modelo</label>
+                  <input type="text" id="cad-v-marca" placeholder="Fiat Mobi" required class="form-control" />
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">Tanque (L)</label>
+                  <input type="number" id="cad-v-tanque" value="47" required class="form-control font-mono" />
+                </div>
+                <div>
+                  <label class="form-label">KM Inicial</label>
+                  <input type="number" id="cad-v-kminicial" required class="form-control font-mono" />
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">Consumo Mín (km/L)</label>
+                  <input type="number" step="0.1" id="cad-v-consumomin" value="10" required class="form-control font-mono" />
+                </div>
+                <div>
+                  <label class="form-label">Consumo Máx (km/L)</label>
+                  <input type="number" step="0.1" id="cad-v-consumomax" value="14" required class="form-control font-mono" />
+                </div>
+              </div>
+              <div>
+                <label class="form-label">Tipo de Frota</label>
+                <select id="cad-v-tipofrota" class="form-control font-bold">
+                  <option value="PROPRIO">Frota Regular</option>
+                  <option value="EXTERNO">Uso Esporádico / Externo</option>
+                </select>
+              </div>
+              <button type="submit" class="btn-primary">
+                <i class="ph-bold ph-plus"></i> Salvar Veículo
+              </button>
+            </form>
+          </div>
+
+          <!-- Tabela de Veículos -->
+          <div class="card-panel lg:col-span-2 p-0 overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 class="card-title text-sm">Veículos Registrados</h3>
+              <span id="badge-total-carros" class="badge-pill">0 carros</span>
+            </div>
+            <div class="table-wrapper flex-1">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Identificação</th>
+                    <th>Modelo</th>
+                    <th>Placa</th>
+                    <th style="text-align: center;">Tanque</th>
+                    <th style="text-align: center;">Consumo</th>
+                    <th style="text-align: right;">KM Atual</th>
+                    <th style="text-align: center;">Status</th>
+                    <th style="text-align: center;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaVeiculosCadastrados"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- 3. Aba: Gestão de Usuários / CNH -->
+      <section id="view-cad-usuarios" class="hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Formulário Usuário -->
+          <div class="card-panel">
+            <div class="card-header-bar">
+              <div class="card-icon-box">
+                <i class="ph-bold ph-user-plus text-xl"></i>
+              </div>
+              <div>
+                <h3 class="card-title">Novo Condutor</h3>
+                <p class="card-subtitle">Cadastre condutores e CNH</p>
+              </div>
+            </div>
+
+            <form id="formCadUsuario" onsubmit="handleCadUsuario(event)" class="space-y-3.5">
+              <div>
+                <label class="form-label">Nome Completo</label>
+                <input type="text" id="cad-u-nome" required placeholder="Ex: Nome Sobrenome" class="form-control" />
+              </div>
+              <div>
+                <label class="form-label">E-mail de Acesso</label>
+                <input type="email" id="cad-u-email" required placeholder="nome@arvo.tec.br" class="form-control" />
+              </div>
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">Senha</label>
+                  <input type="password" id="cad-u-senha" required placeholder="••••••••" class="form-control" />
+                </div>
+                <div>
+                  <label class="form-label">Número CNH</label>
+                  <input type="text" id="cad-u-cnh" required placeholder="12345678900" class="form-control font-mono" />
+                </div>
+              </div>
+              <button type="submit" class="btn-primary">
+                <i class="ph-bold ph-plus"></i> Salvar Condutor
+              </button>
+            </form>
+          </div>
+
+          <!-- Tabela Usuários -->
+          <div class="card-panel lg:col-span-2 p-0 overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 class="card-title text-sm">Condutores Habilitados</h3>
+              <span id="badge-total-users" class="badge-pill">0 condutores</span>
+            </div>
+            <div class="table-wrapper flex-1">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th class="font-mono">CNH</th>
+                    <th style="text-align: center;">Status</th>
+                    <th style="text-align: center;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaUsuariosCadastrados"></tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       </section>
 
     </div>
   </main>
+
+  <!-- =========================================================================
+       MODAIS DE EDIÇÃO
+       ========================================================================= -->
+
+  <!-- Modal Editar Veículo -->
+  <div id="modal-edit-veiculo" class="hidden modal-backdrop">
+    <div class="modal-card" style="max-width: 32rem;">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="card-title flex items-center gap-2">
+          <i class="ph-bold ph-pencil-simple text-brand-600"></i> Editar Veículo: <span id="modal-edit-v-title" class="text-brand-700 font-mono"></span>
+        </h3>
+        <button onclick="fecharModalEditVeiculo()" class="btn-logout" style="background: transparent; border: none; color: #64748b;">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form id="formEditVeiculo" onsubmit="handleSalvarEditVeiculo(event)" class="space-y-3.5 mt-3">
+        <input type="hidden" id="edit-v-id" />
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Placa</label>
+            <input type="text" id="edit-v-placa" required class="form-control font-mono uppercase" />
+          </div>
+          <div>
+            <label class="form-label">Marca / Modelo</label>
+            <input type="text" id="edit-v-marca" required class="form-control" />
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="form-label">Tanque (L)</label>
+            <input type="number" id="edit-v-tanque" required min="10" max="200" class="form-control font-mono" />
+          </div>
+          <div>
+            <label class="form-label">Mín (km/L)</label>
+            <input type="number" step="0.1" id="edit-v-consumomin" required class="form-control font-mono" />
+          </div>
+          <div>
+            <label class="form-label">Máx (km/L)</label>
+            <input type="number" step="0.1" id="edit-v-consumomax" required class="form-control font-mono" />
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">KM Atual</label>
+            <input type="number" id="edit-v-kmatual" required min="0" class="form-control font-mono font-bold" />
+          </div>
+          <div>
+            <label class="form-label">Status Operacional</label>
+            <select id="edit-v-status" required class="form-control font-bold">
+              <option value="Disponivel">Disponível</option>
+              <option value="Em Manutenção">Em Manutenção</option>
+              <option value="Em Uso">Em Uso</option>
+              <option value="Fora de Uso">Fora de Uso</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Tipo de Frota</label>
+          <select id="edit-v-tipofrota" class="form-control font-bold">
+            <option value="PROPRIO">Frota Regular</option>
+            <option value="EXTERNO">Uso Esporádico / Externo</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Avarias / Observações</label>
+          <textarea id="edit-v-anomalias" rows="2" placeholder="Observações de avaria..." class="form-control form-textarea"></textarea>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="fecharModalEditVeiculo()" class="btn-logout" style="background-color: #64748b;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-primary" style="margin-top: 0; width: auto; padding: 0.5rem 1rem;">
+            <i class="ph-bold ph-check"></i> Salvar Alterações
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Editar Usuário -->
+  <div id="modal-edit-usuario" class="hidden modal-backdrop">
+    <div class="modal-card" style="max-width: 28rem;">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="card-title">Editar Condutor</h3>
+        <button onclick="fecharModalEditUsuario()" class="btn-logout" style="background: transparent; border: none; color: #64748b;">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form id="formEditUsuario" onsubmit="handleSalvarEditUsuario(event)" class="space-y-3.5 mt-3">
+        <input type="hidden" id="edit-u-id" />
+        <div>
+          <label class="form-label">Nome Completo</label>
+          <input type="text" id="edit-u-nome" required class="form-control" />
+        </div>
+        <div>
+          <label class="form-label">E-mail</label>
+          <input type="email" id="edit-u-email" required class="form-control" />
+        </div>
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Senha</label>
+            <input type="password" id="edit-u-senha" required class="form-control" />
+          </div>
+          <div>
+            <label class="form-label">Número CNH</label>
+            <input type="text" id="edit-u-cnh" required class="form-control font-mono" />
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Status</label>
+          <select id="edit-u-status" required class="form-control font-bold">
+            <option value="Ativo">Ativo</option>
+            <option value="Inativo">Inativo</option>
+          </select>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="fecharModalEditUsuario()" class="btn-logout" style="background-color: #64748b;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-primary" style="margin-top: 0; width: auto; padding: 0.5rem 1rem;">
+            <i class="ph-bold ph-check"></i> Salvar Condutor
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Script da Regra de Negócio Web -->
   <script src="../backend/app.js"></script>
