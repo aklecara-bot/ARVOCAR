@@ -401,13 +401,25 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
     })
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
 
-  // Identifica o combustível corrente se não for informado diretamente
-  const combAtual = tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum';
+  // Identifica o combustível corrente (se não fornecido, pega do último abastecimento ou assume Gasolina)
+  const combustivelAlvo = (
+    tipoCombustivel || 
+    abastsCarro[0]?.tipo_combustivel || 
+    'Gasolina Comum'
+  ).trim().toUpperCase();
 
-  // Filtra pelo combustível corrente
-  const abastsTipo = abastsCarro.filter(a => 
-    (a.tipo_combustivel || '').toUpperCase() === combAtual.toUpperCase()
-  );
+  // Helper para comparar categorias de combustíveis flexivelmente
+  const ehMesmoCombustivel = (combReg, combRef) => {
+    if (!combReg) return combRef.includes('GASOLINA'); // Registros legados sem combustível caem como gasolina
+    const c1 = String(combReg).toUpperCase();
+    if (combRef.includes('ETANOL') || combRef.includes('ÁLCOOL')) return c1.includes('ETANOL') || c1.includes('ÁLCOOL');
+    if (combRef.includes('DIESEL')) return c1.includes('DIESEL');
+    if (combRef.includes('GNV')) return c1.includes('GNV');
+    return c1.includes('GASOLINA');
+  };
+
+  // Filtra histórico compatível com o combustível atual
+  const abastsTipo = abastsCarro.filter(a => ehMesmoCombustivel(a.tipo_combustivel, combustivelAlvo));
 
   // 2. Apuração por Histórico Real (requer ao menos 2 abastecimentos sequenciais com KM)
   if (abastsTipo.length >= 2) {
@@ -418,7 +430,7 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
 
     if (deltaKm > 0 && litros > 0) {
       const mediaCalculada = deltaKm / litros;
-      // Trava de sanidade para evitar distorções operacionais (ex: esquecimento de anotar)
+      // Trava de sanidade para evitar distorções operacionais (ex: esquecimento de anotar hodômetro)
       if (mediaCalculada >= 3 && mediaCalculada <= 35) {
         return Number(mediaCalculada.toFixed(2));
       }
@@ -431,7 +443,7 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   let mediaFabricante = (cMin + cMax) / 2;
 
   // Fator de paridade: Etanol entrega em média 70% da eficiência da gasolina
-  if (combAtual.toUpperCase().includes('ETANOL')) {
+  if (combustivelAlvo.includes('ETANOL') || combustivelAlvo.includes('ÁLCOOL')) {
     mediaFabricante = mediaFabricante * 0.7;
   }
 
@@ -462,8 +474,8 @@ async function handleFimRota(e) {
   // Localiza o veículo no cache local
   const veiculo = (veiculos || []).find(v => 
     String(v.id) === String(rota?.veiculo_id) || 
-    String(v.uuid_veiculos) === String(rota?.veiculo_id) ||
-    String(v.nome_frota) === String(rota?.veiculo_id) ||
+    String(v.uuid_veiculos) === String(rota?.veiculo_id) || 
+    String(v.nome_frota) === String(rota?.veiculo_id) || 
     String(v.placa) === String(rota?.veiculo_id)
   ) || {};
 
@@ -482,9 +494,54 @@ async function handleFimRota(e) {
 
   const deltaKm = kmFinal - rota.km_saida;
 
+  // =========================================================================
+  // RESOLUÇÃO DO PROBLEMA 2: HISTÓRICO DE ABASTECIMENTOS SEGURO (FALLBACK ATIVO)
+  // =========================================================================
+  let histAbast = [];
+
+  // 1. Tenta recuperar das variáveis em memória
+  if (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos) && abastecimentos.length > 0) {
+    histAbast = abastecimentos;
+  } else if (typeof listaAbastecimentosCache !== 'undefined' && Array.isArray(listaAbastecimentosCache) && listaAbastecimentosCache.length > 0) {
+    histAbast = listaAbastecimentosCache;
+  } else {
+    // 2. Tenta recuperar do armazenamento local
+    const localCache = localStorage.getItem('arvo_cache_abastecimentos');
+    if (localCache) {
+      try { histAbast = JSON.parse(localCache); } catch (e) { histAbast = []; }
+    }
+  }
+
+  // 3. Se a memória e o cache estiverem vazios e houver conexão, busca direto no Supabase
+  if ((!histAbast || histAbast.length === 0) && navigator.onLine) {
+    try {
+      const idCarro = veiculo.id || rota.veiculo_id;
+      const placaCarro = veiculo.placa || rota.placa;
+      const nomeFrota = veiculo.nome_frota;
+
+      const condicoesBusca = [];
+      if (idCarro) condicoesBusca.push(`veiculo_id.eq.${idCarro}`);
+      if (placaCarro) condicoesBusca.push(`placa.eq.${placaCarro}`);
+      if (nomeFrota) condicoesBusca.push(`veiculo_id.eq.${nomeFrota}`);
+
+      if (condicoesBusca.length > 0) {
+        const { data: dbAbasts } = await db
+          .from('abastecimentos')
+          .select('*')
+          .or(condicoesBusca.join(','))
+          .order('data_hora', { ascending: false })
+          .limit(10);
+
+        if (dbAbasts && dbAbasts.length > 0) {
+          histAbast = dbAbasts;
+        }
+      }
+    } catch (errDb) {
+      console.warn("Aviso ao resgatar histórico de abastecimento sob demanda:", errDb);
+    }
+  }
+
   // --- CÁLCULO DINÂMICO DE CONSUMO E TANQUE VIRTUAL ---
-  const histAbast = typeof abastecimentos !== 'undefined' ? abastecimentos : (typeof listaAbastecimentosCache !== 'undefined' ? listaAbastecimentosCache : []);
-  
   let medConsumo;
   if (typeof obterMediaConsumoEsperada === 'function') {
     medConsumo = obterMediaConsumoEsperada(veiculo, null, histAbast);
