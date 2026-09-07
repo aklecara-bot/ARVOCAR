@@ -87,7 +87,7 @@ function renderSelectVeiculos(sel) {
   });
 }
 
-function calcularTotal() {
+function calcularTotalAbastecimentoMobile() {
   const inputLitros = document.getElementById('abs-litros');
   const inputPreco = document.getElementById('abs-preco-litro');
   const displayTotal = document.getElementById('display-total');
@@ -162,15 +162,27 @@ async function salvarAbastecimento(e) {
     data_hora: new Date().toISOString()
   };
 
-  // Se offline, salva imagem em Base64 e enfileira
+  // --- MODO OFFLINE ---
   if (!navigator.onLine) {
     if (fotoInput && fotoInput.files && fotoInput.files[0]) {
       payload.foto_base64 = await fileToBase64(fotoInput.files[0]);
       payload.foto_nome = fotoInput.files[0].name;
     }
+    
+    // Atualiza o saldo no cache local de veículos
+    const localVeic = typeof veiculosAbast !== 'undefined' ? veiculosAbast : [];
+    const vCache = localVeic.find(v => String(v.id) === String(veiculo_id) || String(v.nome_frota) === String(veiculo_id));
+    if (vCache) {
+      const cap = Number(vCache.tanque || 50);
+      const atual = Number(vCache.tanque_virtual || 0);
+      vCache.tanque_virtual = Math.min(cap, Number((atual + quantidade_litros).toFixed(2)));
+      if (km_atual) vCache.km_atual = km_atual;
+      localStorage.setItem('arvo_cache_veiculos', JSON.stringify(localVeic));
+    }
+
     salvarFilaAbastecimento(payload);
     salvarHistoricoLocal(payload);
-    alert('📶 Abastecimento gravado em Modo Offline! Será enviado ao conectar.');
+    alert('📶 Abastecimento gravado em Modo Offline! Tanque e dados sincronizarão ao reconectar.');
     limparFormularioAposSalvar();
     if (btn) {
       btn.disabled = false;
@@ -195,6 +207,9 @@ async function salvarAbastecimento(e) {
           cacheControl: '3600',
           upsert: false
         });
+      const { error: upErr } = await db.storage
+        .from('comprovantes')
+        .upload(fileName, file, { cacheControl: '3600', upsert: false });
 
       if (upErr) {
         console.error("Falha no upload da foto para o Storage:", upErr);
@@ -206,6 +221,7 @@ async function salvarAbastecimento(e) {
         .from('comprovantes')
         .getPublicUrl(fileName);
 
+      const { data: publicUrlData } = db.storage.from('comprovantes').getPublicUrl(fileName);
       url_comprovante = publicUrlData?.publicUrl || null;
     }
 
@@ -228,6 +244,33 @@ async function salvarAbastecimento(e) {
       } catch (vErr) {
         console.warn("Aviso ao atualizar KM do veículo:", vErr);
       }
+    // 1. Grava o abastecimento
+    const { error: insErr } = await db.from('abastecimentos').insert([payload]);
+    if (insErr) throw insErr;
+
+    // 2. Busca o veículo para incrementar o tanque virtual e atualizar odômetro juntos
+    let queryVeic = db.from('veiculos').select('id, tanque, tanque_virtual, km_atual');
+    if (uuid_veiculos) {
+      queryVeic = queryVeic.eq('uuid_veiculos', uuid_veiculos);
+    } else {
+      queryVeic = queryVeic.eq('id', veiculo_id);
+    }
+    const { data: vAtual } = await queryVeic.maybeSingle();
+
+    if (vAtual) {
+      const capMax = Number(vAtual.tanque || 50);
+      const saldoAtual = vAtual.tanque_virtual !== null && vAtual.tanque_virtual !== undefined 
+        ? Number(vAtual.tanque_virtual) 
+        : 0;
+      
+      const novoSaldoVirtual = Math.min(capMax, Number((saldoAtual + quantidade_litros).toFixed(2)));
+
+      const dadosUpdate = { tanque_virtual: novoSaldoVirtual };
+      if (km_atual && (!vAtual.km_atual || km_atual > Number(vAtual.km_atual))) {
+        dadosUpdate.km_atual = km_atual;
+      }
+
+      await db.from('veiculos').update(dadosUpdate).eq('id', vAtual.id);
     }
 
     alert('✅ Abastecimento registrado com sucesso!');
@@ -297,7 +340,7 @@ function limparFormularioAposSalvar() {
   if (form) form.reset();
   const labelFoto = document.getElementById('comprovante-nome');
   if (labelFoto) labelFoto.innerText = 'Tirar foto ou anexar comprovante';
-  calcularTotal();
+  calcularTotalAbastecimentoMobile();
 }
 
 // =========================================================================
@@ -478,10 +521,24 @@ function handleMobileLogout() {
 }
 
 // =========================================================================
+// NAVEGAÇÃO ENTRE TELAS DO APLICATIVO
+// =========================================================================
+function switchMobileTab(tab) {
+  // Salva no localStorage para que o mobile.html abra diretamente na aba correta
+  localStorage.setItem('arvo_mobile_active_tab', tab);
+  
+  // Redireciona para o painel principal de rotas
+  window.location.href = `mobile.html?tab=${tab}`;
+}
+
+// Vinculação global
+window.switchMobileTab = switchMobileTab;
+
+// =========================================================================
 // EXPOSIÇÃO GLOBAL DE FUNÇÕES (WINDOW)
 // =========================================================================
 window.trocarAba = trocarAba;
-window.calcularTotal = calcularTotal;
+window.calcularTotalAbastecimentoMobile = calcularTotalAbastecimentoMobile;
 window.atualizarNomeArquivo = atualizarNomeArquivo;
 window.salvarAbastecimento = salvarAbastecimento;
 window.carregarHistorico = carregarHistoricoAbastecimento;

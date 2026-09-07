@@ -1031,6 +1031,92 @@ body {
 
 /* Card individual da lista de reservas ativas no mobile */
 .reserva-mobile-card {
+   ESTRUTURAS ESPECÍFICAS - ARVOCAR MOBILE
+   ========================================================================= */
+
+/* =========================================================================
+   CONTAINER GERAL E PREENCHIMENTO SEGURO DE TELAS MÓVEIS
+   ========================================================================= */
+
+.mobile-shell {
+  max-width: 28rem; /* max-w-md */
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+.mobile-content {
+  flex: 1;
+  padding: 1rem;
+  padding-bottom: 6rem; /* Espaço livre para a bottom nav fixa */
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+/* =========================================================================
+   BARRA DE NAVEGAÇÃO INFERIOR FIXA (BOTTOM NAV)
+   ========================================================================= */
+
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #ffffff;
+  border-top: 1px solid var(--slate-200);
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 40;
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+  max-width: 28rem;
+  margin: 0 auto;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0.5rem));
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: none;
+  font-size: 0.625rem; /* 10px */
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease-in-out;
+}
+
+.mobile-nav-item-active {
+  color: var(--brand-700) !important;
+  font-weight: 700 !important;
+}
+
+.mobile-nav-item-inactive {
+  color: var(--slate-400) !important;
+  font-weight: 600;
+}
+
+/* =========================================================================
+   BOTÃO DE ENCERRAMENTO DE ROTA EM DESTAQUE
+   ========================================================================= */
+
+.btn-mobile-warning {
+  background-color: #d97706 !important; /* amber-600 */
+}
+
+.btn-mobile-warning:hover {
+  background-color: #b45309 !important; /* amber-700 */
+}
+
+/* =========================================================================
+   CARD COMPACTO DE HISTÓRICO MOBILE
+   ========================================================================= */
+
+.mobile-history-card {
   background-color: #ffffff;
   border: 1px solid var(--slate-200);
   border-radius: 1rem;

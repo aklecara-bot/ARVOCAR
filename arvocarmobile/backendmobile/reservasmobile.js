@@ -604,6 +604,20 @@ function initCalendario() {
 }
 
 // =========================================================================
+// NAVEGAÇÃO ENTRE TELAS DO APLICATIVO
+// =========================================================================
+function switchMobileTab(tab) {
+  // Salva no localStorage para que o mobile.html abra diretamente na aba correta
+  localStorage.setItem('arvo_mobile_active_tab', tab);
+  
+  // Redireciona para o painel principal de rotas
+  window.location.href = `mobile.html?tab=${tab}`;
+}
+
+// Vinculação global
+window.switchMobileTab = switchMobileTab;
+
+// =========================================================================
 // 7. CANCELAMENTO E SESSÃO
 // =========================================================================
 async function cancelarReservaMobile(reservaId, responsavel) {

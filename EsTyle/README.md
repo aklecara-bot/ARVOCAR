@@ -1,2 +1,0 @@
-# ARVOCAR
-Aplicativo de Rotas
