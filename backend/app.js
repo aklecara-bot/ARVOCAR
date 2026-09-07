@@ -401,25 +401,13 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
     })
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
 
-  // Identifica o combustível corrente (se não fornecido, pega do último abastecimento ou assume Gasolina)
-  const combustivelAlvo = (
-    tipoCombustivel || 
-    abastsCarro[0]?.tipo_combustivel || 
-    'Gasolina Comum'
-  ).trim().toUpperCase();
+  // Identifica o combustível corrente se não for informado diretamente
+  const combAtual = tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum';
 
-  // Helper para comparar categorias de combustíveis flexivelmente
-  const ehMesmoCombustivel = (combReg, combRef) => {
-    if (!combReg) return combRef.includes('GASOLINA'); // Registros legados sem combustível caem como gasolina
-    const c1 = String(combReg).toUpperCase();
-    if (combRef.includes('ETANOL') || combRef.includes('ÁLCOOL')) return c1.includes('ETANOL') || c1.includes('ÁLCOOL');
-    if (combRef.includes('DIESEL')) return c1.includes('DIESEL');
-    if (combRef.includes('GNV')) return c1.includes('GNV');
-    return c1.includes('GASOLINA');
-  };
-
-  // Filtra histórico compatível com o combustível atual
-  const abastsTipo = abastsCarro.filter(a => ehMesmoCombustivel(a.tipo_combustivel, combustivelAlvo));
+  // Filtra pelo combustível corrente
+  const abastsTipo = abastsCarro.filter(a => 
+    (a.tipo_combustivel || '').toUpperCase() === combAtual.toUpperCase()
+  );
 
   // 2. Apuração por Histórico Real (requer ao menos 2 abastecimentos sequenciais com KM)
   if (abastsTipo.length >= 2) {
@@ -430,6 +418,7 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
 
     if (deltaKm > 0 && litros > 0) {
       const mediaCalculada = deltaKm / litros;
+      // Trava de sanidade para evitar distorções operacionais (ex: esquecimento de anotar)
       // Trava de sanidade para evitar distorções operacionais (ex: esquecimento de anotar hodômetro)
       if (mediaCalculada >= 3 && mediaCalculada <= 35) {
         return Number(mediaCalculada.toFixed(2));
@@ -443,6 +432,7 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   let mediaFabricante = (cMin + cMax) / 2;
 
   // Fator de paridade: Etanol entrega em média 70% da eficiência da gasolina
+  if (combAtual.toUpperCase().includes('ETANOL')) {
   if (combustivelAlvo.includes('ETANOL') || combustivelAlvo.includes('ÁLCOOL')) {
     mediaFabricante = mediaFabricante * 0.7;
   }
@@ -494,6 +484,9 @@ async function handleFimRota(e) {
 
   const deltaKm = kmFinal - rota.km_saida;
 
+  // --- CÁLCULO DINÂMICO DE CONSUMO E TANQUE VIRTUAL ---
+  const histAbast = typeof abastecimentos !== 'undefined' ? abastecimentos : (typeof listaAbastecimentosCache !== 'undefined' ? listaAbastecimentosCache : []);
+  
   // =========================================================================
   // RESOLUÇÃO DO PROBLEMA 2: HISTÓRICO DE ABASTECIMENTOS SEGURO (FALLBACK ATIVO)
   // =========================================================================

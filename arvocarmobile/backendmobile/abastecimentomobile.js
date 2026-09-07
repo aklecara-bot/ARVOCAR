@@ -191,7 +191,7 @@ async function salvarAbastecimento(e) {
     return;
   }
 
-  // --- MODO ONLINE ---
+  // Se online, faz upload da imagem e salva no banco
   try {
     let url_comprovante = null;
 
@@ -200,6 +200,13 @@ async function salvarAbastecimento(e) {
       const extensao = file.name.split('.').pop();
       const fileName = `abast_${Date.now()}_${Math.random().toString(36).substring(7)}.${extensao}`;
 
+      // Upload do arquivo para o bucket 'comprovantes'
+      const { error: upErr } = await db.storage
+        .from('comprovantes')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
       const { error: upErr } = await db.storage
         .from('comprovantes')
         .upload(fileName, file, { cacheControl: '3600', upsert: false });
@@ -209,12 +216,34 @@ async function salvarAbastecimento(e) {
         throw new Error(`Erro ao enviar foto do comprovante: ${upErr.message}`);
       }
 
+      // Resgata o link público da imagem
+      const { data: publicUrlData } = db.storage
+        .from('comprovantes')
+        .getPublicUrl(fileName);
+
       const { data: publicUrlData } = db.storage.from('comprovantes').getPublicUrl(fileName);
       url_comprovante = publicUrlData?.publicUrl || null;
     }
 
     payload.url_comprovante = url_comprovante;
 
+    // Inserção no Supabase
+    const { error: insErr } = await db.from('abastecimentos').insert([payload]);
+    if (insErr) throw insErr;
+
+    // Atualização opcional do KM na tabela veiculos (protegida contra erros de RLS)
+    if (km_atual && !isNaN(km_atual)) {
+      try {
+        let query = db.from('veiculos').update({ km_atual: km_atual });
+        if (uuid_veiculos) {
+          query = query.eq('uuid_veiculos', uuid_veiculos);
+        } else {
+          query = query.eq('id', veiculo_id);
+        }
+        await query.lt('km_atual', km_atual);
+      } catch (vErr) {
+        console.warn("Aviso ao atualizar KM do veículo:", vErr);
+      }
     // 1. Grava o abastecimento
     const { error: insErr } = await db.from('abastecimentos').insert([payload]);
     if (insErr) throw insErr;

@@ -530,24 +530,13 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
     })
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
 
-  // Identifica o combustível corrente (se não fornecido, pega do último abastecimento ou assume Gasolina)
-  const combustivelAlvo = (
-    tipoCombustivel || 
-    abastsCarro[0]?.tipo_combustivel || 
-    'Gasolina Comum'
-  ).trim().toUpperCase();
+  // Identifica o combustível corrente se não for informado diretamente
+  const combAtual = tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum';
 
-  // Helper para agrupar variações de combustível
-  const ehMesmoCombustivel = (combReg, combRef) => {
-    if (!combReg) return combRef.includes('GASOLINA');
-    const c1 = String(combReg).toUpperCase();
-    if (combRef.includes('ETANOL') || combRef.includes('ÁLCOOL')) return c1.includes('ETANOL') || c1.includes('ÁLCOOL');
-    if (combRef.includes('DIESEL')) return c1.includes('DIESEL');
-    if (combRef.includes('GNV')) return c1.includes('GNV');
-    return c1.includes('GASOLINA');
-  };
-
-  const abastsTipo = abastsCarro.filter(a => ehMesmoCombustivel(a.tipo_combustivel, combustivelAlvo));
+  // Filtra pelo combustível corrente
+  const abastsTipo = abastsCarro.filter(a => 
+    (a.tipo_combustivel || '').toUpperCase() === combAtual.toUpperCase()
+  );
 
   // 2. Apuração por Histórico Real (requer ao menos 2 abastecimentos sequenciais com KM)
   if (abastsTipo.length >= 2) {
@@ -558,6 +547,7 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
 
     if (deltaKm > 0 && litros > 0) {
       const mediaCalculada = deltaKm / litros;
+      // Trava de sanidade para evitar distorções operacionais (ex: esquecimento de anotar)
       if (mediaCalculada >= 3 && mediaCalculada <= 35) {
         return Number(mediaCalculada.toFixed(2));
       }
@@ -569,8 +559,8 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   const cMax = Number(veiculo?.consumo_max || 14);
   let mediaFabricante = (cMin + cMax) / 2;
 
-  // Fator de paridade: Etanol rende ~70% da gasolina
-  if (combustivelAlvo.includes('ETANOL') || combustivelAlvo.includes('ÁLCOOL')) {
+  // Fator de paridade: Etanol entrega em média 70% da eficiência da gasolina
+  if (combAtual.toUpperCase().includes('ETANOL')) {
     mediaFabricante = mediaFabricante * 0.7;
   }
 
@@ -607,34 +597,28 @@ async function handleMobileFimRota(e) {
 
   const kmTotal = kmRetorno - Number(rota.km_saida);
 
-  // 1. Localiza o veículo associado no array local cruzando todas as referências possíveis
-  const veiculoAlvo = (veiculos || []).find(v =>
-    (rota.placa && String(v.placa) === String(rota.placa)) ||
+  // Localiza o veículo associado no array local
+  const veiculoAlvo = veiculos.find(v =>
     String(v.id) === String(rota.veiculo_id) ||
     String(v.uuid_veiculos) === String(rota.veiculo_id) ||
     String(v.nome_frota) === String(rota.veiculo_id) ||
-    String(v.placa) === String(rota.veiculo_id)
+    String(v.placa) === String(rota.veiculo_id) ||
+    (rota.placa && String(v.placa) === String(rota.placa))
   ) || {};
 
-  const placaAlvo = rota.placa || veiculoAlvo.placa || null;
-
-  // 2. Resgate seguro do histórico de abastecimentos (memória ou localStorage)
+  // --- CÁLCULO DINÂMICO DE CONSUMO E TANQUE VIRTUAL ---
   let histCache = [];
-  if (typeof listaAbastecimentosCache !== 'undefined' && Array.isArray(listaAbastecimentosCache) && listaAbastecimentosCache.length > 0) {
-    histCache = listaAbastecimentosCache;
-  } else {
-    try {
-      histCache = JSON.parse(localStorage.getItem('arvo_cache_abastecimentos') || '[]');
-    } catch (e) {
-      histCache = [];
-    }
+  try {
+    histCache = JSON.parse(localStorage.getItem('arvo_cache_abastecimentos') || '[]');
+  } catch (e) {
+    histCache = [];
   }
 
-  // 3. Cálculo dinâmico de consumo e saldo virtual de combustível
   let medConsumo;
   if (typeof obterMediaConsumoEsperada === 'function') {
     medConsumo = obterMediaConsumoEsperada(veiculoAlvo, null, histCache);
   } else {
+    medConsumo = (Number(veiculoAlvo.consumo_min) + Number(veiculoAlvo.consumo_max)) / 2 || 12;
     medConsumo = (Number(veiculoAlvo.consumo_min || 10) + Number(veiculoAlvo.consumo_max || 14)) / 2 || 12;
   }
 
@@ -673,6 +657,7 @@ async function handleMobileFimRota(e) {
     rota.data_retorno = payloadFim.data_retorno;
     rota.destino = destinoFinal;
 
+    const v = veiculos.find(ve => 
     const v = (veiculos || []).find(ve => 
       (placaAlvo && ve.placa === placaAlvo) ||
       ve.nome_frota === rota.veiculo_id || 
@@ -688,6 +673,7 @@ async function handleMobileFimRota(e) {
     }
 
     salvarCachesLocais();
+    alert(`📶 Rota encerrada Offline! Consumo: ~${litrosEst} L. Será sincronizada quando houver conexão.`);
     alert(`📶 Rota encerrada Offline!\nConsumo: ~${litrosEst} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L\nSincronização automática quando houver conexão.`);
     
     e.target.reset();
@@ -709,6 +695,7 @@ async function handleMobileFimRota(e) {
 
   // 5. Fluxo Online (Com conexão ativa)
   try {
+    // 1. Atualiza a rota com odômetro, trajeto e litros consumidos
     // 5.1 Atualiza a tabela rotas
     const { error: errRota } = await db.from('rotas').update({
       destino: destinoFinal,
@@ -724,12 +711,17 @@ async function handleMobileFimRota(e) {
 
     const idFiltro = veiculoAlvo?.uuid_veiculos || veiculoAlvo?.id || rota.veiculo_id;
 
+    // 2. Atualiza o veículo com KM, status 'Disponivel' e saldo do tanque virtual
     // 5.2 Atualiza o veículo com KM, status 'Disponivel', anomalias e tanque virtual
     const payloadUpdateVeic = {
       km_atual: kmRetorno,
       status: 'Disponivel',
       tanque_virtual: novoTanqueVirtual
     };
+
+    let queryVeic = db.from('veiculos').update(payloadUpdateVeic);
+    if (veiculoAlvo?.placa) {
+      queryVeic = queryVeic.or(`placa.eq.${veiculoAlvo.placa},uuid_veiculos.eq.${idFiltro},id.eq.${idFiltro},nome_frota.eq.${idFiltro}`);
     if (anomaliaMarcada || veiculoAlvo.anomalias) {
       payloadUpdateVeic.anomalias = anomaliaMarcada ? relatorioAnomalia : veiculoAlvo.anomalias;
     }
@@ -742,6 +734,7 @@ async function handleMobileFimRota(e) {
     }
     await queryVeic;
 
+    // 3. Encerra eventual reserva confirmada vinculada ao veículo e motorista
     // 5.3 Encerra eventual reserva vinculada
     try {
       await db.from('reservas').update({ status: 'CONCLUIDA' })
@@ -771,6 +764,8 @@ async function handleMobileFimRota(e) {
       tanque_virtual: novoTanqueVirtual 
     });
     rota.status = 'Concluida';
+    rota.consumo_litros = litrosEst;
+    if (veiculoAlvo) {
     rota.km_total = kmTotal;
     rota.consumo_litros = litrosEst;
     if (veiculoAlvo) {
