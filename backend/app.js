@@ -20,10 +20,14 @@ let currentUserIndex = 0;
 function verificarSessaoUsuario() {
   const sessao = localStorage.getItem('arvo_usuario_logado');
   if (!sessao) {
-    window.location.href = "../frontend/login.html";
+    window.location.href = "login.html";
     return null;
   }
-  return JSON.parse(sessao);
+  try {
+    return JSON.parse(sessao);
+  } catch(e) {
+    return { email: sessao };
+  }
 }
 
 function fazerLogout() {
@@ -36,6 +40,9 @@ function fazerLogout() {
 
 function aplicarPermissoesUsuario() {
   const sessao = verificarSessaoUsuario();
+  localStorage.removeItem('arvo_usuario_logado');
+  localStorage.removeItem('arvo_mobile_user');
+  window.location.href = "login.html"; // Ajustado para a mesma past
   if (!sessao) return;
 
   const btnGestao = document.getElementById('btn-mod-gestao');
@@ -119,6 +126,7 @@ function setSubTab(moduleName, tab) {
         btn.classList.add('border-transparent', 'text-slate-500');
       }
     });
+
     const activeView = document.getElementById(`view-${tab}`);
     const activeBtn = document.getElementById(`subtab-${tab}`);
     if (activeView) activeView.classList.remove('hidden');
@@ -126,6 +134,18 @@ function setSubTab(moduleName, tab) {
       activeBtn.classList.remove('border-transparent', 'text-slate-500');
       activeBtn.classList.add('subtab-active', 'border-brand-600', 'text-brand-600');
     }
+
+    // Gatilhos de atualização de dados ao abrir as abas da operação
+    if (tab === 'minhas-rotas') {
+      if (typeof renderHistorico === 'function') renderHistorico();
+      if (typeof renderizarTabelaHistorico === 'function') renderizarTabelaHistorico();
+    } else if (tab === 'retorno') {
+      if (typeof renderSelectRotasFim === 'function') renderSelectRotasFim();
+      if (typeof povoarSelectRotasAtivas === 'function') povoarSelectRotasAtivas();
+    } else if (tab === 'saida') {
+      if (typeof renderSelectVeiculosInicio === 'function') renderSelectVeiculosInicio();
+    }
+
   } else {
     ['dashboard', 'cad-veiculos', 'cad-usuarios'].forEach(t => {
       const el = document.getElementById(`view-${t}`);
@@ -136,6 +156,7 @@ function setSubTab(moduleName, tab) {
         btn.classList.add('border-transparent', 'text-slate-500');
       }
     });
+
     const activeView = document.getElementById(`view-${tab}`);
     const activeBtn = document.getElementById(`subtab-${tab}`);
     if (activeView) activeView.classList.remove('hidden');
@@ -143,8 +164,19 @@ function setSubTab(moduleName, tab) {
       activeBtn.classList.remove('border-transparent', 'text-slate-500');
       activeBtn.classList.add('subtab-active', 'border-brand-600', 'text-brand-600');
     }
+
+    // Gatilhos de atualização de dados ao abrir as abas de gestão
+    if (tab === 'dashboard') {
+      if (typeof renderDashboardKPIs === 'function') renderDashboardKPIs();
+      if (typeof renderFleetGrid === 'function') renderFleetGrid();
+    } else if (tab === 'cad-veiculos') {
+      if (typeof renderTabelaVeiculosCad === 'function') renderTabelaVeiculosCad();
+    } else if (tab === 'cad-usuarios') {
+      if (typeof renderTabelaUsuariosCad === 'function') renderTabelaUsuariosCad();
+    }
   }
 }
+
 
 // =========================================================================
 // 4. CARREGAMENTO GERAL DE DADOS (SUPABASE)
@@ -871,6 +903,19 @@ async function handleApagarVeiculo(veiculoId) {
 // =========================================================================
 // 7. GESTÃO DE USUÁRIOS
 // =========================================================================
+
+function toggleSenha() {
+    const input = document.getElementById('login-senha');
+    const icone = document.getElementById('icone-senha');
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (icone) icone.className = 'ph-bold ph-eye-slash text-base';
+    } else {
+      input.type = 'password';
+      if (icone) icone.className = 'ph-bold ph-eye text-base';
+    }
+  }
 
 function toggleVerSenhaEdicao() {
   const input = document.getElementById('edit-u-senha');
