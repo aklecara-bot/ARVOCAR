@@ -36,6 +36,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.mobile-content {
+  flex: 1 1 0%;
+  width: 100%;
+  max-width: 28rem; /* 448px */
+  margin-left: auto;
+  margin-right: auto;
+  padding: 1rem;
+  padding-bottom: 6rem; /* 96px livres para a barra fixa inferior */
+  margin-top: 1rem;
+}
+
 /* =========================================================================
    CABEÇALHO (HEADER) E ITENS DE NAVEGAÇÃO
    ========================================================================= */
@@ -111,6 +122,52 @@ body {
   font-weight: 600;
 }
 
+.mobile-nav-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.25rem !important; /* gap-1 */
+  text-align: center !important;
+  text-decoration: none !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 0.625rem !important; /* text-[10px] */
+  line-height: 1 !important;
+  padding: 0.25rem 0.5rem !important;
+  transition: color 0.15s ease-in-out !important;
+}
+
+.mobile-nav-item i {
+  display: block !important;
+  font-size: 1.25rem !important; /* text-xl */
+  line-height: 1 !important;
+  margin: 0 auto !important;
+}
+
+.mobile-nav-item span {
+  display: block !important;
+  font-size: 0.625rem !important;
+  line-height: 1.2 !important;
+}
+
+/* Estado Ativo */
+.mobile-nav-item-active {
+  color: var(--brand-700, #15803d) !important;
+  font-weight: 700 !important;
+}
+
+/* Estado Inativo */
+.mobile-nav-item-inactive {
+  color: var(--slate-400, #94a3b8) !important;
+  font-weight: 600 !important;
+}
+
+.mobile-nav-item-inactive:hover {
+  color: var(--brand-700, #15803d) !important;
+}
+
 .btn-module-nav {
   padding: 0.375rem 0.875rem;
   border-radius: 0.5rem;
@@ -136,6 +193,25 @@ body {
 .module-nav-inactive:hover {
   color: #ffffff;
 }
+
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background-color: #ffffff;
+  border-top: 1px solid var(--slate-200, #e2e8f0);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem 1.5rem;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+
+
 /* ========================================================
   BARRA DE FERRAMENTAS / FILTROS DO HISTÓRICO
   =======================================================*/
@@ -897,4 +973,102 @@ body {
     justify-content: center;
     margin-top: 0.25rem;
   }
+}
+
+/* =========================================================================
+   RESERVAS MOBILE - NAVEGAÇÃO SUPERIOR DE ABAS E CARDS
+   ========================================================================= */
+
+/* Barra de alternância de abas móvel (Novo Agendamento / Calendário) */
+.mobile-subtabs-bar {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--slate-200);
+  display: flex;
+  margin-bottom: 1rem;
+}
+
+.mobile-subtabs-header {
+  max-width: 28rem; /* max-w-md */
+  margin-left: auto;
+  margin-right: auto;
+  background-color: transparent;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
+  margin-bottom: 0;
+
+.mobile-subtab-btn {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.mobile-subtab-btn-active {
+  color: var(--brand-700) !important;
+  border-bottom-color: var(--brand-600) !important;
+  font-weight: 700 !important;
+}
+
+.mobile-subtab-btn-inactive {
+  color: var(--slate-400) !important;
+}
+
+.mobile-subtab-btn-inactive:hover {
+  color: var(--slate-700) !important;
+}
+
+/* Card individual da lista de reservas ativas no mobile */
+.reserva-mobile-card {
+  background-color: #ffffff;
+  border: 1px solid var(--slate-200);
+  border-radius: 1rem;
+  padding: 0.875rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  margin-bottom: 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.box-resumo-amber {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background-color: #fffbeb; /* amber-50 */
+  border: 1px solid rgba(253, 230, 138, 0.7); /* amber-200/70 */
+  border-radius: 0.75rem; /* rounded-xl */
+}
+
+.upload-dropzone {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  text-align: center;
+  background-color: var(--slate-50, #f8fafc);
+  border: 1px dashed var(--slate-300, #cbd5e1);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.upload-dropzone:hover {
+  background-color: var(--slate-100, #f1f5f9);
+  border-color: var(--brand-500, #22c55e);
 }
