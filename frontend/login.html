@@ -109,14 +109,19 @@
     function toggleVerSenha() {
       const input = document.getElementById('login-senha');
       const icone = document.getElementById('icone-senha');
+      if (!input) return;
       if (input.type === 'password') {
         input.type = 'text';
+        if(icone) {
         icone.classList.remove('ph-eye');
         icone.classList.add('ph-eye-slash');
+        }
       } else {
         input.type = 'password';
+        if(icone) {
         icone.classList.remove('ph-eye-slash');
         icone.classList.add('ph-eye');
+        }
       }
     }
 

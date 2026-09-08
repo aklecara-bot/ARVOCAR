@@ -1,5 +1,5 @@
 // =========================================================================
-// MÓDULO: ABASTECIMENTO MOBILE - SUPORTE OFFLINE ARVO
+// MÓDULO: ABASTECIMENTO MOBILE - ARVO
 // =========================================================================
 const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
@@ -14,25 +14,34 @@ let listaAbastecimentosCache = [];
 let urlComprovanteAtual = null;
 
 // =========================================================================
-// INICIALIZAÇÃO
+// 1. INICIALIZAÇÃO SEGURA
 // =========================================================================
 async function initAbastecimentoMobile() {
-  const sessaoStr = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
-  if (sessaoStr) {
-    try {
-      usuarioLogado = JSON.parse(sessaoStr);
-    } catch (e) {
-      usuarioLogado = { email: sessaoStr, nome: sessaoStr };
+  try {
+    const sessaoStr = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+    if (sessaoStr) {
+      try {
+        usuarioLogado = JSON.parse(sessaoStr);
+      } catch (e) {
+        usuarioLogado = { email: sessaoStr, nome: sessaoStr };
+      }
+      const userDisplay = document.getElementById('user-display');
+      if (userDisplay && usuarioLogado) {
+        userDisplay.innerText = `${usuarioLogado.nome || usuarioLogado.email || 'Condutor'}`;
+      }
     }
-    const userDisplay = document.getElementById('user-display');
-    if (userDisplay) userDisplay.innerText = `${usuarioLogado.nome || usuarioLogado.email || 'Condutor'}`;
+  } catch (err) {
+    console.warn("Aviso ao ler sessão:", err);
   }
 
+  // Executa mesmo se a leitura da sessão falhar
   await carregarVeiculosAbastecimento();
   await carregarHistoricoAbastecimento();
-  sincronizarFilaAbastecimentos();
 }
 
+// =========================================================================
+// 2. CONTROLE DE ABAS (NOVO REGISTRO / HISTÓRICO)
+// =========================================================================
 function trocarAba(aba) {
   const viewNovo = document.getElementById('view-novo');
   const viewHist = document.getElementById('view-historico');
@@ -44,50 +53,85 @@ function trocarAba(aba) {
   if (aba === 'novo') {
     viewNovo.classList.remove('hidden');
     viewHist.classList.add('hidden');
-    if (btnNovo) btnNovo.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
-    if (btnHist) btnHist.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
+    if (btnNovo) {
+      btnNovo.classList.remove('mobile-subtab-btn-inactive');
+      btnNovo.classList.add('mobile-subtab-btn-active');
+      btnNovo.style.cssText = "color: #fde047 !important; border-bottom-color: #fde047 !important;";
+    }
+    if (btnHist) {
+      btnHist.classList.remove('mobile-subtab-btn-active');
+      btnHist.classList.add('mobile-subtab-btn-inactive');
+      btnHist.style.cssText = "color: rgba(255,255,255,0.6) !important; border-bottom-color: transparent !important;";
+    }
   } else {
     viewNovo.classList.add('hidden');
     viewHist.classList.remove('hidden');
-    if (btnHist) btnHist.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
-    if (btnNovo) btnNovo.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
+    if (btnHist) {
+      btnHist.classList.remove('mobile-subtab-btn-inactive');
+      btnHist.classList.add('mobile-subtab-btn-active');
+      btnHist.style.cssText = "color: #fde047 !important; border-bottom-color: #fde047 !important;";
+    }
+    if (btnNovo) {
+      btnNovo.classList.remove('mobile-subtab-btn-active');
+      btnNovo.classList.add('mobile-subtab-btn-inactive');
+      btnNovo.style.cssText = "color: rgba(255,255,255,0.6) !important; border-bottom-color: transparent !important;";
+    }
     carregarHistoricoAbastecimento();
   }
 }
 
+// =========================================================================
+// 3. CARREGAMENTO DE VEÍCULOS
+// =========================================================================
 async function carregarVeiculosAbastecimento() {
   const sel = document.getElementById('abs-veiculo');
   if (!sel) return;
 
-  // Carrega do cache primeiro
+  // Carrega do cache se existir
   const localV = localStorage.getItem('arvo_cache_veiculos');
   if (localV) {
-    veiculosAbast = JSON.parse(localV);
-    renderSelectVeiculos(sel);
+    try {
+      veiculosAbast = JSON.parse(localV);
+      renderSelectVeiculos(sel);
+    } catch (e) {
+      veiculosAbast = [];
+    }
   }
 
   if (navigator.onLine) {
     try {
-      const { data, error } = await db.from('veiculos').select('*').order('id');
+      const { data, error } = await db.from('veiculos').select('*').neq('status', 'Fora de Uso').order('nome_frota');
       if (!error && data) {
         veiculosAbast = data;
         localStorage.setItem('arvo_cache_veiculos', JSON.stringify(data));
         renderSelectVeiculos(sel);
       }
     } catch (e) {
-      console.warn("Offline: Usando veículos em cache.");
+      console.warn("Falha de conexão ao carregar veículos online:", e);
     }
   }
 }
 
 function renderSelectVeiculos(sel) {
+  if (!sel) return;
   sel.innerHTML = '<option value="">Selecione o veículo...</option>';
+  
   veiculosAbast.forEach(v => {
-    sel.innerHTML += `<option value="${v.nome_frota || v.id}" data-uuid="${v.uuid_veiculos || ''}" data-placa="${v.placa || ''}">${v.nome_frota || v.id} - ${v.marca || ''} [${v.placa || ''}]</option>`;
+    const nomeFrota = v.nome_frota || v.id;
+    const placaFmt = v.placa ? ` [${v.placa}]` : '';
+    const marcaFmt = v.marca ? ` - ${v.marca}` : '';
+    sel.innerHTML += `
+      <option value="${nomeFrota}" data-uuid="${v.uuid_veiculos || ''}" data-placa="${v.placa || ''}" data-id="${v.id}">
+        ${nomeFrota}${marcaFmt}${placaFmt}
+      </option>
+    `;
   });
 }
 
-function calcularTotalAbastecimentoMobile() {
+// =========================================================================
+// 4. CÁLCULO TOTAL E UPLOAD DE COMPROVANTE
+// =========================================================================
+function calcularTotal() {
   const inputLitros = document.getElementById('abs-litros');
   const inputPreco = document.getElementById('abs-preco-litro');
   const displayTotal = document.getElementById('display-total');
@@ -107,14 +151,14 @@ function atualizarNomeArquivo(input) {
   if (input.files && input.files[0]) {
     label.innerText = `Anexado: ${input.files[0].name.substring(0, 20)}...`;
   } else {
-    label.innerText = 'Tirar foto ou anexar comprovante';
+    label.innerText = 'Tirar foto ou anexar arquivo';
   }
 }
 
 // =========================================================================
-// SALVAR ABASTECIMENTO (ONLINE & OFFLINE)
+// 5. REGISTRO DE ABASTECIMENTO
 // =========================================================================
-async function salvarAbastecimento(e) {
+async function salvarAbastecimentoMobile(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
   const btn = document.getElementById('btn-submit');
 
@@ -129,6 +173,7 @@ async function salvarAbastecimento(e) {
 
   const uuid_veiculos = opt?.dataset?.uuid || null;
   const placa = opt?.dataset?.placa || null;
+  const idNumerico = opt?.dataset?.id || null;
   const local_posto = (document.getElementById('abs-posto')?.value || '').trim().toUpperCase();
   const tipo_combustivel = document.getElementById('abs-tipo')?.value || 'Gasolina Comum';
   const km_input = document.getElementById('abs-km')?.value;
@@ -148,203 +193,106 @@ async function salvarAbastecimento(e) {
     btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
   }
 
-  const payload = {
-    veiculo_id,
-    uuid_veiculos,
-    placa,
-    responsavel: (usuarioLogado && usuarioLogado.email) ? usuarioLogado.email : 'admin@arvo.tec.br',
-    local_posto,
-    tipo_combustivel,
-    quantidade_litros,
-    preco_litro,
-    valor_total,
-    km_atual,
-    data_hora: new Date().toISOString()
-  };
-
-  // --- MODO OFFLINE ---
-  if (!navigator.onLine) {
-    if (fotoInput && fotoInput.files && fotoInput.files[0]) {
-      payload.foto_base64 = await fileToBase64(fotoInput.files[0]);
-      payload.foto_nome = fotoInput.files[0].name;
-    }
-    
-    // Atualiza o saldo no cache local de veículos
-    const localVeic = typeof veiculosAbast !== 'undefined' ? veiculosAbast : [];
-    const vCache = localVeic.find(v => String(v.id) === String(veiculo_id) || String(v.nome_frota) === String(veiculo_id));
-    if (vCache) {
-      const cap = Number(vCache.tanque || 50);
-      const atual = Number(vCache.tanque_virtual || 0);
-      vCache.tanque_virtual = Math.min(cap, Number((atual + quantidade_litros).toFixed(2)));
-      if (km_atual) vCache.km_atual = km_atual;
-      localStorage.setItem('arvo_cache_veiculos', JSON.stringify(localVeic));
-    }
-
-    salvarFilaAbastecimento(payload);
-    salvarHistoricoLocal(payload);
-    alert('📶 Abastecimento gravado em Modo Offline! Tanque e dados sincronizarão ao reconectar.');
-    limparFormularioAposSalvar();
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="ph-bold ph-check text-base"></i><span>Registrar Abastecimento</span>`;
-    }
-    return;
-  }
-
-  // Se online, faz upload da imagem e salva no banco
   try {
     let url_comprovante = null;
 
+    // Upload seguro da foto para o bucket comprovantes
     if (fotoInput && fotoInput.files && fotoInput.files[0]) {
-      const file = fotoInput.files[0];
-      const extensao = file.name.split('.').pop();
-      const fileName = `abast_${Date.now()}_${Math.random().toString(36).substring(7)}.${extensao}`;
-
-      // Upload do arquivo para o bucket 'comprovantes'
-      const { error: upErr } = await db.storage
-        .from('comprovantes')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-      const { error: upErr } = await db.storage
-        .from('comprovantes')
-        .upload(fileName, file, { cacheControl: '3600', upsert: false });
-
-      if (upErr) {
-        console.error("Falha no upload da foto para o Storage:", upErr);
-        throw new Error(`Erro ao enviar foto do comprovante: ${upErr.message}`);
-      }
-
-      // Resgata o link público da imagem
-      const { data: publicUrlData } = db.storage
-        .from('comprovantes')
-        .getPublicUrl(fileName);
-
-      const { data: publicUrlData } = db.storage.from('comprovantes').getPublicUrl(fileName);
-      url_comprovante = publicUrlData?.publicUrl || null;
-    }
-
-    payload.url_comprovante = url_comprovante;
-
-    // Inserção no Supabase
-    const { error: insErr } = await db.from('abastecimentos').insert([payload]);
-    if (insErr) throw insErr;
-
-    // Atualização opcional do KM na tabela veiculos (protegida contra erros de RLS)
-    if (km_atual && !isNaN(km_atual)) {
       try {
-        let query = db.from('veiculos').update({ km_atual: km_atual });
-        if (uuid_veiculos) {
-          query = query.eq('uuid_veiculos', uuid_veiculos);
-        } else {
-          query = query.eq('id', veiculo_id);
+        const file = fotoInput.files[0];
+        const extensao = file.name.split('.').pop();
+        const fileName = `abast_${Date.now()}_${Math.random().toString(36).substring(7)}.${extensao}`;
+
+        const { error: upErr } = await db.storage
+          .from('comprovantes')
+          .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+        if (!upErr) {
+          const { data: publicUrlData } = db.storage.from('comprovantes').getPublicUrl(fileName);
+          url_comprovante = publicUrlData?.publicUrl || null;
         }
-        await query.lt('km_atual', km_atual);
-      } catch (vErr) {
-        console.warn("Aviso ao atualizar KM do veículo:", vErr);
+      } catch (imgErr) {
+        console.warn("Aviso no upload da imagem:", imgErr);
       }
-    // 1. Grava o abastecimento
+    }
+
+    const payload = {
+      veiculo_id: veiculo_id,
+      placa: placa,
+      responsavel: (usuarioLogado && usuarioLogado.email) ? usuarioLogado.email : 'mobile@arvo.tec.br',
+      local_posto: local_posto,
+      tipo_combustivel: tipo_combustivel,
+      quantidade_litros: quantidade_litros,
+      preco_litro: preco_litro,
+      valor_total: valor_total,
+      url_comprovante: url_comprovante,
+      data_hora: new Date().toISOString()
+    };
+
+    if (km_atual && !isNaN(km_atual)) {
+      payload.km_atual = km_atual;
+    }
+
     const { error: insErr } = await db.from('abastecimentos').insert([payload]);
     if (insErr) throw insErr;
 
-    // 2. Busca o veículo para incrementar o tanque virtual e atualizar odômetro juntos
-    let queryVeic = db.from('veiculos').select('id, tanque, tanque_virtual, km_atual');
-    if (uuid_veiculos) {
-      queryVeic = queryVeic.eq('uuid_veiculos', uuid_veiculos);
-    } else {
-      queryVeic = queryVeic.eq('id', veiculo_id);
-    }
-    const { data: vAtual } = await queryVeic.maybeSingle();
-
-    if (vAtual) {
-      const capMax = Number(vAtual.tanque || 50);
-      const saldoAtual = vAtual.tanque_virtual !== null && vAtual.tanque_virtual !== undefined 
-        ? Number(vAtual.tanque_virtual) 
-        : 0;
-      
-      const novoSaldoVirtual = Math.min(capMax, Number((saldoAtual + quantidade_litros).toFixed(2)));
-
-      const dadosUpdate = { tanque_virtual: novoSaldoVirtual };
-      if (km_atual && (!vAtual.km_atual || km_atual > Number(vAtual.km_atual))) {
-        dadosUpdate.km_atual = km_atual;
+    // Atualização de KM e Tanque Virtual na tabela de veículos
+    try {
+      let queryVeic = db.from('veiculos').select('id, tanque, tanque_virtual, km_atual');
+      if (uuid_veiculos) {
+        queryVeic = queryVeic.eq('uuid_veiculos', uuid_veiculos);
+      } else if (idNumerico) {
+        queryVeic = queryVeic.eq('id', idNumerico);
+      } else {
+        queryVeic = queryVeic.eq('nome_frota', veiculo_id);
       }
+      
+      const { data: vAtual } = await queryVeic.maybeSingle();
 
-      await db.from('veiculos').update(dadosUpdate).eq('id', vAtual.id);
+      if (vAtual) {
+        const capMax = Number(vAtual.tanque || 50);
+        const saldoAtual = (vAtual.tanque_virtual !== null && vAtual.tanque_virtual !== undefined)
+          ? Number(vAtual.tanque_virtual)
+          : 0;
+        
+        const novoSaldo = Math.min(capMax, Number((saldoAtual + quantidade_litros).toFixed(2)));
+        const updateDados = { tanque_virtual: novoSaldo };
+
+        if (km_atual && (!vAtual.km_atual || km_atual > Number(vAtual.km_atual))) {
+          updateDados.km_atual = km_atual;
+        }
+
+        await db.from('veiculos').update(updateDados).eq('id', vAtual.id);
+      }
+    } catch (veicErr) {
+      console.warn("Aviso ao atualizar veículo:", veicErr);
     }
 
     alert('✅ Abastecimento registrado com sucesso!');
-    limparFormularioAposSalvar();
+
+    const form = document.getElementById('form-abastecimento');
+    if (form) form.reset();
+    
+    const labelFoto = document.getElementById('comprovante-nome');
+    if (labelFoto) labelFoto.innerText = 'Tirar foto ou anexar arquivo';
+
+    calcularTotal();
     await carregarHistoricoAbastecimento();
-    if (typeof trocarAba === 'function') {
-      trocarAba('historico');
-    }
+    trocarAba('historico');
+
   } catch (err) {
-    console.error("Erro no fluxo online:", err);
-    alert('Erro ao salvar: ' + (err.message || 'Verifique sua conexão.'));
+    console.error("Erro ao salvar abastecimento:", err);
+    alert('Erro ao salvar abastecimento: ' + (err.message || 'Verifique sua conexão.'));
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = `<i class="ph-bold ph-check text-base"></i><span>Registrar Abastecimento</span>`;
+      btn.innerHTML = `<i class="ph-bold ph-check"></i><span>Registrar Abastecimento</span>`;
     }
   }
-}
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
-  });
-}
-
-function salvarFilaAbastecimento(item) {
-  const fila = JSON.parse(localStorage.getItem('arvo_sync_abast_queue') || '[]');
-  fila.push(item);
-  localStorage.setItem('arvo_sync_abast_queue', JSON.stringify(fila));
-}
-
-function salvarHistoricoLocal(item) {
-  listaAbastecimentosCache.unshift(item);
-  localStorage.setItem('arvo_cache_abastecimentos', JSON.stringify(listaAbastecimentosCache));
-}
-
-async function sincronizarFilaAbastecimentos() {
-  if (!navigator.onLine) return;
-  const fila = JSON.parse(localStorage.getItem('arvo_sync_abast_queue') || '[]');
-  if (fila.length === 0) return;
-
-  console.log(`-> Sincronizando ${fila.length} abastecimentos pendentes...`);
-  const restantes = [];
-
-  for (const item of fila) {
-    try {
-      const { foto_base64, foto_nome, ...payloadEnvio } = item;
-      await db.from('abastecimentos').insert([payloadEnvio]);
-    } catch (e) {
-      restantes.push(item);
-    }
-  }
-
-  localStorage.setItem('arvo_sync_abast_queue', JSON.stringify(restantes));
-  if (restantes.length === 0) {
-    await carregarHistoricoAbastecimento();
-  }
-}
-
-window.addEventListener('online', sincronizarFilaAbastecimentos);
-
-function limparFormularioAposSalvar() {
-  const form = document.getElementById('form-abastecimento');
-  if (form) form.reset();
-  const labelFoto = document.getElementById('comprovante-nome');
-  if (labelFoto) labelFoto.innerText = 'Tirar foto ou anexar comprovante';
-  calcularTotalAbastecimentoMobile();
 }
 
 // =========================================================================
-// CARREGAR E RENDERIZAR HISTÓRICO
+// 6. HISTÓRICO DE ABASTECIMENTOS
 // =========================================================================
 async function carregarHistoricoAbastecimento() {
   const container = document.getElementById('lista-abastecimentos');
@@ -352,8 +300,12 @@ async function carregarHistoricoAbastecimento() {
 
   const localAbast = localStorage.getItem('arvo_cache_abastecimentos');
   if (localAbast) {
-    listaAbastecimentosCache = JSON.parse(localAbast);
-    renderCardsHistorico(container);
+    try {
+      listaAbastecimentosCache = JSON.parse(localAbast);
+      renderCardsHistorico(container);
+    } catch (e) {
+      listaAbastecimentosCache = [];
+    }
   }
 
   if (navigator.onLine) {
@@ -370,7 +322,7 @@ async function carregarHistoricoAbastecimento() {
         renderCardsHistorico(container);
       }
     } catch (e) {
-      console.warn("Offline: Mantendo histórico cacheado.");
+      console.warn("Offline: Usando histórico do cache local.");
     }
   }
 }
@@ -383,23 +335,19 @@ function renderCardsHistorico(container) {
 
   container.innerHTML = '';
   listaAbastecimentosCache.forEach((a, index) => {
-    const veic = (typeof veiculosAbast !== 'undefined' ? veiculosAbast : []).find(v =>
+    const veic = (veiculosAbast || []).find(v =>
       String(v.id) === String(a.veiculo_id) ||
       String(v.uuid_veiculos) === String(a.uuid_veiculos || a.veiculo_id) ||
       String(v.placa) === String(a.placa || a.veiculo_id) ||
       String(v.nome_frota) === String(a.veiculo_id)
     );
 
-    let nomeExibicao = a.nome_frota || veic?.nome_frota;
-    if (!nomeExibicao) {
-      nomeExibicao = a.veiculo_id && !a.veiculo_id.includes('-') ? a.veiculo_id : (veic?.id || 'ARVO');
-    }
-
-    const placaReal = a.placa || veic?.placa || (a.veiculo_id && a.veiculo_id.match(/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/) ? a.veiculo_id : null);
+    const nomeExibicao = a.nome_frota || veic?.nome_frota || a.veiculo_id || 'ARVO';
+    const placaReal = a.placa || veic?.placa || '';
     const badgePlaca = placaReal ? ` [${placaReal}]` : '';
 
-    const combustivelFormatado = (a.tipo_combustivel && a.tipo_combustivel !== 'null') ? a.tipo_combustivel : 'Gasolina Comum';
-    const postoFormatado = (a.local_posto && a.local_posto !== 'null') ? a.local_posto : 'Posto de Combustível';
+    const combustivelFormatado = a.tipo_combustivel || 'Gasolina Comum';
+    const postoFormatado = a.local_posto || 'Posto de Combustível';
     const valorFormatado = Number(a.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
     const card = document.createElement('div');
@@ -425,7 +373,7 @@ function renderCardsHistorico(container) {
         <span class="text-[10px] text-slate-400 truncate max-w-[150px]">
           <i class="ph-bold ph-user"></i> ${(a.responsavel || '').split('@')[0]}
         </span>
-        <button type="button" onclick="window.abrirModalAbastecimento(${index})" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 transition">
+        <button type="button" onclick="abrirModalAbastecimento(${index})" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 transition">
           <i class="ph-bold ph-eye"></i> Ver Detalhes
         </button>
       </div>
@@ -435,15 +383,15 @@ function renderCardsHistorico(container) {
 }
 
 // =========================================================================
-// CONTROLE DO MODAL DE DETALHES E DOWNLOAD
+// 7. MODAL DE DETALHES E COMPROVANTE
 // =========================================================================
 function abrirModalAbastecimento(index) {
   const item = listaAbastecimentosCache[index];
   if (!item) return;
 
-  urlComprovanteAtual = item.url_comprovante || (item.foto_base64 || null);
+  urlComprovanteAtual = item.url_comprovante || null;
 
-  const veic = (typeof veiculosAbast !== 'undefined' ? veiculosAbast : []).find(v =>
+  const veic = (veiculosAbast || []).find(v =>
     String(v.id) === String(item.veiculo_id) ||
     String(v.uuid_veiculos) === String(item.uuid_veiculos || item.veiculo_id) ||
     String(v.placa) === String(item.placa || item.veiculo_id) ||
@@ -521,27 +469,14 @@ function handleMobileLogout() {
 }
 
 // =========================================================================
-// NAVEGAÇÃO ENTRE TELAS DO APLICATIVO
-// =========================================================================
-function switchMobileTab(tab) {
-  // Salva no localStorage para que o mobile.html abra diretamente na aba correta
-  localStorage.setItem('arvo_mobile_active_tab', tab);
-  
-  // Redireciona para o painel principal de rotas
-  window.location.href = `mobile.html?tab=${tab}`;
-}
-
-// Vinculação global
-window.switchMobileTab = switchMobileTab;
-
-// =========================================================================
-// EXPOSIÇÃO GLOBAL DE FUNÇÕES (WINDOW)
+// 8. BINDING GLOBAL MANDATÓRIO
 // =========================================================================
 window.trocarAba = trocarAba;
-window.calcularTotalAbastecimentoMobile = calcularTotalAbastecimentoMobile;
+window.calcularTotal = calcularTotal;
+window.calcularTotalAbastecimentoMobile = calcularTotal;
 window.atualizarNomeArquivo = atualizarNomeArquivo;
-window.salvarAbastecimento = salvarAbastecimento;
-window.carregarHistorico = carregarHistoricoAbastecimento;
+window.salvarAbastecimento = salvarAbastecimentoMobile;
+window.salvarAbastecimentoMobile = salvarAbastecimentoMobile;
 window.carregarHistoricoAbastecimento = carregarHistoricoAbastecimento;
 window.abrirModalAbastecimento = abrirModalAbastecimento;
 window.fecharModalAbastecimento = fecharModalAbastecimento;
