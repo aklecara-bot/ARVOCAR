@@ -8,6 +8,9 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 
+// Validação Simplificada de CNH por formato (11 dígitos e sem repetições)
+const validarNumeroCNH = (cnh) => /^\d{11}$/.test(String(cnh).replace(/\D/g, '')) && !/^(\d)\1{10}$/.test(String(cnh).replace(/\D/g, ''));
+
 let usuarios = [];
 let veiculos = [];
 let rotas = [];
@@ -18,16 +21,31 @@ let currentUserIndex = 0;
 // =========================================================================
 
 function verificarSessaoUsuario() {
-  const sessao = localStorage.getItem('arvo_usuario_logado');
-  if (!sessao) {
+  const sessaoRaw = localStorage.getItem('arvo_usuario_logado');
+  if (!sessaoRaw) {
     window.location.href = "login.html";
     return null;
   }
+
+  let sessao;
   try {
-    return JSON.parse(sessao);
+    sessao = JSON.parse(sessaoRaw);
   } catch(e) {
-    return { email: sessao };
+    sessao = { email: sessaoRaw };
   }
+
+  const ehAdmin = (sessao.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+
+  // Bloqueio contínuo: revoga o acesso caso o condutor não tenha 11 dígitos numéricos na CNH
+  if (!ehAdmin && !validarNumeroCNH(sessao.cnh)) {
+    alert("⛔ Acesso revogado: Seu cadastro possui uma CNH inválida ou pendente. Procure o Administrador.");
+    localStorage.removeItem('arvo_usuario_logado');
+    localStorage.removeItem('arvo_mobile_user');
+    window.location.href = "login.html";
+    return null;
+  }
+
+  return sessao;
 }
 
 function fazerLogout() {
@@ -465,7 +483,7 @@ async function handleFimRota(e) {
     return;
   }
 
-  // --- TRAVA DE PERMISSÃO: APENAS CRIADOR OU ADMIN ---
+  // Permissão estrita: criador da rota ou Admin
   const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
   let sessao;
   try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
@@ -499,7 +517,7 @@ async function handleFimRota(e) {
   let anomaliaTexto = situacao === 'COM' ? (document.getElementById('form-fim-anomalia')?.value?.trim() || '') : '';
   const deltaKm = kmFinal - rota.km_saida;
 
-  // --- HISTÓRICO DE ABASTECIMENTOS COM FALLBACK ---
+  // Recupera histórico de abastecimento de forma segura
   let histAbast = [];
   if (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos) && abastecimentos.length > 0) {
     histAbast = abastecimentos;
@@ -825,11 +843,20 @@ function toggleVerSenhaEdicao() {
 
 async function handleCadUsuario(e) {
   e.preventDefault();
+  const cnhInput = document.getElementById('cad-u-cnh')?.value.trim();
+
+  // Validação simplificada: exige exatamente 11 dígitos e sem sequências repetidas
+  if (!validarNumeroCNH(cnhInput)) {
+    alert("⚠️ CNH inválida! Digite exatamente 11 dígitos numéricos válidos.");
+    document.getElementById('cad-u-cnh')?.focus();
+    return;
+  }
+
   const novoUsuario = {
     nome: document.getElementById('cad-u-nome').value.trim(),
     email: document.getElementById('cad-u-email').value.trim().toLowerCase(),
     senha: document.getElementById('cad-u-senha').value.trim(),
-    cnh: document.getElementById('cad-u-cnh').value.trim(),
+    cnh: cnhInput.replace(/\D/g, ''),
     status: 'Ativo'
   };
 
@@ -846,7 +873,7 @@ async function handleCadUsuario(e) {
 }
 
 function abrirModalEditUsuario(usuarioId) {
-  const u = usuarios.find(item => item.id === usuarioId);
+  const u = usuarios.find(item => String(item.id) === String(usuarioId));
   if (!u) return;
 
   document.getElementById('edit-u-id').value = u.id;
@@ -872,12 +899,20 @@ function fecharModalEditUsuario() {
 async function handleSalvarEditUsuario(e) {
   e.preventDefault();
   const id = document.getElementById('edit-u-id').value;
+  const cnhInput = document.getElementById('edit-u-cnh')?.value.trim();
+
+  // Validação simplificada: exige exatamente 11 dígitos e sem sequências repetidas
+  if (!validarNumeroCNH(cnhInput)) {
+    alert("⚠️ CNH inválida! Digite exatamente 11 dígitos numéricos válidos.");
+    document.getElementById('edit-u-cnh')?.focus();
+    return;
+  }
 
   const dadosAtualizados = {
     nome: document.getElementById('edit-u-nome').value.trim(),
     email: document.getElementById('edit-u-email').value.trim().toLowerCase(),
     senha: document.getElementById('edit-u-senha').value.trim(),
-    cnh: document.getElementById('edit-u-cnh').value.trim(),
+    cnh: cnhInput.replace(/\D/g, ''),
     status: document.getElementById('edit-u-status').value
   };
 
@@ -1031,7 +1066,7 @@ function renderTabelaVeiculosCad() {
 
     const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
     const badgeTipo = isExterno
-      ? `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-indigo-100 text-indigo-700 border border-indigo-200">EXTERNO</span>`
+      ? `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-indigo-100 text-indigo-700 border border-indigo-200" title="Veículo de uso esporádico / terceirizado">EXTERNO</span>`
       : `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200">FROTA</span>`;
 
     let statusClass = 'bg-emerald-100 text-emerald-800';
@@ -1085,6 +1120,20 @@ function renderTabelaUsuariosCad() {
   usuarios.forEach(u => {
     const tr = document.createElement('tr');
     tr.className = "hover:bg-slate-50 transition";
+
+    const ehAdmin = (u.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+    const cnhValida = ehAdmin || validarNumeroCNH(u.cnh);
+    const estaAtivo = (u.status || 'Ativo') === 'Ativo' && cnhValida;
+
+    let badgeStatus;
+    if (!cnhValida) {
+      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700" title="CNH não possui 11 dígitos numéricos válidos">CNH Inválida</span>`;
+    } else if (u.status === 'Inativo') {
+      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Inativo</span>`;
+    } else {
+      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Ativo</span>`;
+    }
+    
     tr.innerHTML = `
       <td class="py-3 px-4 font-bold text-slate-800">${u.nome}</td>
       <td class="py-3 px-4 text-slate-600">${u.email}</td>
@@ -1220,7 +1269,7 @@ function selecionarRotaFim() {
   if (rota) {
     const v = veiculos.find(item => 
       String(item.id) === String(rota.veiculo_id) || 
-      String(item.uuid_veiculos) === String(rota.veiculo_id) ||
+      String(item.uuid_veiculos) === String(rota.veiculo_id) || 
       String(item.nome_frota) === String(rota.veiculo_id)
     ) || {};
 
@@ -1283,7 +1332,7 @@ function calcularKmPercorrido() {
     const delta = kmFinal - rota.km_saida;
     const v = veiculos.find(item => 
       String(item.id) === String(rota.veiculo_id) || 
-      String(item.uuid_veiculos) === String(rota.veiculo_id) ||
+      String(item.uuid_veiculos) === String(rota.veiculo_id) || 
       String(item.nome_frota) === String(rota.veiculo_id)
     ) || {};
     const medConsumo = ((Number(v.consumo_min || 10) + Number(v.consumo_max || 14)) / 2);
@@ -1302,8 +1351,9 @@ function toggleAnomaliaInput(show) {
 }
 
 // =========================================================================
-// RENDER HISTÓRICO COM RESOLUÇÃO DE IDENTIFICADOR AMIGÁVEL
+// RENDER HISTÓRICO
 // =========================================================================
+
 function renderHistorico() {
   const tbody = document.getElementById('tabelaHistorico');
   if (!tbody) return;
@@ -1473,7 +1523,7 @@ async function verificarRotasExcedidas12h() {
 
       const diferencaHoras = (agora - dataSaida) / (1000 * 60 * 60);
 
-      // Notifica todos os usuários se exceder 12h
+      // Notifica todos os usuários logados caso a rota ultrapasse 12 horas
       if (diferencaHoras >= 12) {
         exibirPopUpAlerta(rota, diferencaHoras);
         dispararNotificacaoNativa(
