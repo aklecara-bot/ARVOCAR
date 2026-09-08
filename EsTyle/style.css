@@ -889,8 +889,8 @@ body {
 .btn-alerta-lembrar {
   flex: 1;
   padding: 0.625rem;
-  background-color: #f1f5f9;
-  color: #334155;
+  background-color: #d16e12;
+  color: #f2f4f7;
   font-weight: 700;
   font-size: 0.75rem;
   border-radius: 0.75rem;
@@ -900,7 +900,10 @@ body {
 }
 
 .btn-alerta-lembrar:hover {
-  background-color: #e2e8f0;
+  background-color: #f0f0eb;
+  color: #9c5f04;
+  border-color: #9c5f04;
+  border-radius: 1rem;
 }
 
 .btn-alerta-finalizar {
