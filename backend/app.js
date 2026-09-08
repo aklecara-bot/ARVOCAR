@@ -843,21 +843,23 @@ function toggleVerSenhaEdicao() {
 
 async function handleCadUsuario(e) {
   e.preventDefault();
-  const cnhInput = document.getElementById('cad-u-cnh')?.value.trim();
 
-  // Validação simplificada: exige exatamente 11 dígitos e sem sequências repetidas
-  if (!validarNumeroCNH(cnhInput)) {
-    alert("⚠️ CNH inválida! Digite exatamente 11 dígitos numéricos válidos.");
-    document.getElementById('cad-u-cnh')?.focus();
-    return;
-  }
+  // Garante que cnhInput seja sempre uma string, evitando erros de undefined
+  const cnhInput = (document.getElementById('cad-u-cnh')?.value || '').trim();
+
+  // Verifica se possui 11 dígitos numéricos válidos
+  const cnhValida = typeof validarNumeroCNH === 'function' ? validarNumeroCNH(cnhInput) : false;
+
+  // Regra de negócio: CNH válida = Ativo; Sem CNH ou inválida = Inativo
+  const statusInicial = cnhValida ? 'Ativo' : 'Inativo';
+  const cnhFinal = cnhValida ? cnhInput.replace(/\D/g, '') : (cnhInput || '');
 
   const novoUsuario = {
     nome: document.getElementById('cad-u-nome').value.trim(),
     email: document.getElementById('cad-u-email').value.trim().toLowerCase(),
     senha: document.getElementById('cad-u-senha').value.trim(),
-    cnh: cnhInput.replace(/\D/g, ''),
-    status: 'Ativo'
+    cnh: cnhFinal,
+    status: statusInicial
   };
 
   try {
@@ -865,10 +867,17 @@ async function handleCadUsuario(e) {
     if (error) throw error;
 
     e.target.reset();
-    alert(`Usuário ${novoUsuario.nome} cadastrado com sucesso!`);
-    await carregarTodosDadosDoBanco();
+
+    // Feedback claro conforme o status gerado
+    if (statusInicial === 'Ativo') {
+      alert(`✅ Usuário ${novoUsuario.nome} cadastrado e ATIVO com sucesso!`);
+    } else {
+      alert(`⚠️ Usuário ${novoUsuario.nome} cadastrado como INATIVO (CNH pendente ou incompleta). Ficará ativo assim que uma CNH válida for salva.`);
+    }
+
+    await carregarTodosDadosDoBanco(); //[cite: 2]
   } catch (err) {
-    alert("Erro ao cadastrar usuário: " + err.message);
+    alert("Erro ao cadastrar usuário: " + err.message); //[cite: 2]
   }
 }
 
@@ -887,7 +896,14 @@ function abrirModalEditUsuario(usuarioId) {
   }
 
   document.getElementById('edit-u-cnh').value = u.cnh;
-  document.getElementById('edit-u-status').value = u.status || 'Ativo';
+
+  // Se a CNH já for válida, exibe Ativo no select; senão, mantém o status atual
+  const statusSelect = document.getElementById('edit-u-status');
+  if (statusSelect) {
+    statusSelect.value = validarNumeroCNH(u.cnh) ? 'Ativo' : (u.status || 'Inativo');
+  }
+
+  //document.getElementById('edit-u-status').value = u.status || 'Ativo';
 
   document.getElementById('modal-edit-usuario').classList.remove('hidden');
 }
@@ -908,12 +924,15 @@ async function handleSalvarEditUsuario(e) {
     return;
   }
 
+  // Se a CNH é válida, ativa automaticamente o condutor no banco de dados
+  const novoStatus = 'Ativo';
+
   const dadosAtualizados = {
     nome: document.getElementById('edit-u-nome').value.trim(),
     email: document.getElementById('edit-u-email').value.trim().toLowerCase(),
     senha: document.getElementById('edit-u-senha').value.trim(),
     cnh: cnhInput.replace(/\D/g, ''),
-    status: document.getElementById('edit-u-status').value
+    status: novoStatus
   };
 
   try {
@@ -921,7 +940,7 @@ async function handleSalvarEditUsuario(e) {
     if (error) throw error;
 
     fecharModalEditUsuario();
-    alert("Condutor atualizado com sucesso!");
+    alert("Condutor atualizado e ativado com sucesso!");
     await carregarTodosDadosDoBanco();
   } catch (err) {
     alert("Erro ao atualizar usuário: " + err.message);
@@ -1133,7 +1152,7 @@ function renderTabelaUsuariosCad() {
     } else {
       badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Ativo</span>`;
     }
-    
+
     tr.innerHTML = `
       <td class="py-3 px-4 font-bold text-slate-800">${u.nome}</td>
       <td class="py-3 px-4 text-slate-600">${u.email}</td>
