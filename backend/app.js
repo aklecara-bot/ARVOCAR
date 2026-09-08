@@ -564,6 +564,14 @@ async function handleCadVeiculo(e) {
   
   const placa = document.getElementById('cad-v-placa').value.toUpperCase().trim();
   const idInformado = document.getElementById('cad-v-id')?.value?.toUpperCase().trim();
+  const tipoFrota = document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO';
+  const motoristaAutorizado = tipoFrota === 'EXTERNO' ? document.getElementById('cad-v-motorista')?.value?.trim().toLowerCase() 
+    : null;
+  
+    if (tipoFrota === 'EXTERNO' && !motoristaAutorizado) {
+    alert("Por favor, selecione o motorista autorizado para este carro temporário/externo.");
+    return;
+  }
 
   const novoCarro = {
     nome_frota: idInformado || placa,
@@ -573,7 +581,8 @@ async function handleCadVeiculo(e) {
     consumo_min: parseFloat(document.getElementById('cad-v-consumomin').value) || 0,
     consumo_max: parseFloat(document.getElementById('cad-v-consumomax').value) || 0,
     km_atual: parseFloat(document.getElementById('cad-v-kminicial').value) || 0,
-    tipo_frota: document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO',
+    tipo_frota: tipoFrota,
+    motorista_autorizado: motoristaAutorizado || null,
     status: 'Disponivel',
     anomalias: ''
   };
@@ -583,6 +592,7 @@ async function handleCadVeiculo(e) {
     if (error) throw error;
 
     e.target.reset();
+    toggleMotoristaExterno('cad');
     alert(`✅ Veículo [${novoCarro.placa}] cadastrado com sucesso!`);
     await carregarTodosDadosDoBanco();
   } catch (err) {
@@ -609,13 +619,17 @@ function abrirModalEditVeiculo(veiculoId) {
   document.getElementById('edit-v-consumomax').value = v.consumo_max || 0;
   document.getElementById('edit-v-kmatual').value = v.km_atual || 0;
   document.getElementById('edit-v-status').value = v.status || 'Disponivel';
+  document.getElementById('edit-v-anomalias').value = v.anomalias || '';
   
   const selectTipo = document.getElementById('edit-v-tipofrota');
   if (selectTipo) {
     selectTipo.value = (v.tipo_frota || 'PROPRIO').toUpperCase();
+    toggleMotoristaExterno('edit');
+    if (v.tipo_frota === 'EXTERNO') {
+      popularSelectMotoristas('edit-v-motorista', v.motorista_autorizado || '');
+    }
   }
 
-  document.getElementById('edit-v-anomalias').value = v.anomalias || '';
   document.getElementById('modal-edit-veiculo').classList.remove('hidden');
 }
 
@@ -628,6 +642,12 @@ async function handleSalvarEditVeiculo(e) {
   const idChave = document.getElementById('edit-v-id').value;
   const placaVal = document.getElementById('edit-v-placa').value.toUpperCase().trim();
   const tipoFrotaVal = document.getElementById('edit-v-tipofrota')?.value || 'PROPRIO';
+  const motoristaVal = tipoFrotaVal === 'EXTERNO' ? document.getElementById('edit-v-motorista')?.value?.trim().toLowerCase() : null;
+
+  if (tipoFrotaVal === 'EXTERNO' && !motoristaVal) {
+    alert("Selecione o motorista autorizado para o carro externo.");
+    return;
+  }
 
   const dadosAtualizados = {
     placa: placaVal,
@@ -638,8 +658,16 @@ async function handleSalvarEditVeiculo(e) {
     km_atual: parseFloat(document.getElementById('edit-v-kmatual').value) || 0,
     status: document.getElementById('edit-v-status').value,
     tipo_frota: tipoFrotaVal,
+    motorista_autorizado: motoristaVal || null,
     anomalias: document.getElementById('edit-v-anomalias').value.trim()
   };
+
+  try {
+    let { error } = await db.from('veiculos').update(dadosAtualizados).eq('id', idChave);
+    if (error) {
+      const { error: errUuid } = await db.from('veiculos').update(dadosAtualizados).eq('uuid_veiculos', idChave);
+      if (errUuid) throw errUuid;
+    }
 
   try {
     const { error } = await db
@@ -689,6 +717,37 @@ async function handleApagarVeiculo(veiculoId) {
     console.error("Erro na operação de veículo:", err);
     alert("Erro na operação: " + err.message);
   }
+}
+
+function toggleMotoristaExterno(prefixo) {
+  const tipo = document.getElementById(`${prefixo}-v-tipofrota`)?.value;
+  const box = document.getElementById(`box-${prefixo}-motorista-externo`);
+  if (!box) return;
+  
+  if (tipo === 'EXTERNO') {
+    box.classList.remove('hidden');
+    popularSelectMotoristas(`${prefixo}-v-motorista`);
+  } else {
+    box.classList.add('hidden');
+    const select = document.getElementById(`${prefixo}-v-motorista`);
+    if (select) select.value = '';
+  }
+}
+
+function popularSelectMotoristas(selectId, valorSelecionado = '') {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Selecione o condutor autorizado...</option>';
+  
+  (usuarios || []).forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = (u.email || '').toLowerCase();
+    opt.textContent = `${u.nome || u.email} (${u.email})`;
+    if (valorSelecionado && opt.value === valorSelecionado.toLowerCase()) {
+      opt.selected = true;
+    }
+    sel.appendChild(opt);
+  });
 }
 
 // =========================================================================
