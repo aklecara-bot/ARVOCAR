@@ -9,7 +9,7 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 
 // Validação Simplificada de CNH por formato (11 dígitos e sem repetições)
-const validarNumeroCNH = (cnh) => /^\d{11}$/.test(String(cnh).replace(/\D/g, '')) && !/^(\d)\1{10}$/.test(String(cnh).replace(/\D/g, ''));
+const validarNumeroCNH = (cnh) => /^\d{11}$/.test(String(cnh || '').replace(/\D/g, '')) && !/^(\d)\1{10}$/.test(String(cnh || '').replace(/\D/g, ''));
 
 let usuarios = [];
 let veiculos = [];
@@ -30,7 +30,7 @@ function verificarSessaoUsuario() {
   let sessao;
   try {
     sessao = JSON.parse(sessaoRaw);
-  } catch(e) {
+  } catch (e) {
     sessao = { email: sessaoRaw };
   }
 
@@ -80,13 +80,13 @@ function aplicarPermissoesUsuario() {
 function atualizarUsuarioNoCabecalho() {
   if (usuarios.length === 0) return;
   const u = usuarios[currentUserIndex];
-  
+
   const display = document.getElementById('topUserDisplay');
   const cnh = document.getElementById('topUserCnh');
   const inputUsuario = document.getElementById('form-inicio-Usuario');
 
   if (display) display.innerText = `${u.nome} (${u.email})`;
-  if (cnh) cnh.innerText = `CNH: ${u.cnh}`;
+  if (cnh) cnh.innerText = `CNH: ${u.cnh || 'Pendente'}`;
   if (inputUsuario) inputUsuario.value = `${u.nome} <${u.email}>`;
 }
 
@@ -115,7 +115,7 @@ function setModule(mod) {
     if (modGestao) modGestao.classList.add('hidden');
     if (subnavOperacao) subnavOperacao.classList.remove('hidden');
     if (subnavGestao) subnavGestao.classList.add('hidden');
-    
+
     if (btnModOperacao) btnModOperacao.className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     if (btnModGestao) btnModGestao.className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     setSubTab('operacao', 'saida');
@@ -124,7 +124,7 @@ function setModule(mod) {
     if (modGestao) modGestao.classList.remove('hidden');
     if (subnavOperacao) subnavOperacao.classList.add('hidden');
     if (subnavGestao) subnavGestao.classList.remove('hidden');
-    
+
     if (btnModGestao) btnModGestao.className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     if (btnModOperacao) btnModOperacao.className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     setSubTab('gestao', 'dashboard');
@@ -134,11 +134,11 @@ function setModule(mod) {
 function setSubTab(moduleName, tab) {
   if (moduleName === 'operacao') {
     const abasOperacao = ['saida', 'retorno', 'minhas-rotas'];
-    
+
     abasOperacao.forEach(t => {
       const view = document.getElementById(`view-${t}`) || document.getElementById(`tab-${t}`);
       const btn = document.getElementById(`subtab-${t}`) || document.getElementById(`nav-btn-${t}`);
-      
+
       if (view) {
         view.classList.add('hidden');
         view.style.display = 'none';
@@ -171,7 +171,7 @@ function setSubTab(moduleName, tab) {
 
   } else {
     const abasGestao = ['dashboard', 'cad-veiculos', 'cad-usuarios'];
-    
+
     abasGestao.forEach(t => {
       const view = document.getElementById(`view-${t}`);
       const btn = document.getElementById(`subtab-${t}`);
@@ -310,9 +310,9 @@ async function handleInicioRota(e) {
     if (!errRes && reservasCarro) {
       const reservaAtiva = reservasCarro.find(r => {
         const bateuCarro = String(r.veiculo_id) === String(nomeCarro) ||
-                           String(r.veiculo_id) === String(veiculo.id) ||
-                           String(r.veiculo_id) === String(placaCarro) ||
-                           String(r.placa) === String(placaCarro);
+          String(r.veiculo_id) === String(veiculo.id) ||
+          String(r.veiculo_id) === String(placaCarro) ||
+          String(r.placa) === String(placaCarro);
 
         const ini = new Date(r.data_inicio).getTime();
         const fim = new Date(r.data_fim).getTime();
@@ -424,16 +424,16 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   const abastsCarro = (listaAbastecimentos || [])
     .filter(a => {
       const bateuVeiculo = (placa && String(a.placa) === String(placa)) ||
-                           (vId && String(a.veiculo_id) === String(vId)) ||
-                           (uuid && String(a.uuid_veiculos) === String(uuid)) ||
-                           (nomeFrota && String(a.veiculo_id) === String(nomeFrota));
+        (vId && String(a.veiculo_id) === String(vId)) ||
+        (uuid && String(a.uuid_veiculos) === String(uuid)) ||
+        (nomeFrota && String(a.veiculo_id) === String(nomeFrota));
       return bateuVeiculo && Number(a.km_atual) > 0 && Number(a.quantidade_litros) > 0;
     })
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
 
   const combAtual = tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum';
 
-  const abastsTipo = abastsCarro.filter(a => 
+  const abastsTipo = abastsCarro.filter(a =>
     (a.tipo_combustivel || '').toUpperCase() === combAtual.toUpperCase()
   );
 
@@ -467,7 +467,7 @@ async function handleFimRota(e) {
   const btn = document.getElementById('btn-submit-fim');
   const rotaId = document.getElementById('form-fim-rota-select')?.value;
   const kmFinal = parseFloat(document.getElementById('form-fim-km')?.value);
-  
+
   const selectDestino = document.getElementById('form-fim-destino')?.value;
   const textoDestino = document.getElementById('form-fim-destino-texto')?.value?.trim().toUpperCase() || '';
   const destinoFinal = selectDestino === 'OUTRO' ? textoDestino : selectDestino;
@@ -496,10 +496,10 @@ async function handleFimRota(e) {
     return;
   }
 
-  const veiculo = (veiculos || []).find(v => 
-    String(v.id) === String(rota?.veiculo_id) || 
-    String(v.uuid_veiculos) === String(rota?.veiculo_id) || 
-    String(v.nome_frota) === String(rota?.veiculo_id) || 
+  const veiculo = (veiculos || []).find(v =>
+    String(v.id) === String(rota?.veiculo_id) ||
+    String(v.uuid_veiculos) === String(rota?.veiculo_id) ||
+    String(v.nome_frota) === String(rota?.veiculo_id) ||
     String(v.placa) === String(rota?.veiculo_id)
   ) || {};
 
@@ -570,7 +570,7 @@ async function handleFimRota(e) {
   const tanqueAnterior = (veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined)
     ? Number(veiculo.tanque_virtual)
     : capTanque;
-  
+
   const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosEst).toFixed(2));
   const dataHoraRetornoAtual = new Date().toISOString();
   const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str));
@@ -651,7 +651,7 @@ function formatarDataHora(dataIso) {
   if (!dataIso) return '-';
   const data = new Date(dataIso);
   if (isNaN(data.getTime())) return dataIso;
-  
+
   return data.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -667,7 +667,7 @@ function formatarDataHora(dataIso) {
 
 async function handleCadVeiculo(e) {
   e.preventDefault();
-  
+
   const placa = document.getElementById('cad-v-placa').value.toUpperCase().trim();
   const idInformado = document.getElementById('cad-v-id')?.value?.toUpperCase().trim();
 
@@ -718,7 +718,7 @@ function abrirModalEditVeiculo(veiculoId) {
   document.getElementById('edit-v-consumomax').value = v.consumo_max || 0;
   document.getElementById('edit-v-kmatual').value = v.km_atual || 0;
   document.getElementById('edit-v-status').value = v.status || 'Disponivel';
-  
+
   const selectTipo = document.getElementById('edit-v-tipofrota');
   if (selectTipo) {
     selectTipo.value = (v.tipo_frota || 'PROPRIO').toUpperCase();
@@ -775,9 +775,9 @@ async function handleSalvarEditVeiculo(e) {
 }
 
 async function handleApagarVeiculo(veiculoId) {
-  const veic = veiculos.find(v => 
-    String(v.id) === String(veiculoId) || 
-    String(v.uuid_veiculos) === String(veiculoId) || 
+  const veic = veiculos.find(v =>
+    String(v.id) === String(veiculoId) ||
+    String(v.uuid_veiculos) === String(veiculoId) ||
     String(v.placa) === String(veiculoId)
   );
 
@@ -820,12 +820,13 @@ async function handleApagarVeiculo(veiculoId) {
 }
 
 // =========================================================================
-// 7. GESTÃO DE USUÁRIOS
+// 7. GESTÃO DE USUÁRIOS (CORRIGIDO)
 // =========================================================================
 
 function toggleVerSenhaEdicao() {
   const input = document.getElementById('edit-u-senha');
   const icone = document.getElementById('icone-senha-edit');
+  if (!input) return;
   if (input.type === 'text') {
     input.type = 'password';
     if (icone) {
@@ -844,13 +845,9 @@ function toggleVerSenhaEdicao() {
 async function handleCadUsuario(e) {
   e.preventDefault();
 
-  // Garante que cnhInput seja sempre uma string, evitando erros de undefined
   const cnhInput = (document.getElementById('cad-u-cnh')?.value || '').trim();
-
-  // Verifica se possui 11 dígitos numéricos válidos
   const cnhValida = typeof validarNumeroCNH === 'function' ? validarNumeroCNH(cnhInput) : false;
 
-  // Regra de negócio: CNH válida = Ativo; Sem CNH ou inválida = Inativo
   const statusInicial = cnhValida ? 'Ativo' : 'Inativo';
   const cnhFinal = cnhValida ? cnhInput.replace(/\D/g, '') : (cnhInput || '');
 
@@ -868,54 +865,66 @@ async function handleCadUsuario(e) {
 
     e.target.reset();
 
-    // Feedback claro conforme o status gerado
     if (statusInicial === 'Ativo') {
       alert(`✅ Usuário ${novoUsuario.nome} cadastrado e ATIVO com sucesso!`);
     } else {
       alert(`⚠️ Usuário ${novoUsuario.nome} cadastrado como INATIVO (CNH pendente ou incompleta). Ficará ativo assim que uma CNH válida for salva.`);
     }
 
-    await carregarTodosDadosDoBanco(); //[cite: 2]
+    await carregarTodosDadosDoBanco();
   } catch (err) {
-    alert("Erro ao cadastrar usuário: " + err.message); //[cite: 2]
+    alert("Erro ao cadastrar usuário: " + err.message);
   }
 }
 
 function abrirModalEditUsuario(usuarioId) {
+  // Comparação flexível para aceitar IDs numéricos, UUID ou string
   const u = usuarios.find(item => String(item.id) === String(usuarioId));
-  if (!u) return;
-
-  document.getElementById('edit-u-id').value = u.id;
-  document.getElementById('edit-u-nome').value = u.nome;
-  document.getElementById('edit-u-email').value = u.email;
-  
-  const inputSenha = document.getElementById('edit-u-senha');
-  if (inputSenha) {
-    inputSenha.type = 'text';
-    inputSenha.value = u.senha || '';
+  if (!u) {
+    console.error("Usuário não encontrado para edição:", usuarioId);
+    return;
   }
 
-  document.getElementById('edit-u-cnh').value = u.cnh;
+  const elId = document.getElementById('edit-u-id');
+  const elNome = document.getElementById('edit-u-nome');
+  const elEmail = document.getElementById('edit-u-email');
+  const elSenha = document.getElementById('edit-u-senha');
+  const elCnh = document.getElementById('edit-u-cnh');
+  const elStatus = document.getElementById('edit-u-status');
 
-  // Se a CNH já for válida, exibe Ativo no select; senão, mantém o status atual
-  const statusSelect = document.getElementById('edit-u-status');
-  if (statusSelect) {
-    statusSelect.value = validarNumeroCNH(u.cnh) ? 'Ativo' : (u.status || 'Inativo');
+  if (elId) elId.value = u.id;
+  if (elNome) elNome.value = u.nome || '';
+  if (elEmail) elEmail.value = u.email || '';
+
+  if (elSenha) {
+    elSenha.type = 'text';
+    elSenha.value = u.senha || '';
   }
 
-  //document.getElementById('edit-u-status').value = u.status || 'Ativo';
+  if (elCnh) elCnh.value = u.cnh || '';
 
-  document.getElementById('modal-edit-usuario').classList.remove('hidden');
+  if (elStatus) {
+    elStatus.value = validarNumeroCNH(u.cnh) ? 'Ativo' : (u.status || 'Inativo');
+  }
+
+  const modal = document.getElementById('modal-edit-usuario');
+  if (modal) modal.classList.remove('hidden');
 }
 
 function fecharModalEditUsuario() {
-  document.getElementById('modal-edit-usuario').classList.add('hidden');
+  const modal = document.getElementById('modal-edit-usuario');
+  if (modal) modal.classList.add('hidden');
 }
 
 async function handleSalvarEditUsuario(e) {
   e.preventDefault();
-  const id = document.getElementById('edit-u-id').value;
-  const cnhInput = document.getElementById('edit-u-cnh')?.value.trim();
+  const id = document.getElementById('edit-u-id')?.value;
+  const cnhInput = (document.getElementById('edit-u-cnh')?.value || '').trim();
+
+  if (!id) {
+    alert("Erro: ID do condutor não identificado.");
+    return;
+  }
 
   // Validação simplificada: exige exatamente 11 dígitos e sem sequências repetidas
   if (!validarNumeroCNH(cnhInput)) {
@@ -924,25 +933,27 @@ async function handleSalvarEditUsuario(e) {
     return;
   }
 
-  // Se a CNH é válida, ativa automaticamente o condutor no banco de dados
-  const novoStatus = 'Ativo';
-
   const dadosAtualizados = {
     nome: document.getElementById('edit-u-nome').value.trim(),
     email: document.getElementById('edit-u-email').value.trim().toLowerCase(),
     senha: document.getElementById('edit-u-senha').value.trim(),
     cnh: cnhInput.replace(/\D/g, ''),
-    status: novoStatus
+    status: 'Ativo' // Ativa automaticamente quando regularizada
   };
 
   try {
-    const { error } = await db.from('usuarios').update(dadosAtualizados).eq('id', id);
+    const { error } = await db
+      .from('usuarios')
+      .update(dadosAtualizados)
+      .eq('id', id);
+
     if (error) throw error;
 
     fecharModalEditUsuario();
     alert("Condutor atualizado e ativado com sucesso!");
     await carregarTodosDadosDoBanco();
   } catch (err) {
+    console.error("Erro ao atualizar usuário:", err);
     alert("Erro ao atualizar usuário: " + err.message);
   }
 }
@@ -1021,7 +1032,7 @@ function renderFleetGrid() {
 
     const card = document.createElement('div');
     card.className = `bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-slate-300 transition ${isForaUso || isManutencao ? 'opacity-75 bg-slate-50' : ''}`;
-    
+
     card.innerHTML = `
       <div>
         <div class="flex items-center justify-between mb-2">
@@ -1058,13 +1069,13 @@ function renderFleetGrid() {
       </div>
 
       <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
-        ${isEmUso ? 
-          `<button onclick="abrirFinalizacaoDireta('${idAcao}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` : 
-          (isForaUso || isManutencao ? 
-            `<span class="text-xs font-bold text-slate-400 cursor-not-allowed">Indisponível</span>` : 
-            `<button onclick="abrirInicioDireto('${idAcao}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
-          )
-        }
+        ${isEmUso ?
+        `<button onclick="abrirFinalizacaoDireta('${idAcao}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` :
+        (isForaUso || isManutencao ?
+          `<span class="text-xs font-bold text-slate-400 cursor-not-allowed">Indisponível</span>` :
+          `<button onclick="abrirInicioDireto('${idAcao}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
+        )
+      }
       </div>
     `;
     container.appendChild(card);
@@ -1075,7 +1086,7 @@ function renderTabelaVeiculosCad() {
   const tbody = document.getElementById('tabelaVeiculosCadastrados');
   if (!tbody) return;
   tbody.innerHTML = '';
-  
+
   veiculos.forEach(v => {
     const nomeCarroArvo = v.nome_frota || v.identificador || v.placa || v.id || '-';
     const isEmUso = v.status === 'Em Uso';
@@ -1099,7 +1110,7 @@ function renderTabelaVeiculosCad() {
 
     const tr = document.createElement('tr');
     tr.className = `hover:bg-slate-50 transition ${isForaUso ? 'opacity-60 bg-slate-50' : ''}`;
-    
+
     tr.innerHTML = `
       <td class="py-3 px-3 font-extrabold text-slate-900">${nomeCarroArvo}</td>
       <td class="py-3 px-3">${v.marca || '-'}</td>
@@ -1142,7 +1153,6 @@ function renderTabelaUsuariosCad() {
 
     const ehAdmin = (u.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
     const cnhValida = ehAdmin || validarNumeroCNH(u.cnh);
-    const estaAtivo = (u.status || 'Ativo') === 'Ativo' && cnhValida;
 
     let badgeStatus;
     if (!cnhValida) {
@@ -1156,11 +1166,9 @@ function renderTabelaUsuariosCad() {
     tr.innerHTML = `
       <td class="py-3 px-4 font-bold text-slate-800">${u.nome}</td>
       <td class="py-3 px-4 text-slate-600">${u.email}</td>
-      <td class="py-3 px-4 font-mono font-semibold text-brand-700">${u.cnh}</td>
+      <td class="py-3 px-4 font-mono font-semibold text-brand-700">${u.cnh || '-'}</td>
       <td class="py-3 px-4 text-center">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${u.status === 'Inativo' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-800'}">
-          ${u.status || 'Ativo'}
-        </span>
+        ${badgeStatus}
       </td>
       <td class="py-3 px-4 text-center">
         <div class="flex items-center justify-center gap-2">
@@ -1190,9 +1198,9 @@ function renderSelectVeiculosInicio() {
     const ultimasRotas = (typeof rotas !== 'undefined' && Array.isArray(rotas) ? rotas : [])
       .filter(r => {
         const bateuCarro = (v.placa && String(r.placa) === String(v.placa)) ||
-                           String(r.veiculo_id) === String(v.id) ||
-                           String(r.veiculo_id) === String(v.nome_frota) ||
-                           String(r.uuid_veiculos) === String(v.uuid_veiculos);
+          String(r.veiculo_id) === String(v.id) ||
+          String(r.veiculo_id) === String(v.nome_frota) ||
+          String(r.uuid_veiculos) === String(v.uuid_veiculos);
         return bateuCarro && r.status === 'Concluida' && r.km_retorno;
       })
       .sort((a, b) => new Date(b.data_retorno || b.data_saida) - new Date(a.data_retorno || a.data_saida));
@@ -1221,9 +1229,9 @@ function atualizarKmInicialPreenchido() {
     const ultimasRotasCarro = (typeof rotas !== 'undefined' && Array.isArray(rotas) ? rotas : [])
       .filter(r => {
         const bateuCarro = (v.placa && String(r.placa) === String(v.placa)) ||
-                           String(r.veiculo_id) === String(v.id) ||
-                           String(r.veiculo_id) === String(v.nome_frota) ||
-                           String(r.uuid_veiculos) === String(v.uuid_veiculos);
+          String(r.veiculo_id) === String(v.id) ||
+          String(r.veiculo_id) === String(v.nome_frota) ||
+          String(r.uuid_veiculos) === String(v.uuid_veiculos);
         return bateuCarro && r.status === 'Concluida' && r.km_retorno;
       })
       .sort((a, b) => new Date(b.data_retorno || b.data_saida) - new Date(a.data_retorno || a.data_saida));
@@ -1238,7 +1246,7 @@ function atualizarKmInicialPreenchido() {
     }
 
     inputKm.value = kmSincronizado;
-    
+
     const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
     if (isExterno) {
       inputKm.readOnly = false;
@@ -1270,8 +1278,8 @@ function renderSelectRotasFim() {
   if (!select) return;
   select.innerHTML = '<option value="">Selecione uma viagem em trânsito...</option>';
   rotas.filter(r => r.status === 'Em Uso').forEach(r => {
-    const veic = veiculos.find(v => 
-      String(v.id) === String(r.veiculo_id) || 
+    const veic = veiculos.find(v =>
+      String(v.id) === String(r.veiculo_id) ||
       String(v.uuid_veiculos) === String(r.veiculo_id) ||
       String(v.nome_frota) === String(r.veiculo_id)
     );
@@ -1286,9 +1294,9 @@ function selecionarRotaFim() {
   const detalhes = document.getElementById('fim-detalhes-viagem');
 
   if (rota) {
-    const v = veiculos.find(item => 
-      String(item.id) === String(rota.veiculo_id) || 
-      String(item.uuid_veiculos) === String(rota.veiculo_id) || 
+    const v = veiculos.find(item =>
+      String(item.id) === String(rota.veiculo_id) ||
+      String(item.uuid_veiculos) === String(rota.veiculo_id) ||
       String(item.nome_frota) === String(rota.veiculo_id)
     ) || {};
 
@@ -1308,7 +1316,7 @@ function selecionarRotaFim() {
 
     const infoConsumo = document.getElementById('fim-info-consumo-est');
     if (infoConsumo) infoConsumo.innerText = `Média de ${medConsumo} km/L`;
-    
+
     if (detalhes) detalhes.classList.remove('hidden');
 
     const inputKm = document.getElementById('form-fim-km');
@@ -1323,8 +1331,8 @@ function selecionarRotaFim() {
 }
 
 function abrirFinalizacaoDireta(vId) {
-  const rota = rotas.find(r => 
-    (String(r.veiculo_id) === String(vId) || String(r.nome_frota) === String(vId) || String(r.id) === String(vId)) && 
+  const rota = rotas.find(r =>
+    (String(r.veiculo_id) === String(vId) || String(r.nome_frota) === String(vId) || String(r.id) === String(vId)) &&
     r.status === 'Em Uso'
   );
   if (rota) {
@@ -1349,9 +1357,9 @@ function calcularKmPercorrido() {
     feedback.className = "text-[11px] text-rose-600 font-bold mt-1 block";
   } else {
     const delta = kmFinal - rota.km_saida;
-    const v = veiculos.find(item => 
-      String(item.id) === String(rota.veiculo_id) || 
-      String(item.uuid_veiculos) === String(rota.veiculo_id) || 
+    const v = veiculos.find(item =>
+      String(item.id) === String(rota.veiculo_id) ||
+      String(item.uuid_veiculos) === String(rota.veiculo_id) ||
       String(item.nome_frota) === String(rota.veiculo_id)
     ) || {};
     const medConsumo = ((Number(v.consumo_min || 10) + Number(v.consumo_max || 14)) / 2);
@@ -1379,10 +1387,10 @@ function renderHistorico() {
   tbody.innerHTML = '';
 
   rotas.forEach(r => {
-    const veic = veiculos.find(v => 
-      String(v.id) === String(r.veiculo_id) || 
-      String(v.uuid_veiculos) === String(r.veiculo_id) || 
-      String(v.placa) === String(r.veiculo_id) || 
+    const veic = veiculos.find(v =>
+      String(v.id) === String(r.veiculo_id) ||
+      String(v.uuid_veiculos) === String(r.veiculo_id) ||
+      String(v.placa) === String(r.veiculo_id) ||
       String(v.nome_frota) === String(r.veiculo_id)
     );
 
@@ -1456,17 +1464,16 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   const modalId = `modal-alerta-${rota.id}`;
   if (document.getElementById(modalId)) return;
 
-  const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v => 
-    String(v.id) === String(rota.veiculo_id) || 
-    String(v.uuid_veiculos) === String(rota.veiculo_id) || 
-    String(v.nome_frota) === String(rota.veiculo_id) || 
+  const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v =>
+    String(v.id) === String(rota.veiculo_id) ||
+    String(v.uuid_veiculos) === String(rota.veiculo_id) ||
+    String(v.nome_frota) === String(rota.veiculo_id) ||
     String(v.placa) === String(rota.veiculo_id)
   );
-  
+
   const nomeCarro = rota.nome_frota || (veic ? (veic.nome_frota || veic.id) : rota.veiculo_id);
   const placaCarro = (veic && veic.placa) ? ` [${veic.placa}]` : (rota.placa ? ` [${rota.placa}]` : '');
 
-  // Validação para exibir o botão de encerramento apenas para quem tem permissão
   const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
   let sessao;
   try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
@@ -1490,9 +1497,9 @@ function exibirPopUpAlerta(rota, horasAbertas) {
         </p>
       </div>
       <div class="modal-alerta-box-aviso">
-        ${podeFinalizar 
-          ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento." 
-          : "Esta rota está aberta em trânsito há mais de 12 horas. Apenas o condutor responsável ou o administrador podem efetuar o encerramento."}
+        ${podeFinalizar
+      ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento."
+      : "Esta rota está aberta em trânsito há mais de 12 horas. Apenas o condutor responsável ou o administrador podem efetuar o encerramento."}
       </div>
       <div class="modal-alerta-actions">
         <button onclick="document.getElementById('${modalId}').remove()" class="btn-alerta-lembrar">
@@ -1542,7 +1549,6 @@ async function verificarRotasExcedidas12h() {
 
       const diferencaHoras = (agora - dataSaida) / (1000 * 60 * 60);
 
-      // Notifica todos os usuários logados caso a rota ultrapasse 12 horas
       if (diferencaHoras >= 12) {
         exibirPopUpAlerta(rota, diferencaHoras);
         dispararNotificacaoNativa(
