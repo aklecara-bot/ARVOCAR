@@ -1877,3 +1877,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   verificarRotasExcedidas12h();
   setInterval(verificarRotasExcedidas12h, 5 * 60 * 1000);
 });
+
+
+// Fabrício Rocha Teixeira Desenvolvedor 
