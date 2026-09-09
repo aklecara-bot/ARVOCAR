@@ -8,8 +8,12 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 
-// Validação Simplificada de CNH por formato (11 dígitos e sem repetições)
-const validarNumeroCNH = (cnh) => /^\d{11}$/.test(String(cnh || '').replace(/\D/g, '')) && !/^(\d)\1{10}$/.test(String(cnh || '').replace(/\D/g, ''));
+// Validação de formato da CNH (11 dígitos numéricos e sem sequências repetidas)
+const validarNumeroCNH = (cnh) => {
+  if (!cnh) return false;
+  const limpo = String(cnh).replace(/\D/g, '');
+  return /^\d{11}$/.test(limpo) && !/^(\d)\1{10}$/.test(limpo);
+};
 
 let usuarios = [];
 let veiculos = [];
@@ -21,7 +25,7 @@ let currentUserIndex = 0;
 // =========================================================================
 
 function verificarSessaoUsuario() {
-  const sessaoRaw = localStorage.getItem('arvo_usuario_logado');
+  const sessaoRaw = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
   if (!sessaoRaw) {
     window.location.href = "login.html";
     return null;
@@ -29,9 +33,9 @@ function verificarSessaoUsuario() {
 
   let sessao;
   try {
-    sessao = JSON.parse(sessaoRaw);
+    return JSON.parse(sessaoRaw);
   } catch (e) {
-    sessao = { email: sessaoRaw };
+    return { email: sessaoRaw };
   }
 
   const ehAdmin = (sessao.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
@@ -79,8 +83,9 @@ function aplicarPermissoesUsuario() {
 
 function atualizarUsuarioNoCabecalho() {
   if (usuarios.length === 0) return;
-  const u = usuarios[currentUserIndex];
-
+  const u = usuarios[currentUserIndex] || usuarios[0];
+  if (!u) return;
+  
   const display = document.getElementById('topUserDisplay');
   const cnh = document.getElementById('topUserCnh');
   const inputUsuario = document.getElementById('form-inicio-Usuario');
@@ -115,7 +120,7 @@ function setModule(mod) {
     if (modGestao) modGestao.classList.add('hidden');
     if (subnavOperacao) subnavOperacao.classList.remove('hidden');
     if (subnavGestao) subnavGestao.classList.add('hidden');
-
+    
     if (btnModOperacao) btnModOperacao.className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     if (btnModGestao) btnModGestao.className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     setSubTab('operacao', 'saida');
@@ -124,7 +129,7 @@ function setModule(mod) {
     if (modGestao) modGestao.classList.remove('hidden');
     if (subnavOperacao) subnavOperacao.classList.add('hidden');
     if (subnavGestao) subnavGestao.classList.remove('hidden');
-
+    
     if (btnModGestao) btnModGestao.className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     if (btnModOperacao) btnModOperacao.className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
     setSubTab('gestao', 'dashboard');
@@ -138,7 +143,7 @@ function setSubTab(moduleName, tab) {
     abasOperacao.forEach(t => {
       const view = document.getElementById(`view-${t}`) || document.getElementById(`tab-${t}`);
       const btn = document.getElementById(`subtab-${t}`) || document.getElementById(`nav-btn-${t}`);
-
+      
       if (view) {
         view.classList.add('hidden');
         view.style.display = 'none';
@@ -161,13 +166,9 @@ function setSubTab(moduleName, tab) {
       activeBtn.classList.add('subtab-active', 'border-brand-600', 'text-brand-600');
     }
 
-    if (tab === 'minhas-rotas') {
-      if (typeof renderHistorico === 'function') renderHistorico();
-    } else if (tab === 'retorno') {
-      if (typeof renderSelectRotasFim === 'function') renderSelectRotasFim();
-    } else if (tab === 'saida') {
-      if (typeof renderSelectVeiculosInicio === 'function') renderSelectVeiculosInicio();
-    }
+    if (tab === 'minhas-rotas' && typeof renderHistorico === 'function') renderHistorico();
+    if (tab === 'retorno' && typeof renderSelectRotasFim === 'function') renderSelectRotasFim();
+    if (tab === 'saida' && typeof renderSelectVeiculosInicio === 'function') renderSelectVeiculosInicio();
 
   } else {
     const abasGestao = ['dashboard', 'cad-veiculos', 'cad-usuarios'];
@@ -280,7 +281,7 @@ async function handleInicioRota(e) {
     String(v.nome_frota) === String(veiculoId)
   );
 
-  const rawSessao = localStorage.getItem('arvo_usuario_logado');
+  const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
   let user = (usuarios && usuarios[currentUserIndex]) ? usuarios[currentUserIndex] : null;
   if (!user && rawSessao) {
     try { user = JSON.parse(rawSessao); } catch { user = { email: rawSessao }; }
@@ -483,7 +484,7 @@ async function handleFimRota(e) {
     return;
   }
 
-  // Permissão estrita: criador da rota ou Admin
+  // Trava de Encerramento: apenas Criador ou Admin
   const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
   let sessao;
   try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
@@ -496,14 +497,14 @@ async function handleFimRota(e) {
     return;
   }
 
-  const veiculo = (veiculos || []).find(v =>
-    String(v.id) === String(rota?.veiculo_id) ||
-    String(v.uuid_veiculos) === String(rota?.veiculo_id) ||
-    String(v.nome_frota) === String(rota?.veiculo_id) ||
+  const veiculo = (veiculos || []).find(v => 
+    String(v.id) === String(rota?.veiculo_id) || 
+    String(v.uuid_veiculos) === String(rota?.veiculo_id) || 
+    String(v.nome_frota) === String(rota?.veiculo_id) || 
     String(v.placa) === String(rota?.veiculo_id)
   ) || {};
 
-  if (kmFinal < rota.km_saida) {
+  if (kmFinal < Number(rota.km_saida)) {
     alert("Erro: O KM Final não pode ser inferior ao KM de Saída!");
     return;
   }
@@ -515,14 +516,12 @@ async function handleFimRota(e) {
 
   const situacao = document.querySelector('input[name="situacao_carro"]:checked')?.value || 'SEM';
   let anomaliaTexto = situacao === 'COM' ? (document.getElementById('form-fim-anomalia')?.value?.trim() || '') : '';
-  const deltaKm = kmFinal - rota.km_saida;
 
-  // Recupera histórico de abastecimento de forma segura
+  const deltaKm = kmFinal - Number(rota.km_saida);
+
   let histAbast = [];
   if (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos) && abastecimentos.length > 0) {
     histAbast = abastecimentos;
-  } else if (typeof listaAbastecimentosCache !== 'undefined' && Array.isArray(listaAbastecimentosCache) && listaAbastecimentosCache.length > 0) {
-    histAbast = listaAbastecimentosCache;
   } else {
     const localCache = localStorage.getItem('arvo_cache_abastecimentos');
     if (localCache) {
@@ -530,39 +529,11 @@ async function handleFimRota(e) {
     }
   }
 
-  if ((!histAbast || histAbast.length === 0) && navigator.onLine) {
-    try {
-      const idCarro = veiculo.id || rota.veiculo_id;
-      const placaCarro = veiculo.placa || rota.placa;
-      const nomeFrota = veiculo.nome_frota;
-
-      const condicoesBusca = [];
-      if (idCarro) condicoesBusca.push(`veiculo_id.eq.${idCarro}`);
-      if (placaCarro) condicoesBusca.push(`placa.eq.${placaCarro}`);
-      if (nomeFrota) condicoesBusca.push(`veiculo_id.eq.${nomeFrota}`);
-
-      if (condicoesBusca.length > 0) {
-        const { data: dbAbasts } = await db
-          .from('abastecimentos')
-          .select('*')
-          .or(condicoesBusca.join(','))
-          .order('data_hora', { ascending: false })
-          .limit(10);
-
-        if (dbAbasts && dbAbasts.length > 0) {
-          histAbast = dbAbasts;
-        }
-      }
-    } catch (errDb) {
-      console.warn("Aviso ao resgatar abastecimentos sob demanda:", errDb);
-    }
-  }
-
   let medConsumo;
   if (typeof obterMediaConsumoEsperada === 'function') {
     medConsumo = obterMediaConsumoEsperada(veiculo, null, histAbast);
   } else {
-    medConsumo = (Number(veiculo.consumo_min) + Number(veiculo.consumo_max)) / 2 || 12;
+    medConsumo = (Number(veiculo.consumo_min || 10) + Number(veiculo.consumo_max || 14)) / 2;
   }
 
   const litrosEst = Number((deltaKm / medConsumo).toFixed(2));
@@ -584,7 +555,7 @@ async function handleFimRota(e) {
       status: 'Concluida',
       anomalia: anomaliaTexto,
       data_retorno: dataHoraRetornoAtual
-    }).eq('id', rotaId);
+    }).eq('id', rota.id);
 
     if (erroRota) throw erroRota;
 
@@ -608,11 +579,9 @@ async function handleFimRota(e) {
     }
 
     if (condicoesVeiculo.length > 0) {
-      const { error: erroVeiculo } = await db.from('veiculos')
+      await db.from('veiculos')
         .update(payloadVeiculo)
         .or(condicoesVeiculo.join(','));
-
-      if (erroVeiculo) console.warn("Aviso ao atualizar veículo:", erroVeiculo.message);
     }
 
     try {
@@ -633,7 +602,7 @@ async function handleFimRota(e) {
     document.getElementById('fim-detalhes-viagem')?.classList.add('hidden');
     if (typeof toggleAnomaliaInput === 'function') toggleAnomaliaInput(false);
 
-    alert(`Rota #${rotaId} encerrada com sucesso!\nConsumo estimado: ~${litrosEst} L (Média: ${medConsumo} km/L)\nTanque virtual: ~${novoTanqueVirtual} L restantes`);
+    alert(`Rota #${rota.id} encerrada com sucesso!\nConsumo estimado: ~${litrosEst} L (Média: ${medConsumo} km/L)\nTanque virtual: ~${novoTanqueVirtual} L restantes`);
     await carregarTodosDadosDoBanco();
     setSubTab('operacao', 'minhas-rotas');
   } catch (err) {
@@ -844,10 +813,10 @@ function toggleVerSenhaEdicao() {
 
 async function handleCadUsuario(e) {
   e.preventDefault();
-
   const cnhInput = (document.getElementById('cad-u-cnh')?.value || '').trim();
-  const cnhValida = typeof validarNumeroCNH === 'function' ? validarNumeroCNH(cnhInput) : false;
 
+  // Validação: se preencheu, valida 11 dígitos; se não, cria inativo
+  const cnhValida = validarNumeroCNH(cnhInput);
   const statusInicial = cnhValida ? 'Ativo' : 'Inativo';
   const cnhFinal = cnhValida ? cnhInput.replace(/\D/g, '') : (cnhInput || '');
 
@@ -864,11 +833,10 @@ async function handleCadUsuario(e) {
     if (error) throw error;
 
     e.target.reset();
-
     if (statusInicial === 'Ativo') {
       alert(`✅ Usuário ${novoUsuario.nome} cadastrado e ATIVO com sucesso!`);
     } else {
-      alert(`⚠️ Usuário ${novoUsuario.nome} cadastrado como INATIVO (CNH pendente ou incompleta). Ficará ativo assim que uma CNH válida for salva.`);
+      alert(`⚠️ Usuário ${novoUsuario.nome} cadastrado como INATIVO (CNH pendente ou incompleta).`);
     }
 
     await carregarTodosDadosDoBanco();
@@ -881,7 +849,7 @@ function abrirModalEditUsuario(usuarioId) {
   // Comparação flexível para aceitar IDs numéricos, UUID ou string
   const u = usuarios.find(item => String(item.id) === String(usuarioId));
   if (!u) {
-    console.error("Usuário não encontrado para edição:", usuarioId);
+    console.error("Usuário não encontrado:", usuarioId);
     return;
   }
 
@@ -895,14 +863,11 @@ function abrirModalEditUsuario(usuarioId) {
   if (elId) elId.value = u.id;
   if (elNome) elNome.value = u.nome || '';
   if (elEmail) elEmail.value = u.email || '';
-
   if (elSenha) {
     elSenha.type = 'text';
     elSenha.value = u.senha || '';
   }
-
   if (elCnh) elCnh.value = u.cnh || '';
-
   if (elStatus) {
     elStatus.value = validarNumeroCNH(u.cnh) ? 'Ativo' : (u.status || 'Inativo');
   }
@@ -918,15 +883,10 @@ function fecharModalEditUsuario() {
 
 async function handleSalvarEditUsuario(e) {
   e.preventDefault();
-  const id = document.getElementById('edit-u-id')?.value;
+  const id = document.getElementById('edit-u-id').value;
   const cnhInput = (document.getElementById('edit-u-cnh')?.value || '').trim();
 
-  if (!id) {
-    alert("Erro: ID do condutor não identificado.");
-    return;
-  }
-
-  // Validação simplificada: exige exatamente 11 dígitos e sem sequências repetidas
+  // Validação estrita na edição: 11 dígitos numéricos
   if (!validarNumeroCNH(cnhInput)) {
     alert("⚠️ CNH inválida! Digite exatamente 11 dígitos numéricos válidos.");
     document.getElementById('edit-u-cnh')?.focus();
@@ -938,7 +898,7 @@ async function handleSalvarEditUsuario(e) {
     email: document.getElementById('edit-u-email').value.trim().toLowerCase(),
     senha: document.getElementById('edit-u-senha').value.trim(),
     cnh: cnhInput.replace(/\D/g, ''),
-    status: 'Ativo' // Ativa automaticamente quando regularizada
+    status: 'Ativo' // CNH válida ativa o condutor automaticamente
   };
 
   try {
@@ -950,7 +910,7 @@ async function handleSalvarEditUsuario(e) {
     if (error) throw error;
 
     fecharModalEditUsuario();
-    alert("Condutor atualizado e ativado com sucesso!");
+    alert("Condutor atualizado e ATIVADO com sucesso!");
     await carregarTodosDadosDoBanco();
   } catch (err) {
     console.error("Erro ao atualizar usuário:", err);
@@ -1147,7 +1107,20 @@ function renderTabelaUsuariosCad() {
   const tbody = document.getElementById('tabelaUsuariosCadastrados');
   if (!tbody) return;
   tbody.innerHTML = '';
+
   usuarios.forEach(u => {
+    const ehAdmin = (u.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+    const cnhValida = ehAdmin || validarNumeroCNH(u.cnh);
+
+    let badgeStatus;
+    if (!cnhValida) {
+      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700" title="CNH não possui 11 dígitos numéricos válidos">CNH Inválida</span>`;
+    } else if (u.status === 'Inativo') {
+      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Inativo</span>`;
+    } else {
+      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Ativo</span>`;
+    }
+
     const tr = document.createElement('tr');
     tr.className = "hover:bg-slate-50 transition";
 
@@ -1166,7 +1139,7 @@ function renderTabelaUsuariosCad() {
     tr.innerHTML = `
       <td class="py-3 px-4 font-bold text-slate-800">${u.nome}</td>
       <td class="py-3 px-4 text-slate-600">${u.email}</td>
-      <td class="py-3 px-4 font-mono font-semibold text-brand-700">${u.cnh || '-'}</td>
+      <td class="py-3 px-4 font-mono font-semibold ${cnhValida ? 'text-brand-700' : 'text-rose-600 font-bold'}">${u.cnh || '-'}</td>
       <td class="py-3 px-4 text-center">
         ${badgeStatus}
       </td>
@@ -1183,6 +1156,7 @@ function renderTabelaUsuariosCad() {
     `;
     tbody.appendChild(tr);
   });
+
   const b = document.getElementById('badge-total-users');
   if (b) b.innerText = `${usuarios.length} condutores`;
 }
@@ -1198,9 +1172,9 @@ function renderSelectVeiculosInicio() {
     const ultimasRotas = (typeof rotas !== 'undefined' && Array.isArray(rotas) ? rotas : [])
       .filter(r => {
         const bateuCarro = (v.placa && String(r.placa) === String(v.placa)) ||
-          String(r.veiculo_id) === String(v.id) ||
-          String(r.veiculo_id) === String(v.nome_frota) ||
-          String(r.uuid_veiculos) === String(v.uuid_veiculos);
+                           String(r.veiculo_id) === String(v.id) ||
+                           String(r.veiculo_id) === String(v.nome_frota) ||
+                           String(r.uuid_veiculos) === String(v.uuid_veiculos);
         return bateuCarro && r.status === 'Concluida' && r.km_retorno;
       })
       .sort((a, b) => new Date(b.data_retorno || b.data_saida) - new Date(a.data_retorno || a.data_saida));
@@ -1229,9 +1203,9 @@ function atualizarKmInicialPreenchido() {
     const ultimasRotasCarro = (typeof rotas !== 'undefined' && Array.isArray(rotas) ? rotas : [])
       .filter(r => {
         const bateuCarro = (v.placa && String(r.placa) === String(v.placa)) ||
-          String(r.veiculo_id) === String(v.id) ||
-          String(r.veiculo_id) === String(v.nome_frota) ||
-          String(r.uuid_veiculos) === String(v.uuid_veiculos);
+                           String(r.veiculo_id) === String(v.id) ||
+                           String(r.veiculo_id) === String(v.nome_frota) ||
+                           String(r.uuid_veiculos) === String(v.uuid_veiculos);
         return bateuCarro && r.status === 'Concluida' && r.km_retorno;
       })
       .sort((a, b) => new Date(b.data_retorno || b.data_saida) - new Date(a.data_retorno || a.data_saida));
@@ -1246,7 +1220,7 @@ function atualizarKmInicialPreenchido() {
     }
 
     inputKm.value = kmSincronizado;
-
+    
     const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
     if (isExterno) {
       inputKm.readOnly = false;
@@ -1278,8 +1252,8 @@ function renderSelectRotasFim() {
   if (!select) return;
   select.innerHTML = '<option value="">Selecione uma viagem em trânsito...</option>';
   rotas.filter(r => r.status === 'Em Uso').forEach(r => {
-    const veic = veiculos.find(v =>
-      String(v.id) === String(r.veiculo_id) ||
+    const veic = veiculos.find(v => 
+      String(v.id) === String(r.veiculo_id) || 
       String(v.uuid_veiculos) === String(r.veiculo_id) ||
       String(v.nome_frota) === String(r.veiculo_id)
     );
@@ -1294,9 +1268,9 @@ function selecionarRotaFim() {
   const detalhes = document.getElementById('fim-detalhes-viagem');
 
   if (rota) {
-    const v = veiculos.find(item =>
-      String(item.id) === String(rota.veiculo_id) ||
-      String(item.uuid_veiculos) === String(rota.veiculo_id) ||
+    const v = veiculos.find(item => 
+      String(item.id) === String(rota.veiculo_id) || 
+      String(item.uuid_veiculos) === String(rota.veiculo_id) || 
       String(item.nome_frota) === String(rota.veiculo_id)
     ) || {};
 
@@ -1316,7 +1290,7 @@ function selecionarRotaFim() {
 
     const infoConsumo = document.getElementById('fim-info-consumo-est');
     if (infoConsumo) infoConsumo.innerText = `Média de ${medConsumo} km/L`;
-
+    
     if (detalhes) detalhes.classList.remove('hidden');
 
     const inputKm = document.getElementById('form-fim-km');
@@ -1330,17 +1304,65 @@ function selecionarRotaFim() {
   }
 }
 
-function abrirFinalizacaoDireta(vId) {
-  const rota = rotas.find(r =>
-    (String(r.veiculo_id) === String(vId) || String(r.nome_frota) === String(vId) || String(r.id) === String(vId)) &&
+// Função de redirecionamento chamada pelo botão "Finalizar Agora"
+function redirecionarEncerramentoRota(rotaId, veiculoId) {
+  // 1. Ambiente Web Desktop
+  if (typeof setModule === 'function' && typeof setSubTab === 'function') {
+    setModule('operacao');
+    setSubTab('operacao', 'retorno');
+
+    // Garante que a lista de rotas ativas do select esteja preenchida
+    if (typeof renderSelectRotasFim === 'function') {
+      renderSelectRotasFim();
+    }
+
+    const select = document.getElementById('form-fim-rota-select');
+    if (select) {
+      // Localiza a rota correspondente (pelo ID da rota ou veículo)
+      const r = (rotas || []).find(item => 
+        String(item.id) === String(rotaId) || 
+        String(item.veiculo_id) === String(veiculoId)
+      );
+
+      if (r) {
+        select.value = String(r.id);
+        if (typeof selecionarRotaFim === 'function') {
+          selecionarRotaFim();
+        }
+      }
+    }
+    return;
+  }
+
+  // 2. Ambiente Mobile
+  if (typeof switchMobileTab === 'function') {
+    switchMobileTab('finalizar');
+    const selectMobile = document.getElementById('m-fim-rota-select');
+    if (selectMobile) {
+      selectMobile.value = String(rotaId);
+      if (typeof selecionarRotaFimMobile === 'function') {
+        selecionarRotaFimMobile();
+      }
+    }
+  }
+}
+
+function abrirFinalizacaoDireta(identificador) {
+  const rota = rotas.find(r => 
+    (String(r.id) === String(identificador) ||
+     String(r.veiculo_id) === String(identificador) || 
+     String(r.nome_frota) === String(identificador)) && 
     r.status === 'Em Uso'
   );
+
   if (rota) {
     setModule('operacao');
     setSubTab('operacao', 'retorno');
     const select = document.getElementById('form-fim-rota-select');
-    if (select) select.value = rota.id;
-    selecionarRotaFim();
+    if (select) {
+      select.value = rota.id;
+      selecionarRotaFim();
+    }
   }
 }
 
@@ -1352,14 +1374,14 @@ function calcularKmPercorrido() {
 
   if (!rota || isNaN(kmFinal) || !feedback) return;
 
-  if (kmFinal < rota.km_saida) {
+  if (kmFinal < Number(rota.km_saida)) {
     feedback.innerText = `Erro: KM Final (${kmFinal}) menor que Saída (${rota.km_saida})!`;
     feedback.className = "text-[11px] text-rose-600 font-bold mt-1 block";
   } else {
-    const delta = kmFinal - rota.km_saida;
-    const v = veiculos.find(item =>
-      String(item.id) === String(rota.veiculo_id) ||
-      String(item.uuid_veiculos) === String(rota.veiculo_id) ||
+    const delta = kmFinal - Number(rota.km_saida);
+    const v = veiculos.find(item => 
+      String(item.id) === String(rota.veiculo_id) || 
+      String(item.uuid_veiculos) === String(rota.veiculo_id) || 
       String(item.nome_frota) === String(rota.veiculo_id)
     ) || {};
     const medConsumo = ((Number(v.consumo_min || 10) + Number(v.consumo_max || 14)) / 2);
@@ -1378,19 +1400,18 @@ function toggleAnomaliaInput(show) {
 }
 
 // =========================================================================
-// RENDER HISTÓRICO
+// RENDER HISTÓRICO COM RESOLUÇÃO DE IDENTIFICADOR AMIGÁVEL
 // =========================================================================
-
 function renderHistorico() {
   const tbody = document.getElementById('tabelaHistorico');
   if (!tbody) return;
   tbody.innerHTML = '';
 
   rotas.forEach(r => {
-    const veic = veiculos.find(v =>
-      String(v.id) === String(r.veiculo_id) ||
-      String(v.uuid_veiculos) === String(r.veiculo_id) ||
-      String(v.placa) === String(r.veiculo_id) ||
+    const veic = veiculos.find(v => 
+      String(v.id) === String(r.veiculo_id) || 
+      String(v.uuid_veiculos) === String(r.veiculo_id) || 
+      String(v.placa) === String(r.veiculo_id) || 
       String(v.nome_frota) === String(r.veiculo_id)
     );
 
@@ -1464,49 +1485,65 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   const modalId = `modal-alerta-${rota.id}`;
   if (document.getElementById(modalId)) return;
 
-  const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v =>
-    String(v.id) === String(rota.veiculo_id) ||
-    String(v.uuid_veiculos) === String(rota.veiculo_id) ||
-    String(v.nome_frota) === String(rota.veiculo_id) ||
+  const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+  let emailUsuario = '';
+  let nomeUsuario = '';
+
+  if (rawSessao) {
+    try {
+      const parsed = JSON.parse(rawSessao);
+      emailUsuario = (parsed.email || '').toLowerCase().trim();
+      nomeUsuario = (parsed.nome || '').toLowerCase().trim();
+    } catch (e) {
+      emailUsuario = String(rawSessao).toLowerCase().trim();
+    }
+  }
+
+  const responsavelRota = String(rota.responsavel || '').toLowerCase().trim();
+  const adminPadrao = (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : 'admin@arvo.tec.br').toLowerCase().trim();
+
+  // Apenas o condutor responsável ou admin podem finalizar
+  const isAdmin = emailUsuario === adminPadrao;
+  const isCriador = emailUsuario === responsavelRota || (nomeUsuario && responsavelRota.includes(nomeUsuario));
+  const podeFinalizar = isAdmin || isCriador;
+
+  const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v => 
+    String(v.id) === String(rota.veiculo_id) || 
+    String(v.uuid_veiculos) === String(rota.veiculo_id) || 
+    String(v.nome_frota) === String(rota.veiculo_id) || 
     String(v.placa) === String(rota.veiculo_id)
   );
-
-  const nomeCarro = rota.nome_frota || (veic ? (veic.nome_frota || veic.id) : rota.veiculo_id);
+  
+  const nomeCarro = rota.nome_frota || (veic ? (veic.nome_frota || veic.id) : rota.veiculo_id) || 'Veículo';
   const placaCarro = (veic && veic.placa) ? ` [${veic.placa}]` : (rota.placa ? ` [${rota.placa}]` : '');
-
-  const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
-  let sessao;
-  try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
-  const emailUsuario = (sessao?.email || '').toLowerCase().trim();
-  const responsavelRota = (rota.responsavel || '').toLowerCase().trim();
-  const isAdmin = emailUsuario === ADMIN_EMAIL.toLowerCase();
-  const podeFinalizar = isAdmin || (emailUsuario === responsavelRota);
 
   const popUp = document.createElement('div');
   popUp.id = modalId;
-  popUp.className = "modal-alerta-backdrop";
+  popUp.className = "fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in";
   popUp.innerHTML = `
     <div class="modal-alerta-card">
       <div class="modal-alerta-icon-box">
         <i class="ph-bold ph-warning-circle"></i>
       </div>
       <div>
-        <h3 class="text-base font-black text-slate-900">Atenção: Rota Pendente!</h3>
-        <p class="text-xs text-slate-500 mt-1">
-          A rota <b class="text-slate-800">#${rota.id}</b> com o veículo <b class="text-slate-800">${nomeCarro}${placaCarro}</b> (Condutor: <b>${rota.responsavel}</b>) está aberta há mais de <span class="text-rose-600 font-bold">${Math.floor(horasAbertas)} horas</span>.
+        <h3 style="font-size: 1rem; font-weight: 900; color: #0f172a; margin: 0;">Atenção: Rota Pendente!</h3>
+        <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.35rem; line-height: 1.3;">
+          A rota <b style="color: #0f172a;">#${rota.id}</b> com o veículo <b style="color: #0f172a;">${nomeCarro}${placaCarro}</b> (Condutor: <b>${rota.responsavel}</b>) está aberta há mais de <span style="color: #e11d48; font-weight: 700;">${Math.floor(horasAbertas)} horas</span>.
         </p>
       </div>
+
       <div class="modal-alerta-box-aviso">
-        ${podeFinalizar
-      ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento."
-      : "Esta rota está aberta em trânsito há mais de 12 horas. Apenas o condutor responsável ou o administrador podem efetuar o encerramento."}
+        ${podeFinalizar 
+          ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento." 
+          : "Esta rota está aberta há mais de 12 horas. Apenas o condutor responsável deve encerrá-la."}
       </div>
+
       <div class="modal-alerta-actions">
         <button onclick="document.getElementById('${modalId}').remove()" class="btn-alerta-lembrar">
-          ${podeFinalizar ? "Lembrar Depois" : "Fechar Alerta"}
+          ${podeFinalizar ? "Lembrar Depois" : "Fechar"}
         </button>
         ${podeFinalizar ? `
-          <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDireta('${rota.veiculo_id}');" class="btn-alerta-finalizar">
+          <button onclick="document.getElementById('${modalId}').remove(); redirecionarEncerramentoRota('${rota.id}', '${rota.veiculo_id}');" class="btn-alerta-finalizar">
             Finalizar Agora
           </button>
         ` : ''}
@@ -1520,16 +1557,6 @@ async function verificarRotasExcedidas12h() {
   try {
     const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
     if (!rawSessao) return;
-
-    let sessao;
-    try {
-      sessao = JSON.parse(rawSessao);
-    } catch {
-      sessao = { email: rawSessao };
-    }
-
-    const emailUsuario = (sessao?.email || '').toLowerCase().trim();
-    if (!emailUsuario) return;
 
     const { data: rotasAtivas, error } = await db
       .from('rotas')
@@ -1549,11 +1576,12 @@ async function verificarRotasExcedidas12h() {
 
       const diferencaHoras = (agora - dataSaida) / (1000 * 60 * 60);
 
+      // Notifica todos os usuários logados se a rota ultrapassar 12 horas
       if (diferencaHoras >= 12) {
         exibirPopUpAlerta(rota, diferencaHoras);
         dispararNotificacaoNativa(
           "⚠️ ARVO - Rota Excedida",
-          `A rota #${rota.id} (${rota.veiculo_id}) está aberta há ${Math.floor(diferencaHoras)}h por ${rota.responsavel || 'outro usuário'}.`
+          `A rota #${rota.id} (${rota.veiculo_id}) está aberta há ${Math.floor(diferencaHoras)}h por ${rota.responsavel || 'condutor'}.`
         );
       }
     });

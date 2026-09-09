@@ -9,6 +9,13 @@ const db = window.db || (window.supabase && typeof window.supabase.createClient 
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
   : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } }));
 
+// Validação simplificada de CNH por formato (11 dígitos e sem repetições)
+const validarNumeroCNH = (cnh) => {
+  if (!cnh) return false;
+  const limpo = String(cnh).replace(/\D/g, '');
+  return /^\d{11}$/.test(limpo) && !/^(\d)\1{10}$/.test(limpo);
+};
+
 let usuarioLogado = null;
 let veiculos = [];
 let rotas = [];
@@ -17,7 +24,7 @@ let rotas = [];
 // CONTROLE DE SESSÃO E LOGIN
 // =========================================================================
 function obterSessaoAtiva() {
-  const sessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+  const sessao = localStorage.getItem('arvo_mobile_user') || localStorage.getItem('arvo_usuario_logado');
   try {
     return sessao ? JSON.parse(sessao) : null;
   } catch (e) {
@@ -113,6 +120,12 @@ async function handleMobileLogin(e) {
       throw new Error("Usuário inativo no sistema.");
     }
 
+    // Bloqueio por CNH inválida (exceto administrador)
+    const ehAdmin = email === ADMIN_EMAIL.toLowerCase();
+    if (!ehAdmin && !validarNumeroCNH(data.cnh)) {
+      throw new Error("⛔ Acesso bloqueado: CNH não cadastrada ou número inválido (exige 11 dígitos numéricos).");
+    }
+
     usuarioLogado = {
       id: data.id,
       nome: data.nome || email.split('@')[0],
@@ -196,8 +209,12 @@ async function carregarDadosMobile() {
   const veiculosCache = localStorage.getItem('arvo_cache_veiculos');
   const rotasCache = localStorage.getItem('arvo_cache_rotas');
 
-  if (veiculosCache) veiculos = JSON.parse(veiculosCache);
-  if (rotasCache) rotas = JSON.parse(rotasCache);
+  if (veiculosCache) {
+    try { veiculos = JSON.parse(veiculosCache); } catch(e) {}
+  }
+  if (rotasCache) {
+    try { rotas = JSON.parse(rotasCache); } catch(e) {}
+  }
 
   renderizarOpcoesVeiculos();
   renderizarOpcoesRotasAtivas();
@@ -220,6 +237,8 @@ async function carregarDadosMobile() {
         renderizarOpcoesRotasAtivas();
         renderizarHistoricoMobile();
       }
+
+      verificarRotasExcedidas12hMobile();
     } catch (err) {
       console.warn("Offline: utilizando dados salvos localmente.");
     }
@@ -375,11 +394,15 @@ function renderizarOpcoesRotasAtivas() {
   const select = document.getElementById('m-fim-rota-select');
   if (!select || !usuarioLogado) return;
 
-  select.innerHTML = '<option value="">Selecione sua rota ativa...</option>';
+  const ehAdmin = (usuarioLogado.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+
+  select.innerHTML = '<option value="">Selecione a rota ativa...</option>';
+
+  // Admin visualiza todas as rotas ativas; condutor visualiza as suas
   (rotas || [])
-    .filter(r => r.status === 'Em Uso' && r.responsavel === usuarioLogado.email)
+    .filter(r => r.status === 'Em Uso' && (ehAdmin || r.responsavel === usuarioLogado.email))
     .forEach(r => {
-      select.innerHTML += `<option value="${r.id}">${r.veiculo_id} [${r.placa || 'S/ Placa'}] - Saída: ${Number(r.km_saida).toLocaleString('pt-BR')} km</option>`;
+      select.innerHTML += `<option value="${r.id}">${r.veiculo_id} [${r.placa || 'S/ Placa'}] (${r.responsavel}) - Saída: ${Number(r.km_saida).toLocaleString('pt-BR')} km</option>`;
     });
 }
 
@@ -392,7 +415,7 @@ function selecionarRotaFimMobile() {
   if (rota) {
     const elVeiculo = document.getElementById('m-info-veiculo');
     const elKm = document.getElementById('m-info-kmsaida');
-    if (elVeiculo) elVeiculo.innerText = `${rota.veiculo_id} (${rota.placa || '-'})`;
+    if (elVeiculo) elVeiculo.innerText = `${rota.veiculo_id} (${rota.placa || '-'}) [${rota.responsavel}]`;
     if (elKm) elKm.innerText = `${Number(rota.km_saida).toLocaleString('pt-BR')} km`;
     if (inputKm) {
       inputKm.min = rota.km_saida;
@@ -426,6 +449,16 @@ async function handleMobileFimRota(e) {
 
   if (!rota) {
     alert("Selecione uma rota ativa.");
+    return;
+  }
+
+  // Trava de permissão: somente criador ou Admin podem encerrar
+  const emailAtual = (usuarioLogado?.email || '').toLowerCase().trim();
+  const donoRota = (rota.responsavel || '').toLowerCase().trim();
+  const ehAdmin = emailAtual === ADMIN_EMAIL.toLowerCase().trim();
+
+  if (emailAtual !== donoRota && !ehAdmin) {
+    alert(`⛔ Permissão Negada: Apenas o condutor responsável (${rota.responsavel}) ou o Administrador podem finalizar esta rota.`);
     return;
   }
 
@@ -525,6 +558,95 @@ function renderizarHistoricoMobile() {
 function sincronizarFilaRotas() {}
 
 // =========================================================================
+// SISTEMA DE ALERTAS & POP-UP DE ROTAS EXCEDIDAS (> 12H)
+// =========================================================================
+function abrirFinalizacaoDiretaMobile(rotaId) {
+  switchMobileTab('finalizar');
+  const select = document.getElementById('m-fim-rota-select');
+  if (select) {
+    select.value = String(rotaId);
+    selecionarRotaFimMobile();
+  }
+}
+
+function exibirPopUpAlertaMobile(rota, horasAbertas) {
+  const modalId = `modal-alerta-mobile-${rota.id}`;
+  if (document.getElementById(modalId)) return;
+
+  const emailUsuario = (usuarioLogado?.email || '').toLowerCase().trim();
+  const responsavelRota = String(rota.responsavel || '').toLowerCase().trim();
+  const isAdmin = emailUsuario === ADMIN_EMAIL.toLowerCase().trim();
+  const podeFinalizar = isAdmin || (emailUsuario === responsavelRota);
+
+  const popUp = document.createElement('div');
+  popUp.id = modalId;
+  popUp.className = "modal-alerta-backdrop";
+  popUp.innerHTML = `
+    <div class="modal-alerta-card">
+      <div class="modal-alerta-icon-box">
+        <i class="ph-bold ph-warning-circle"></i>
+      </div>
+      <div>
+        <h3 style="font-size: 1rem; font-weight: 900; color: #0f172a; margin: 0;">Atenção: Rota Pendente!</h3>
+        <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.35rem; line-height: 1.3;">
+          A rota <b style="color: #0f172a;">#${rota.id}</b> com o veículo <b style="color: #0f172a;">${rota.veiculo_id} [${rota.placa || 'Sem placa'}]</b> (Condutor: <b>${rota.responsavel}</b>) está aberta há mais de <span style="color: #e11d48; font-weight: 700;">${Math.floor(horasAbertas)} horas</span>.
+        </p>
+      </div>
+
+      <div class="modal-alerta-box-aviso">
+        ${podeFinalizar 
+          ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento." 
+          : "Esta rota está aberta há mais de 12 horas. Apenas o condutor responsável deve encerrá-la."}
+      </div>
+
+      <div class="modal-alerta-actions">
+        <button onclick="document.getElementById('${modalId}').remove()" class="btn-alerta-lembrar">
+          ${podeFinalizar ? "Lembrar Depois" : "Fechar"}
+        </button>
+        ${podeFinalizar ? `
+          <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDiretaMobile('${rota.id}');" class="btn-alerta-finalizar">
+            Finalizar Agora
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(popUp);
+}
+
+async function verificarRotasExcedidas12hMobile() {
+  if (!usuarioLogado || !db) return;
+
+  try {
+    const { data: rotasAtivas, error } = await db
+      .from('rotas')
+      .select('*')
+      .eq('status', 'Em Uso');
+
+    if (error || !rotasAtivas) return;
+
+    const agora = new Date().getTime();
+
+    rotasAtivas.forEach(rota => {
+      const dataRef = rota.data_saida || rota.created_at;
+      if (!dataRef) return;
+
+      const dataSaida = new Date(dataRef).getTime();
+      if (isNaN(dataSaida)) return;
+
+      const diferencaHoras = (agora - dataSaida) / (1000 * 60 * 60);
+
+      // Notifica todos os usuários logados no aplicativo mobile
+      if (diferencaHoras >= 12) {
+        exibirPopUpAlertaMobile(rota, diferencaHoras);
+      }
+    });
+  } catch (err) {
+    console.warn("Falha ao checar rotas pendentes no mobile:", err);
+  }
+}
+
+// =========================================================================
 // INICIALIZAÇÃO E EXPORTAÇÃO GLOBAL
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -533,6 +655,8 @@ document.addEventListener('DOMContentLoaded', () => {
     usuarioLogado = sessao;
     iniciarAppMobile();
   }
+
+  setInterval(verificarRotasExcedidas12hMobile, 5 * 60 * 1000);
 });
 
 window.toggleSenhaMobile = toggleSenhaMobile;
@@ -547,3 +671,4 @@ window.handleMobileInicioRota = handleMobileInicioRota;
 window.selecionarRotaFimMobile = selecionarRotaFimMobile;
 window.calcularKmPercorridoMobile = calcularKmPercorridoMobile;
 window.handleMobileFimRota = handleMobileFimRota;
+window.abrirFinalizacaoDiretaMobile = abrirFinalizacaoDiretaMobile;
