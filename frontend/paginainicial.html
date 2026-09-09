@@ -396,51 +396,82 @@
             </div>
 
             <form id="formCadVeiculo" onsubmit="handleCadVeiculo(event)" class="space-y-3.5">
-              <div>
-                <label class="form-label">Identificação / Nome na Frota</label>
-                <input type="text" id="cad-v-id" placeholder="ARVO 16" required class="form-control font-semibold uppercase" />
-              </div>
-              <div class="form-grid-2">
-                <div>
-                  <label class="form-label">Placa</label>
-                  <input type="text" id="cad-v-placa" placeholder="ABC1D23" required class="form-control font-mono uppercase" />
-                </div>
-                <div>
-                  <label class="form-label">Marca / Modelo</label>
-                  <input type="text" id="cad-v-marca" placeholder="Fiat Mobi" required class="form-control" />
-                </div>
-              </div>
-              <div class="form-grid-2">
-                <div>
-                  <label class="form-label">Tanque (L)</label>
-                  <input type="number" id="cad-v-tanque" value="47" required class="form-control font-mono" />
-                </div>
-                <div>
-                  <label class="form-label">KM Inicial</label>
-                  <input type="number" id="cad-v-kminicial" required class="form-control font-mono" />
-                </div>
-              </div>
-              <div class="form-grid-2">
-                <div>
-                  <label class="form-label">Consumo Mín (km/L)</label>
-                  <input type="number" step="0.1" id="cad-v-consumomin" value="10" required class="form-control font-mono" />
-                </div>
-                <div>
-                  <label class="form-label">Consumo Máx (km/L)</label>
-                  <input type="number" step="0.1" id="cad-v-consumomax" value="14" required class="form-control font-mono" />
-                </div>
-              </div>
-              <div>
-                <label class="form-label">Tipo de Frota</label>
-                <select id="cad-v-tipofrota" class="form-control font-bold">
-                  <option value="PROPRIO">Frota Regular</option>
-                  <option value="EXTERNO">Uso Esporádico / Externo</option>
-                </select>
-              </div>
-              <button type="submit" class="btn-primary">
-                <i class="ph-bold ph-plus"></i> Salvar Veículo
-              </button>
-            </form>
+        <div>
+          <label class="form-label">Identificação / Nome na Frota</label>
+          <input type="text" id="cad-v-id" placeholder="ARVO 16" required class="form-control font-semibold uppercase" />
+        </div>
+
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Modelo</label>
+            <select id="cad-v-referencia" onchange="aoSelecionarModeloReferencia('cad')" class="form-control bg-white">
+              <option value="">-- Selecione o Modelo Base --</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Placa</label>
+            <input type="text" id="cad-v-placa" placeholder="ABC1D23" required class="form-control font-mono uppercase" />
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Marca</label>
+            <input type="text" id="cad-v-marca" placeholder="Fiat Mobi" required class="form-control" />
+          </div>
+          <div>
+            <label class="form-label">Ano Modelo</label>
+            <input type="number" id="cad-v-ano" placeholder="2024" class="form-control font-mono" />
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Capacidade (L)</label>
+            <input type="number" id="cad-v-tanque" value="47" required class="form-control font-mono" />
+          </div>
+          <div>
+            <label class="form-label">KM Inicial</label>
+            <input type="number" id="cad-v-kminicial" required class="form-control font-mono" />
+          </div>
+        </div>
+
+        <!-- Consumo Gasolina -->
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Gas Cidade (km/L)</label>
+            <input type="number" step="0.1" id="cad-v-gas-urb" required class="form-control font-mono" />
+          </div>
+          <div>
+            <label class="form-label">Gas Rodovia (km/L)</label>
+            <input type="number" step="0.1" id="cad-v-gas-rod" required class="form-control font-mono" />
+          </div>
+        </div>
+
+        <!-- Consumo Etanol -->
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Etanol Cidade (km/L)</label>
+            <input type="number" step="0.1" id="cad-v-eta-urb" required class="form-control font-mono" />
+          </div>
+          <div>
+            <label class="form-label">Etanol Rodovia (km/L)</label>
+            <input type="number" step="0.1" id="cad-v-eta-rod" required class="form-control font-mono" />
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">Tipo de Frota</label>
+          <select id="cad-v-tipofrota" class="form-control font-bold">
+            <option value="PROPRIO">Frota Regular</option>
+            <option value="EXTERNO">Uso Esporádico / Externo</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn-primary">
+          <i class="ph-bold ph-plus"></i> Salvar Veículo        
+        </button>
+      </form>
           </div>
 
           <!-- Tabela de Veículos -->
@@ -564,8 +595,10 @@
             <input type="text" id="edit-v-placa" required class="form-control font-mono uppercase" />
           </div>
           <div>
-            <label class="form-label">Marca / Modelo</label>
-            <input type="text" id="edit-v-marca" required class="form-control" />
+            <label class="form-label">Modelo Homologado</label>
+            <select id="edit-v-referencia" onchange="aoSelecionarModeloReferencia('edit')" class="form-control font-bold bg-white">
+              <option value="">-- Selecione o Modelo Base --</option>
+            </select>
           </div>
         </div>
         <div class="grid grid-cols-3 gap-2">

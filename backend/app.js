@@ -8,12 +8,13 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 
-// Validação Simplificada de CNH por formato (11 dígitos e sem repetições)
+// Validação de CNH por formato (11 dígitos e sem repetições banais)
 const validarNumeroCNH = (cnh) => /^\d{11}$/.test(String(cnh || '').replace(/\D/g, '')) && !/^(\d)\1{10}$/.test(String(cnh || '').replace(/\D/g, ''));
 
 let usuarios = [];
 let veiculos = [];
 let rotas = [];
+let listaModelosReferencia = [];
 let currentUserIndex = 0;
 
 // =========================================================================
@@ -36,7 +37,7 @@ function verificarSessaoUsuario() {
 
   const ehAdmin = (sessao.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
 
-  // Bloqueio contínuo: revoga o acesso caso o condutor não tenha 11 dígitos numéricos na CNH
+  // Bloqueio contínuo: revoga o acesso caso o condutor não possua CNH válida
   if (!ehAdmin && !validarNumeroCNH(sessao.cnh)) {
     alert("⛔ Acesso revogado: Seu cadastro possui uma CNH inválida ou pendente. Procure o Administrador.");
     localStorage.removeItem('arvo_usuario_logado');
@@ -196,6 +197,16 @@ function setSubTab(moduleName, tab) {
       activeBtn.classList.remove('border-transparent', 'text-slate-500');
       activeBtn.classList.add('subtab-active', 'border-brand-600', 'text-brand-600');
     }
+
+    if (tab === 'dashboard') {
+      renderDashboardKPIs();
+      renderFleetGrid();
+    } else if (tab === 'cad-veiculos') {
+      renderTabelaVeiculosCad();
+      popularSelectsModelosReferencia();
+    } else if (tab === 'cad-usuarios') {
+      renderTabelaUsuariosCad();
+    }
   }
 }
 
@@ -208,6 +219,9 @@ async function carregarTodosDadosDoBanco() {
   if (!usuarioSessao) return;
 
   try {
+    // 1. Carrega o catálogo de modelos de referência para cruzamento e preenchimento
+    await carregarModelosReferencia();
+
     const { data: dadosVeiculos, error: errV } = await db.from('veiculos').select('*');
     if (errV) throw errV;
     veiculos = dadosVeiculos || [];
@@ -416,27 +430,43 @@ async function handleInicioRota(e) {
 }
 
 function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos = []) {
-  const placa = veiculo?.placa;
-  const vId = veiculo?.id;
-  const uuid = veiculo?.uuid_veiculos;
-  const nomeFrota = veiculo?.nome_frota;
+  const placa = (veiculo?.placa || '').trim().toUpperCase();
+  const vId = veiculo?.id ? String(veiculo.id).trim() : null;
+  const uuid = veiculo?.uuid_veiculos ? String(veiculo.uuid_veiculos).trim() : null;
+  const nomeFrota = (veiculo?.nome_frota || '').trim().toUpperCase();
 
+  // 1. Filtra histórico de abastecimento do veículo
   const abastsCarro = (listaAbastecimentos || [])
     .filter(a => {
-      const bateuVeiculo = (placa && String(a.placa) === String(placa)) ||
-        (vId && String(a.veiculo_id) === String(vId)) ||
-        (uuid && String(a.uuid_veiculos) === String(uuid)) ||
-        (nomeFrota && String(a.veiculo_id) === String(nomeFrota));
+      const aPlaca = (a.placa || '').trim().toUpperCase();
+      const aVeicId = (a.veiculo_id ? String(a.veiculo_id) : '').trim().toUpperCase();
+      const aUuid = a.uuid_veiculos ? String(a.uuid_veiculos).trim() : '';
+
+      const bateuVeiculo = (placa && (aPlaca === placa || aVeicId === placa)) ||
+                           (vId && aVeicId === vId.toUpperCase()) ||
+                           (uuid && aUuid === uuid) ||
+                           (nomeFrota && (aVeicId === nomeFrota || aPlaca === nomeFrota));
+
       return bateuVeiculo && Number(a.km_atual) > 0 && Number(a.quantidade_litros) > 0;
     })
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
 
-  const combAtual = tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum';
+  // 2. Normalização flexível de combustível
+  const combAtual = (tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum').trim().toUpperCase();
+  const ehEtanol = combAtual.includes('ETANOL') || combAtual.includes('ÁLCOOL');
 
-  const abastsTipo = abastsCarro.filter(a =>
-    (a.tipo_combustivel || '').toUpperCase() === combAtual.toUpperCase()
-  );
+  const ehMesmoCombustivel = (combReg, combRef) => {
+    if (!combReg) return combRef.includes('GASOLINA');
+    const c = String(combReg).toUpperCase();
+    if (combRef.includes('ETANOL') || combRef.includes('ÁLCOOL')) return c.includes('ETANOL') || c.includes('ÁLCOOL');
+    if (combRef.includes('DIESEL')) return c.includes('DIESEL');
+    if (combRef.includes('GNV')) return c.includes('GNV');
+    return c.includes('GASOLINA');
+  };
 
+  const abastsTipo = abastsCarro.filter(a => ehMesmoCombustivel(a.tipo_combustivel, combAtual));
+
+  // 3. Média calculada real por dois abastecimentos consecutivos
   if (abastsTipo.length >= 2) {
     const kmRecente = Number(abastsTipo[0].km_atual);
     const kmAnterior = Number(abastsTipo[1].km_atual);
@@ -451,15 +481,43 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
     }
   }
 
-  const cMin = Number(veiculo?.consumo_min || 10);
-  const cMax = Number(veiculo?.consumo_max || 14);
-  let mediaFabricante = (cMin + cMax) / 2;
+  // 4. Média pelos dados técnicos gravados no cadastro do próprio veículo
+  let gasUrb = Number(veiculo?.consumo_gasolina_urbano || 0);
+  let gasRod = Number(veiculo?.consumo_gasolina_rodoviario || 0);
+  let etaUrb = Number(veiculo?.consumo_etanol_urbano || 0);
+  let etaRod = Number(veiculo?.consumo_etanol_rodoviario || 0);
 
-  if (combAtual.toUpperCase().includes('ETANOL') || combAtual.toUpperCase().includes('ÁLCOOL')) {
-    mediaFabricante = mediaFabricante * 0.7;
+  // Se não estiverem no veículo, busca do catálogo de referência homologado
+  if ((!gasUrb || !gasRod) && veiculo?.modelo_referencia_id && Array.isArray(listaModelosReferencia)) {
+    const modeloHomologado = listaModelosReferencia.find(m => String(m.id) === String(veiculo.modelo_referencia_id));
+    if (modeloHomologado) {
+      gasUrb = Number(modeloHomologado.consumo_gasolina_urbano || 0);
+      gasRod = Number(modeloHomologado.consumo_gasolina_rodoviario || 0);
+      etaUrb = Number(modeloHomologado.consumo_etanol_urbano || 0);
+      etaRod = Number(modeloHomologado.consumo_etanol_rodoviario || 0);
+    }
   }
 
-  return Number(mediaFabricante.toFixed(2));
+  // Se possuir dados detalhados (urbano e rodoviário), calcula a média mista
+  if (ehEtanol && etaUrb > 0 && etaRod > 0) {
+    const mediaEtanol = (etaUrb + etaRod) / 2;
+    if (mediaEtanol >= 3 && mediaEtanol <= 35) return Number(mediaEtanol.toFixed(2));
+  } else if (gasUrb > 0 && gasRod > 0) {
+    const mediaGasolina = (gasUrb + gasRod) / 2;
+    if (mediaGasolina >= 3 && mediaGasolina <= 35) return Number(mediaGasolina.toFixed(2));
+  }
+
+  // 5. Fallback dos limites cadastrados (consumo_min / consumo_max)
+  let cMin = Number(veiculo?.consumo_min);
+  let cMax = Number(veiculo?.consumo_max);
+
+  cMin = (!cMin || cMin <= 0 || isNaN(cMin)) ? 10 : cMin;
+  cMax = (!cMax || cMax <= 0 || isNaN(cMax)) ? 14 : cMax;
+
+  let mediaFabricante = (cMin + cMax) / 2;
+  if (ehEtanol) mediaFabricante = mediaFabricante * 0.7;
+
+  return Number(Math.max(3, mediaFabricante).toFixed(2));
 }
 
 async function handleFimRota(e) {
@@ -477,13 +535,14 @@ async function handleFimRota(e) {
     return;
   }
 
+  // 1. Busca a rota correspondente (deve vir ANTES do cálculo de deltaKm)
   const rota = (rotas || []).find(r => String(r.id) === String(rotaId));
   if (!rota) {
     alert("Erro: Rota não encontrada na lista.");
     return;
   }
 
-  // Permissão estrita: criador da rota ou Admin
+  // 2. Permissão estrita: criador da rota ou Admin
   const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
   let sessao;
   try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
@@ -496,14 +555,18 @@ async function handleFimRota(e) {
     return;
   }
 
+  // 3. Localização do veículo correspondente
   const veiculo = (veiculos || []).find(v =>
+    (rota.placa && String(v.placa) === String(rota.placa)) ||
     String(v.id) === String(rota?.veiculo_id) ||
     String(v.uuid_veiculos) === String(rota?.veiculo_id) ||
     String(v.nome_frota) === String(rota?.veiculo_id) ||
     String(v.placa) === String(rota?.veiculo_id)
   ) || {};
 
-  if (kmFinal < rota.km_saida) {
+  const placaAlvo = rota.placa || veiculo.placa || null;
+
+  if (isNaN(kmFinal) || kmFinal < Number(rota.km_saida)) {
     alert("Erro: O KM Final não pode ser inferior ao KM de Saída!");
     return;
   }
@@ -515,9 +578,11 @@ async function handleFimRota(e) {
 
   const situacao = document.querySelector('input[name="situacao_carro"]:checked')?.value || 'SEM';
   let anomaliaTexto = situacao === 'COM' ? (document.getElementById('form-fim-anomalia')?.value?.trim() || '') : '';
-  const deltaKm = kmFinal - rota.km_saida;
+  
+  // Agora sim deltaKm pode ser calculado com segurança
+  const deltaKm = kmFinal - Number(rota.km_saida);
 
-  // Recupera histórico de abastecimento de forma segura
+  // 4. Recupera histórico de abastecimento de forma segura
   let histAbast = [];
   if (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos) && abastecimentos.length > 0) {
     histAbast = abastecimentos;
@@ -533,7 +598,7 @@ async function handleFimRota(e) {
   if ((!histAbast || histAbast.length === 0) && navigator.onLine) {
     try {
       const idCarro = veiculo.id || rota.veiculo_id;
-      const placaCarro = veiculo.placa || rota.placa;
+      const placaCarro = placaAlvo;
       const nomeFrota = veiculo.nome_frota;
 
       const condicoesBusca = [];
@@ -558,6 +623,7 @@ async function handleFimRota(e) {
     }
   }
 
+  // 5. Apuração do consumo e débito virtual
   let medConsumo;
   if (typeof obterMediaConsumoEsperada === 'function') {
     medConsumo = obterMediaConsumoEsperada(veiculo, null, histAbast);
@@ -565,8 +631,11 @@ async function handleFimRota(e) {
     medConsumo = (Number(veiculo.consumo_min) + Number(veiculo.consumo_max)) / 2 || 12;
   }
 
-  const litrosEst = Number((deltaKm / medConsumo).toFixed(2));
-  const capTanque = Number(veiculo.tanque || 45);
+  // Proteção contra divisão por zero / NaN
+  medConsumo = (!medConsumo || isNaN(medConsumo) || medConsumo <= 0) ? 12 : medConsumo;
+  const litrosEst = deltaKm > 0 ? Number((deltaKm / medConsumo).toFixed(2)) : 0;
+  
+  const capTanque = Number(veiculo.tanque || 47);
   const tanqueAnterior = (veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined)
     ? Number(veiculo.tanque_virtual)
     : capTanque;
@@ -576,6 +645,7 @@ async function handleFimRota(e) {
   const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str));
 
   try {
+    // 6. Atualiza a rota com os dados calculados
     const { error: erroRota } = await db.from('rotas').update({
       km_retorno: kmFinal,
       km_total: deltaKm,
@@ -588,11 +658,12 @@ async function handleFimRota(e) {
 
     if (erroRota) throw erroRota;
 
+    // 7. Atualiza o veículo
     const condicoesVeiculo = [];
+    if (placaAlvo) condicoesVeiculo.push(`placa.eq.${placaAlvo}`);
     if (veiculo.uuid_veiculos && isUUID(veiculo.uuid_veiculos)) condicoesVeiculo.push(`uuid_veiculos.eq.${veiculo.uuid_veiculos}`);
     if (veiculo.id && isUUID(veiculo.id)) condicoesVeiculo.push(`id.eq.${veiculo.id}`);
     if (veiculo.nome_frota) condicoesVeiculo.push(`nome_frota.eq.${veiculo.nome_frota}`);
-    if (veiculo.placa) condicoesVeiculo.push(`placa.eq.${veiculo.placa}`);
     if (rota.veiculo_id) {
       if (isUUID(rota.veiculo_id)) condicoesVeiculo.push(`id.eq.${rota.veiculo_id}`);
       else condicoesVeiculo.push(`nome_frota.eq.${rota.veiculo_id}`);
@@ -615,8 +686,10 @@ async function handleFimRota(e) {
       if (erroVeiculo) console.warn("Aviso ao atualizar veículo:", erroVeiculo.message);
     }
 
+    // 8. Atualiza reservas pendentes
     try {
       const condicoesReserva = [`veiculo_id.eq.${rota.veiculo_id}`];
+      if (placaAlvo) condicoesReserva.push(`veiculo_id.eq.${placaAlvo}`);
       if (veiculo.uuid_veiculos && isUUID(veiculo.uuid_veiculos)) {
         condicoesReserva.push(`uuid_veiculos.eq.${veiculo.uuid_veiculos}`);
       }
@@ -628,6 +701,7 @@ async function handleFimRota(e) {
       console.warn("Aviso ao concluir reservas:", resErr);
     }
 
+    // 9. Reset do formulário e interface
     e.target.reset();
     if (typeof toggleOutroDestino === 'function') toggleOutroDestino('');
     document.getElementById('fim-detalhes-viagem')?.classList.add('hidden');
@@ -662,24 +736,86 @@ function formatarDataHora(dataIso) {
 }
 
 // =========================================================================
-// 6. GESTÃO DE VEÍCULOS (CADASTRO, EDIÇÃO E EXCLUSÃO)
+// 6. GESTÃO DE VEÍCULOS & CATÁLOGO DE MODELOS DE REFERÊNCIA
 // =========================================================================
+
+async function carregarModelosReferencia() {
+  console.log("🔍 Iniciando busca em modelos_referencia...");
+  try {
+    const { data, error } = await db
+      .from('modelos_referencia')
+      .select('*')
+      .order('marca', { ascending: true })
+      .order('modelo', { ascending: true });
+
+    if (error) {
+      console.error("❌ Erro retornado pelo Supabase em modelos_referencia:", error);
+      throw error;
+    }
+
+    console.log(`✅ Modelos carregados com sucesso (${data?.length || 0} registros):`, data);
+    listaModelosReferencia = data || [];
+    popularSelectsModelosReferencia();
+  } catch (err) {
+    console.error("❌ Falha na requisição de modelos_referencia:", err);
+  }
+}
+
+function popularSelectsModelosReferencia() {
+  const preencherSelect = (selectId) => {
+    const el = document.getElementById(selectId);
+    if (!el) return;
+    const valorAtual = el.value;
+    el.innerHTML = '<option value="">-- Selecione o Modelo Base --</option>';
+    listaModelosReferencia.forEach(m => {
+      el.innerHTML += `<option value="${m.id}">${m.marca} ${m.modelo} (${m.ano_modelo || '2024'})</option>`;
+    });
+    if (valorAtual) el.value = valorAtual;
+  };
+
+  preencherSelect('cad-v-referencia');
+  preencherSelect('edit-v-referencia');
+}
+
+function aoSelecionarModeloReferencia(origem = 'cad') {
+  const refId = document.getElementById(`${origem}-v-referencia`)?.value;
+  const mod = listaModelosReferencia.find(m => String(m.id) === String(refId));
+  if (!mod) return;
+
+  const setInput = (campoId, val) => {
+    const el = document.getElementById(`${origem}-v-${campoId}`);
+    if (el) el.value = val;
+  };
+
+  setInput('marca', `${mod.marca} ${mod.modelo}`);
+  setInput('tanque', mod.tanque_litros || 45);
+  setInput('consumomin', mod.consumo_etanol_urbano || mod.consumo_gasolina_urbano || 10);
+  setInput('consumomax', mod.consumo_gasolina_rodoviario || 14);
+}
 
 async function handleCadVeiculo(e) {
   e.preventDefault();
 
-  const placa = document.getElementById('cad-v-placa').value.toUpperCase().trim();
+  const placa = document.getElementById('cad-v-placa')?.value.toUpperCase().trim();
   const idInformado = document.getElementById('cad-v-id')?.value?.toUpperCase().trim();
+
+  const refId = document.getElementById('cad-v-referencia')?.value || null;
+  const modeloSelecionado = listaModelosReferencia.find(m => String(m.id) === String(refId));
+
+  const marcaTexto = modeloSelecionado 
+    ? `${modeloSelecionado.marca} ${modeloSelecionado.modelo}`.trim() 
+    : (document.getElementById('cad-v-marca')?.value?.trim() || 'Não Identificado');
 
   const novoCarro = {
     nome_frota: idInformado || placa,
     placa: placa,
-    marca: document.getElementById('cad-v-marca').value.trim(),
-    tanque: parseFloat(document.getElementById('cad-v-tanque').value) || 0,
-    consumo_min: parseFloat(document.getElementById('cad-v-consumomin').value) || 0,
-    consumo_max: parseFloat(document.getElementById('cad-v-consumomax').value) || 0,
-    km_atual: parseFloat(document.getElementById('cad-v-kminicial').value) || 0,
+    marca: marcaTexto,
+    tanque: parseFloat(document.getElementById('cad-v-tanque')?.value) || 0,
+    consumo_min: parseFloat(document.getElementById('cad-v-consumomin')?.value) || 0,
+    consumo_max: parseFloat(document.getElementById('cad-v-consumomax')?.value) || 0,
+    km_atual: parseFloat(document.getElementById('cad-v-kminicial')?.value) || 0,
     tipo_frota: document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO',
+    modelo_referencia_id: refId ? Number(refId) : null,
     status: 'Disponivel',
     anomalias: ''
   };
@@ -689,6 +825,8 @@ async function handleCadVeiculo(e) {
     if (error) throw error;
 
     e.target.reset();
+    if (typeof toggleMotoristaExterno === 'function') toggleMotoristaExterno('cad');
+
     alert(`✅ Veículo [${novoCarro.placa}] cadastrado com sucesso!`);
     await carregarTodosDadosDoBanco();
   } catch (err) {
@@ -698,56 +836,71 @@ async function handleCadVeiculo(e) {
 }
 
 function abrirModalEditVeiculo(veiculoId) {
-  const v = veiculos.find(item =>
+  const v = (veiculos || []).find(item =>
     String(item.id) === String(veiculoId) ||
     String(item.uuid_veiculos) === String(veiculoId) ||
     String(item.placa) === String(veiculoId)
   );
 
   if (!v) {
-    console.error("Veículo não encontrado:", veiculoId);
+    console.error("Veículo não localizado para edição:", veiculoId);
     return;
   }
 
-  document.getElementById('edit-v-id').value = v.uuid_veiculos || v.id;
-  document.getElementById('modal-edit-v-title').innerText = v.placa || v.nome_frota || v.id;
-  document.getElementById('edit-v-placa').value = v.placa || '';
-  document.getElementById('edit-v-marca').value = v.marca || '';
-  document.getElementById('edit-v-tanque').value = v.tanque || 0;
-  document.getElementById('edit-v-consumomin').value = v.consumo_min || 0;
-  document.getElementById('edit-v-consumomax').value = v.consumo_max || 0;
-  document.getElementById('edit-v-kmatual').value = v.km_atual || 0;
-  document.getElementById('edit-v-status').value = v.status || 'Disponivel';
+  const setValor = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = (val !== undefined && val !== null) ? val : '';
+  };
+
+  const setText = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = txt || '';
+  };
+
+  setValor('edit-v-id', v.uuid_veiculos || v.id);
+  setText('modal-edit-v-title', v.placa || v.nome_frota || v.id);
+  setValor('edit-v-placa', v.placa);
+  setValor('edit-v-marca', v.marca);
+  setValor('edit-v-tanque', v.tanque || 0);
+  setValor('edit-v-consumomin', v.consumo_min || 0);
+  setValor('edit-v-consumomax', v.consumo_max || 0);
+  setValor('edit-v-kmatual', v.km_atual || 0);
+  setValor('edit-v-status', v.status || 'Disponivel');
+  setValor('edit-v-anomalias', v.anomalias || '');
+  setValor('edit-v-referencia', v.modelo_referencia_id || '');
 
   const selectTipo = document.getElementById('edit-v-tipofrota');
   if (selectTipo) {
     selectTipo.value = (v.tipo_frota || 'PROPRIO').toUpperCase();
   }
 
-  document.getElementById('edit-v-anomalias').value = v.anomalias || '';
-  document.getElementById('modal-edit-veiculo').classList.remove('hidden');
+  const modal = document.getElementById('modal-edit-veiculo');
+  if (modal) modal.classList.remove('hidden');
 }
 
 function fecharModalEditVeiculo() {
-  document.getElementById('modal-edit-veiculo').classList.add('hidden');
+  const modal = document.getElementById('modal-edit-veiculo');
+  if (modal) modal.classList.add('hidden');
 }
 
 async function handleSalvarEditVeiculo(e) {
   e.preventDefault();
-  const idChave = document.getElementById('edit-v-id').value;
-  const placaVal = document.getElementById('edit-v-placa').value.toUpperCase().trim();
-  const tipoFrotaVal = document.getElementById('edit-v-tipofrota')?.value || 'PROPRIO';
+  const idChave = document.getElementById('edit-v-id')?.value;
+  const placaVal = document.getElementById('edit-v-placa')?.value.toUpperCase().trim();
+  const refId = document.getElementById('edit-v-referencia')?.value || null;
+  const modeloSelecionado = listaModelosReferencia.find(m => String(m.id) === String(refId));
 
   const dadosAtualizados = {
     placa: placaVal,
-    marca: document.getElementById('edit-v-marca').value.trim(),
-    tanque: parseFloat(document.getElementById('edit-v-tanque').value) || 0,
-    consumo_min: parseFloat(document.getElementById('edit-v-consumomin').value) || 0,
-    consumo_max: parseFloat(document.getElementById('edit-v-consumomax').value) || 0,
-    km_atual: parseFloat(document.getElementById('edit-v-kmatual').value) || 0,
-    status: document.getElementById('edit-v-status').value,
-    tipo_frota: tipoFrotaVal,
-    anomalias: document.getElementById('edit-v-anomalias').value.trim()
+    marca: modeloSelecionado ? `${modeloSelecionado.marca} ${modeloSelecionado.modelo}` : (document.getElementById('edit-v-marca')?.value.trim() || undefined),
+    tanque: parseFloat(document.getElementById('edit-v-tanque')?.value) || 0,
+    consumo_min: parseFloat(document.getElementById('edit-v-consumomin')?.value) || 0,
+    consumo_max: parseFloat(document.getElementById('edit-v-consumomax')?.value) || 0,
+    km_atual: parseFloat(document.getElementById('edit-v-kmatual')?.value) || 0,
+    status: document.getElementById('edit-v-status')?.value || 'Disponivel',
+    tipo_frota: document.getElementById('edit-v-tipofrota')?.value || 'PROPRIO',
+    modelo_referencia_id: refId ? Number(refId) : null,
+    anomalias: document.getElementById('edit-v-anomalias')?.value.trim() || ''
   };
 
   try {
@@ -766,7 +919,7 @@ async function handleSalvarEditVeiculo(e) {
     }
 
     fecharModalEditVeiculo();
-    alert(`✅ Veículo ${dadosAtualizados.placa} atualizado com sucesso!`);
+    alert(`✅ Veículo [${dadosAtualizados.placa}] atualizado com sucesso!`);
     await carregarTodosDadosDoBanco();
   } catch (err) {
     console.error("Erro ao atualizar veículo:", err);
@@ -820,7 +973,7 @@ async function handleApagarVeiculo(veiculoId) {
 }
 
 // =========================================================================
-// 7. GESTÃO DE USUÁRIOS (CORRIGIDO)
+// 7. GESTÃO DE USUÁRIOS
 // =========================================================================
 
 function toggleVerSenhaEdicao() {
@@ -878,7 +1031,6 @@ async function handleCadUsuario(e) {
 }
 
 function abrirModalEditUsuario(usuarioId) {
-  // Comparação flexível para aceitar IDs numéricos, UUID ou string
   const u = usuarios.find(item => String(item.id) === String(usuarioId));
   if (!u) {
     console.error("Usuário não encontrado para edição:", usuarioId);
@@ -926,7 +1078,6 @@ async function handleSalvarEditUsuario(e) {
     return;
   }
 
-  // Validação simplificada: exige exatamente 11 dígitos e sem sequências repetidas
   if (!validarNumeroCNH(cnhInput)) {
     alert("⚠️ CNH inválida! Digite exatamente 11 dígitos numéricos válidos.");
     document.getElementById('edit-u-cnh')?.focus();
@@ -938,7 +1089,7 @@ async function handleSalvarEditUsuario(e) {
     email: document.getElementById('edit-u-email').value.trim().toLowerCase(),
     senha: document.getElementById('edit-u-senha').value.trim(),
     cnh: cnhInput.replace(/\D/g, ''),
-    status: 'Ativo' // Ativa automaticamente quando regularizada
+    status: 'Ativo'
   };
 
   try {
@@ -1147,6 +1298,7 @@ function renderTabelaUsuariosCad() {
   const tbody = document.getElementById('tabelaUsuariosCadastrados');
   if (!tbody) return;
   tbody.innerHTML = '';
+
   usuarios.forEach(u => {
     const tr = document.createElement('tr');
     tr.className = "hover:bg-slate-50 transition";
@@ -1301,9 +1453,7 @@ function selecionarRotaFim() {
     ) || {};
 
     const nomeExibicao = rota.nome_frota || v.nome_frota || v.identificador || rota.veiculo_id;
-    const consMin = Number(v.consumo_min) || 10;
-    const consMax = Number(v.consumo_max) || 14;
-    const medConsumo = ((consMin + consMax) / 2).toFixed(1);
+    const medConsumo = obterMediaConsumoEsperada(v, null, []);
 
     const infoCar = document.getElementById('fim-info-veiculo');
     if (infoCar) infoCar.innerText = `${nomeExibicao} [${v.placa || 'Sem Placa'}]`;
@@ -1315,7 +1465,7 @@ function selecionarRotaFim() {
     if (infoKm) infoKm.innerText = `${Number(rota.km_saida).toLocaleString('pt-BR')} km`;
 
     const infoConsumo = document.getElementById('fim-info-consumo-est');
-    if (infoConsumo) infoConsumo.innerText = `Média de ${medConsumo} km/L`;
+    if (infoConsumo) infoConsumo.innerText = `Média esperada: ${medConsumo} km/L`;
 
     if (detalhes) detalhes.classList.remove('hidden');
 
@@ -1330,7 +1480,7 @@ function selecionarRotaFim() {
   }
 }
 
-function abrirFinalizacaoDireta(vId) {
+function abrirFinalizacaoDireto(vId) {
   const rota = rotas.find(r =>
     (String(r.veiculo_id) === String(vId) || String(r.nome_frota) === String(vId) || String(r.id) === String(vId)) &&
     r.status === 'Em Uso'
@@ -1362,7 +1512,7 @@ function calcularKmPercorrido() {
       String(item.uuid_veiculos) === String(rota.veiculo_id) ||
       String(item.nome_frota) === String(rota.veiculo_id)
     ) || {};
-    const medConsumo = ((Number(v.consumo_min || 10) + Number(v.consumo_max || 14)) / 2);
+    const medConsumo = obterMediaConsumoEsperada(v, null, []);
     const litrosEst = (delta / medConsumo).toFixed(1);
     feedback.innerText = `Distância: ${delta} km (Consumo est.: ~${litrosEst} Litros)`;
     feedback.className = "text-[11px] text-brand-700 font-bold mt-1 block";
@@ -1506,7 +1656,7 @@ function exibirPopUpAlerta(rota, horasAbertas) {
           ${podeFinalizar ? "Lembrar Depois" : "Fechar Alerta"}
         </button>
         ${podeFinalizar ? `
-          <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDireta('${rota.veiculo_id}');" class="btn-alerta-finalizar">
+          <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDireto('${rota.veiculo_id}');" class="btn-alerta-finalizar">
             Finalizar Agora
           </button>
         ` : ''}
@@ -1577,6 +1727,9 @@ window.abrirModalEditVeiculo = abrirModalEditVeiculo;
 window.fecharModalEditVeiculo = fecharModalEditVeiculo;
 window.handleSalvarEditVeiculo = handleSalvarEditVeiculo;
 window.handleApagarVeiculo = handleApagarVeiculo;
+window.carregarModelosReferencia = carregarModelosReferencia;
+window.aoSelecionarModeloReferencia = aoSelecionarModeloReferencia;
+window.popularSelectsModelosReferencia = popularSelectsModelosReferencia;
 window.toggleVerSenhaEdicao = toggleVerSenhaEdicao;
 window.handleCadUsuario = handleCadUsuario;
 window.abrirModalEditUsuario = abrirModalEditUsuario;
@@ -1589,7 +1742,7 @@ window.calcularKmPercorrido = calcularKmPercorrido;
 window.toggleAnomaliaInput = toggleAnomaliaInput;
 window.filtrarHistorico = filtrarHistorico;
 window.abrirInicioDireto = abrirInicioDireto;
-window.abrirFinalizacaoDireta = abrirFinalizacaoDireta;
+window.abrirFinalizacaoDireta = abrirFinalizacaoDireto;
 
 // =========================================================================
 // INICIALIZAÇÃO
