@@ -509,8 +509,8 @@
                   <input type="password" id="cad-u-senha" required placeholder="••••••••" class="form-control" />
                 </div>
                 <div>
-                  <label class="form-label">Número CNH</label>
-                  <input type="text" id="cad-u-cnh" required placeholder="12345678900" class="form-control font-mono" />
+                  <label class="form-label">Número CNH (Opcional)</label>
+                  <input type="text" id="cad-u-cnh"  maxlength="11" pattern="\d{11}" placeholder="12345678900" oninput="this.value = this.value.replace(/[^0-9]/g, '')"   class="form-control font-mono">
                 </div>
               </div>
               <button type="submit" class="btn-primary">
@@ -660,7 +660,7 @@
           </div>
           <div>
             <label class="form-label">Número CNH</label>
-            <input type="text" id="edit-u-cnh" required class="form-control font-mono" />
+            <input type="text" id="cad-u-cnh"  maxlength="11" pattern="\d{11}" placeholder="12345678900" oninput="this.value = this.value.replace(/[^0-9]/g, '')"   class="form-control font-mono"
           </div>
         </div>
         <div>

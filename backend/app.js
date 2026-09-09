@@ -30,11 +30,26 @@ function verificarSessaoUsuario() {
     window.location.href = "login.html";
     return null;
   }
+
+  let sessao;
   try {
     return JSON.parse(sessaoRaw);
   } catch (e) {
     return { email: sessaoRaw };
   }
+
+  const ehAdmin = (sessao.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+
+  // Bloqueio contínuo: revoga o acesso caso o condutor não tenha 11 dígitos numéricos na CNH
+  if (!ehAdmin && !validarNumeroCNH(sessao.cnh)) {
+    alert("⛔ Acesso revogado: Seu cadastro possui uma CNH inválida ou pendente. Procure o Administrador.");
+    localStorage.removeItem('arvo_usuario_logado');
+    localStorage.removeItem('arvo_mobile_user');
+    window.location.href = "login.html";
+    return null;
+  }
+
+  return sessao;
 }
 
 function fazerLogout() {
@@ -124,7 +139,7 @@ function setModule(mod) {
 function setSubTab(moduleName, tab) {
   if (moduleName === 'operacao') {
     const abasOperacao = ['saida', 'retorno', 'minhas-rotas'];
-    
+
     abasOperacao.forEach(t => {
       const view = document.getElementById(`view-${t}`) || document.getElementById(`tab-${t}`);
       const btn = document.getElementById(`subtab-${t}`) || document.getElementById(`nav-btn-${t}`);
@@ -157,7 +172,7 @@ function setSubTab(moduleName, tab) {
 
   } else {
     const abasGestao = ['dashboard', 'cad-veiculos', 'cad-usuarios'];
-    
+
     abasGestao.forEach(t => {
       const view = document.getElementById(`view-${t}`);
       const btn = document.getElementById(`subtab-${t}`);
@@ -296,9 +311,9 @@ async function handleInicioRota(e) {
     if (!errRes && reservasCarro) {
       const reservaAtiva = reservasCarro.find(r => {
         const bateuCarro = String(r.veiculo_id) === String(nomeCarro) ||
-                           String(r.veiculo_id) === String(veiculo.id) ||
-                           String(r.veiculo_id) === String(placaCarro) ||
-                           String(r.placa) === String(placaCarro);
+          String(r.veiculo_id) === String(veiculo.id) ||
+          String(r.veiculo_id) === String(placaCarro) ||
+          String(r.placa) === String(placaCarro);
 
         const ini = new Date(r.data_inicio).getTime();
         const fim = new Date(r.data_fim).getTime();
@@ -410,16 +425,16 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   const abastsCarro = (listaAbastecimentos || [])
     .filter(a => {
       const bateuVeiculo = (placa && String(a.placa) === String(placa)) ||
-                           (vId && String(a.veiculo_id) === String(vId)) ||
-                           (uuid && String(a.uuid_veiculos) === String(uuid)) ||
-                           (nomeFrota && String(a.veiculo_id) === String(nomeFrota));
+        (vId && String(a.veiculo_id) === String(vId)) ||
+        (uuid && String(a.uuid_veiculos) === String(uuid)) ||
+        (nomeFrota && String(a.veiculo_id) === String(nomeFrota));
       return bateuVeiculo && Number(a.km_atual) > 0 && Number(a.quantidade_litros) > 0;
     })
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
 
   const combAtual = tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum';
 
-  const abastsTipo = abastsCarro.filter(a => 
+  const abastsTipo = abastsCarro.filter(a =>
     (a.tipo_combustivel || '').toUpperCase() === combAtual.toUpperCase()
   );
 
@@ -453,7 +468,7 @@ async function handleFimRota(e) {
   const btn = document.getElementById('btn-submit-fim');
   const rotaId = document.getElementById('form-fim-rota-select')?.value;
   const kmFinal = parseFloat(document.getElementById('form-fim-km')?.value);
-  
+
   const selectDestino = document.getElementById('form-fim-destino')?.value;
   const textoDestino = document.getElementById('form-fim-destino-texto')?.value?.trim().toUpperCase() || '';
   const destinoFinal = selectDestino === 'OUTRO' ? textoDestino : selectDestino;
@@ -526,7 +541,7 @@ async function handleFimRota(e) {
   const tanqueAnterior = (veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined)
     ? Number(veiculo.tanque_virtual)
     : capTanque;
-  
+
   const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosEst).toFixed(2));
   const dataHoraRetornoAtual = new Date().toISOString();
   const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str));
@@ -570,12 +585,16 @@ async function handleFimRota(e) {
     }
 
     try {
+      const condicoesReserva = [`veiculo_id.eq.${rota.veiculo_id}`];
+      if (veiculo.uuid_veiculos && isUUID(veiculo.uuid_veiculos)) {
+        condicoesReserva.push(`uuid_veiculos.eq.${veiculo.uuid_veiculos}`);
+      }
       await db.from('reservas').update({ status: 'CONCLUIDA' })
-        .eq('veiculo_id', rota.veiculo_id)
+        .or(condicoesReserva.join(','))
         .eq('responsavel', rota.responsavel)
         .eq('status', 'CONFIRMADA');
     } catch (resErr) {
-      console.warn("Aviso reservas:", resErr);
+      console.warn("Aviso ao concluir reservas:", resErr);
     }
 
     e.target.reset();
@@ -601,7 +620,7 @@ function formatarDataHora(dataIso) {
   if (!dataIso) return '-';
   const data = new Date(dataIso);
   if (isNaN(data.getTime())) return dataIso;
-  
+
   return data.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -617,7 +636,7 @@ function formatarDataHora(dataIso) {
 
 async function handleCadVeiculo(e) {
   e.preventDefault();
-  
+
   const placa = document.getElementById('cad-v-placa').value.toUpperCase().trim();
   const idInformado = document.getElementById('cad-v-id')?.value?.toUpperCase().trim();
 
@@ -668,7 +687,7 @@ function abrirModalEditVeiculo(veiculoId) {
   document.getElementById('edit-v-consumomax').value = v.consumo_max || 0;
   document.getElementById('edit-v-kmatual').value = v.km_atual || 0;
   document.getElementById('edit-v-status').value = v.status || 'Disponivel';
-  
+
   const selectTipo = document.getElementById('edit-v-tipofrota');
   if (selectTipo) {
     selectTipo.value = (v.tipo_frota || 'PROPRIO').toUpperCase();
@@ -725,9 +744,9 @@ async function handleSalvarEditVeiculo(e) {
 }
 
 async function handleApagarVeiculo(veiculoId) {
-  const veic = veiculos.find(v => 
-    String(v.id) === String(veiculoId) || 
-    String(v.uuid_veiculos) === String(veiculoId) || 
+  const veic = veiculos.find(v =>
+    String(v.id) === String(veiculoId) ||
+    String(v.uuid_veiculos) === String(veiculoId) ||
     String(v.placa) === String(veiculoId)
   );
 
@@ -770,7 +789,7 @@ async function handleApagarVeiculo(veiculoId) {
 }
 
 // =========================================================================
-// 7. GESTÃO DE USUÁRIOS
+// 7. GESTÃO DE USUÁRIOS (CORRIGIDO)
 // =========================================================================
 
 function toggleVerSenhaEdicao() {
@@ -827,6 +846,7 @@ async function handleCadUsuario(e) {
 }
 
 function abrirModalEditUsuario(usuarioId) {
+  // Comparação flexível para aceitar IDs numéricos, UUID ou string
   const u = usuarios.find(item => String(item.id) === String(usuarioId));
   if (!u) {
     console.error("Usuário não encontrado:", usuarioId);
@@ -882,13 +902,18 @@ async function handleSalvarEditUsuario(e) {
   };
 
   try {
-    const { error } = await db.from('usuarios').update(dadosAtualizados).eq('id', id);
+    const { error } = await db
+      .from('usuarios')
+      .update(dadosAtualizados)
+      .eq('id', id);
+
     if (error) throw error;
 
     fecharModalEditUsuario();
     alert("Condutor atualizado e ATIVADO com sucesso!");
     await carregarTodosDadosDoBanco();
   } catch (err) {
+    console.error("Erro ao atualizar usuário:", err);
     alert("Erro ao atualizar usuário: " + err.message);
   }
 }
@@ -967,7 +992,7 @@ function renderFleetGrid() {
 
     const card = document.createElement('div');
     card.className = `bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-slate-300 transition ${isForaUso || isManutencao ? 'opacity-75 bg-slate-50' : ''}`;
-    
+
     card.innerHTML = `
       <div>
         <div class="flex items-center justify-between mb-2">
@@ -1004,13 +1029,13 @@ function renderFleetGrid() {
       </div>
 
       <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
-        ${isEmUso ? 
-          `<button onclick="abrirFinalizacaoDireta('${idAcao}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` : 
-          (isForaUso || isManutencao ? 
-            `<span class="text-xs font-bold text-slate-400 cursor-not-allowed">Indisponível</span>` : 
-            `<button onclick="abrirInicioDireto('${idAcao}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
-          )
-        }
+        ${isEmUso ?
+        `<button onclick="abrirFinalizacaoDireta('${idAcao}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` :
+        (isForaUso || isManutencao ?
+          `<span class="text-xs font-bold text-slate-400 cursor-not-allowed">Indisponível</span>` :
+          `<button onclick="abrirInicioDireto('${idAcao}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
+        )
+      }
       </div>
     `;
     container.appendChild(card);
@@ -1021,7 +1046,7 @@ function renderTabelaVeiculosCad() {
   const tbody = document.getElementById('tabelaVeiculosCadastrados');
   if (!tbody) return;
   tbody.innerHTML = '';
-  
+
   veiculos.forEach(v => {
     const nomeCarroArvo = v.nome_frota || v.identificador || v.placa || v.id || '-';
     const isEmUso = v.status === 'Em Uso';
@@ -1045,7 +1070,7 @@ function renderTabelaVeiculosCad() {
 
     const tr = document.createElement('tr');
     tr.className = `hover:bg-slate-50 transition ${isForaUso ? 'opacity-60 bg-slate-50' : ''}`;
-    
+
     tr.innerHTML = `
       <td class="py-3 px-3 font-extrabold text-slate-900">${nomeCarroArvo}</td>
       <td class="py-3 px-3">${v.marca || '-'}</td>
@@ -1098,6 +1123,19 @@ function renderTabelaUsuariosCad() {
 
     const tr = document.createElement('tr');
     tr.className = "hover:bg-slate-50 transition";
+
+    const ehAdmin = (u.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+    const cnhValida = ehAdmin || validarNumeroCNH(u.cnh);
+
+    let badgeStatus;
+    if (!cnhValida) {
+      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700" title="CNH não possui 11 dígitos numéricos válidos">CNH Inválida</span>`;
+    } else if (u.status === 'Inativo') {
+      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Inativo</span>`;
+    } else {
+      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Ativo</span>`;
+    }
+
     tr.innerHTML = `
       <td class="py-3 px-4 font-bold text-slate-800">${u.nome}</td>
       <td class="py-3 px-4 text-slate-600">${u.email}</td>
