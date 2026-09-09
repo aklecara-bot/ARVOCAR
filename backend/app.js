@@ -801,21 +801,42 @@ async function handleCadVeiculo(e) {
 
   const refId = document.getElementById('cad-v-referencia')?.value || null;
   const modeloSelecionado = listaModelosReferencia.find(m => String(m.id) === String(refId));
+  const tipoFrota = document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO';
 
   const marcaTexto = modeloSelecionado 
     ? `${modeloSelecionado.marca} ${modeloSelecionado.modelo}`.trim() 
     : (document.getElementById('cad-v-marca')?.value?.trim() || 'Não Identificado');
 
+  const motoristaAutorizado = tipoFrota === 'EXTERNO'
+    ? document.getElementById('cad-v-motorista')?.value?.trim().toLowerCase()
+    : null;
+
+  if (tipoFrota === 'EXTERNO' && !motoristaAutorizado) {
+    alert("⚠️ Selecione o motorista exclusivo para este veículo externo.");
+    return;
+  }
+
+  const gasUrb = parseFloat(document.getElementById('cad-v-gas-urb')?.value) || 0;
+  const gasRod = parseFloat(document.getElementById('cad-v-gas-rod')?.value) || 0;
+  const etaUrb = parseFloat(document.getElementById('cad-v-eta-urb')?.value) || 0;
+  const etaRod = parseFloat(document.getElementById('cad-v-eta-rod')?.value) || 0;
+
   const novoCarro = {
     nome_frota: idInformado || placa,
     placa: placa,
     marca: marcaTexto,
-    tanque: parseFloat(document.getElementById('cad-v-tanque')?.value) || 0,
-    consumo_min: parseFloat(document.getElementById('cad-v-consumomin')?.value) || 0,
-    consumo_max: parseFloat(document.getElementById('cad-v-consumomax')?.value) || 0,
-    km_atual: parseFloat(document.getElementById('cad-v-kminicial')?.value) || 0,
-    tipo_frota: document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO',
     modelo_referencia_id: refId ? Number(refId) : null,
+    ano_modelo: parseInt(document.getElementById('cad-v-ano')?.value) || null,
+    tanque: parseFloat(document.getElementById('cad-v-tanque')?.value) || 0,
+    km_atual: parseFloat(document.getElementById('cad-v-kminicial')?.value) || 0,
+    consumo_gasolina_urbano: gasUrb,
+    consumo_gasolina_rodoviario: gasRod,
+    consumo_etanol_urbano: etaUrb,
+    consumo_etanol_rodoviario: etaRod,
+    consumo_min: etaUrb || gasUrb || 10,
+    consumo_max: gasRod || 14,    
+    tipo_frota: dtipoFrota,
+    motorista_autorizado: motoristaAutorizado || null,
     status: 'Disponivel',
     anomalias: ''
   };
@@ -825,8 +846,7 @@ async function handleCadVeiculo(e) {
     if (error) throw error;
 
     e.target.reset();
-    if (typeof toggleMotoristaExterno === 'function') toggleMotoristaExterno('cad');
-
+    toggleMotoristaExterno('cad');
     alert(`✅ Veículo [${novoCarro.placa}] cadastrado com sucesso!`);
     await carregarTodosDadosDoBanco();
   } catch (err) {
@@ -835,7 +855,39 @@ async function handleCadVeiculo(e) {
   }
 }
 
+function popularSelectMotoristas(selectId, valorSelecionado = '') {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Selecione o condutor autorizado...</option>';
+
+  (usuarios || []).forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = (u.email || '').toLowerCase().trim();
+    opt.textContent = `${u.nome || u.email} (${u.email})`;
+    if (valorSelecionado && opt.value === valorSelecionado.toLowerCase().trim()) {
+      opt.selected = true;
+    }
+    sel.appendChild(opt);
+  });
+}
+
+function toggleMotoristaExterno(prefixo) {
+  const tipo = document.getElementById(`${prefixo}-v-tipofrota`)?.value;
+  const box = document.getElementById(`box-${prefixo}-motorista-externo`);
+  if (!box) return;
+
+  if (tipo === 'EXTERNO') {
+    box.classList.remove('hidden');
+    popularSelectMotoristas(`${prefixo}-v-motorista`);
+  } else {
+    box.classList.add('hidden');
+    const sel = document.getElementById(`${prefixo}-v-motorista`);
+    if (sel) sel.value = '';
+  }
+}
+
 function abrirModalEditVeiculo(veiculoId) {
+  // 1. Localização flexível do veículo
   const v = (veiculos || []).find(item =>
     String(item.id) === String(veiculoId) ||
     String(item.uuid_veiculos) === String(veiculoId) ||
@@ -847,7 +899,8 @@ function abrirModalEditVeiculo(veiculoId) {
     return;
   }
 
-  const setValor = (id, val) => {
+  // Funções seguras de atribuição
+  const setVal = (id, val) => {
     const el = document.getElementById(id);
     if (el) el.value = (val !== undefined && val !== null) ? val : '';
   };
@@ -857,26 +910,56 @@ function abrirModalEditVeiculo(veiculoId) {
     if (el) el.innerText = txt || '';
   };
 
-  setValor('edit-v-id', v.uuid_veiculos || v.id);
+  // 2. Preenchimento seguro dos identificadores e dados básicos
+  setVal('edit-v-id', v.uuid_veiculos || v.id);
   setText('modal-edit-v-title', v.placa || v.nome_frota || v.id);
-  setValor('edit-v-placa', v.placa);
-  setValor('edit-v-marca', v.marca);
-  setValor('edit-v-tanque', v.tanque || 0);
-  setValor('edit-v-consumomin', v.consumo_min || 0);
-  setValor('edit-v-consumomax', v.consumo_max || 0);
-  setValor('edit-v-kmatual', v.km_atual || 0);
-  setValor('edit-v-status', v.status || 'Disponivel');
-  setValor('edit-v-anomalias', v.anomalias || '');
-  setValor('edit-v-referencia', v.modelo_referencia_id || '');
+  setVal('edit-v-placa', v.placa);
+  setVal('edit-v-marca', v.marca);
+  setVal('edit-v-ano', v.ano_modelo || '');
+  setVal('edit-v-tanque', v.tanque || 0);
+  setVal('edit-v-kmatual', v.km_atual || 0);
+  setVal('edit-v-status', v.status || 'Disponivel');
+  setVal('edit-v-anomalias', v.anomalias || '');
 
+  // 3. Preenchimento de modelos homologados e consumos técnicos
+  setVal('edit-v-referencia', v.modelo_referencia_id || '');
+  setVal('edit-v-consumomin', v.consumo_min || 0);
+  setVal('edit-v-consumomax', v.consumo_max || 0);
+  setVal('edit-v-gas-urb', v.consumo_gasolina_urbano || '');
+  setVal('edit-v-gas-rod', v.consumo_gasolina_rodoviario || '');
+  setVal('edit-v-eta-urb', v.consumo_etanol_urbano || '');
+  setVal('edit-v-eta-rod', v.consumo_etanol_rodoviario || '');
+
+  // 4. Tratamento do tipo de frota e condutor externo
   const selectTipo = document.getElementById('edit-v-tipofrota');
   if (selectTipo) {
-    selectTipo.value = (v.tipo_frota || 'PROPRIO').toUpperCase();
+    const tipo = (v.tipo_frota || 'PROPRIO').toUpperCase();
+    selectTipo.value = tipo;
+    if (typeof toggleMotoristaExterno === 'function') {
+      toggleMotoristaExterno('edit');
+    }
+    if (tipo === 'EXTERNO' && typeof popularSelectMotoristas === 'function') {
+      popularSelectMotoristas('edit-v-motorista', v.motorista_autorizado || '');
+    }
   }
 
+  // 5. Abertura da janela modal
   const modal = document.getElementById('modal-edit-veiculo');
-  if (modal) modal.classList.remove('hidden');
+  if (modal) {
+    modal.classList.remove('hidden');
+  } else {
+    console.error("Elemento 'modal-edit-veiculo' não encontrado no DOM.");
+  }
 }
+
+function fecharModalEditVeiculo() {
+  const modal = document.getElementById('modal-edit-veiculo');
+  if (modal) modal.classList.add('hidden');
+}
+
+// Garante disponibilidade global no escopo da janela
+
+
 
 function fecharModalEditVeiculo() {
   const modal = document.getElementById('modal-edit-veiculo');
@@ -888,19 +971,60 @@ async function handleSalvarEditVeiculo(e) {
   const idChave = document.getElementById('edit-v-id')?.value;
   const placaVal = document.getElementById('edit-v-placa')?.value.toUpperCase().trim();
   const refId = document.getElementById('edit-v-referencia')?.value || null;
-  const modeloSelecionado = listaModelosReferencia.find(m => String(m.id) === String(refId));
+  const tipoFrotaVal = document.getElementById('edit-v-tipofrota')?.value || 'PROPRIO';
+
+  // 1. Validação de condutor exclusivo se o carro for de frota externa
+  const motoristaVal = tipoFrotaVal === 'EXTERNO'
+    ? document.getElementById('edit-v-motorista')?.value?.trim().toLowerCase()
+    : null;
+
+  if (tipoFrotaVal === 'EXTERNO' && !motoristaVal) {
+    alert("⚠️ Selecione o motorista autorizado para o veículo externo.");
+    return;
+  }
+
+  // 2. Localização do modelo base no catálogo para montar a descrição da marca/modelo
+  const modeloSelecionado = (typeof listaModelosReferencia !== 'undefined' && Array.isArray(listaModelosReferencia))
+    ? listaModelosReferencia.find(m => String(m.id) === String(refId))
+    : null;
+
+  const marcaTexto = modeloSelecionado 
+    ? `${modeloSelecionado.marca} ${modeloSelecionado.modelo}`.trim() 
+    : (document.getElementById('edit-v-marca')?.value?.trim() || undefined);
+
+  // 3. Captura dos consumos técnicos detalhados (com fallback para os inputs legados de min/max)
+  const inputGasUrb = document.getElementById('edit-v-gas-urb');
+  const inputGasRod = document.getElementById('edit-v-gas-rod');
+  const inputEtaUrb = document.getElementById('edit-v-eta-urb');
+  const inputEtaRod = document.getElementById('edit-v-eta-rod');
+
+  const gasUrb = inputGasUrb ? parseFloat(inputGasUrb.value) || 0 : 0;
+  const gasRod = inputGasRod ? parseFloat(inputGasRod.value) || 0 : 0;
+  const etaUrb = inputEtaUrb ? parseFloat(inputEtaUrb.value) || 0 : 0;
+  const etaRod = inputEtaRod ? parseFloat(inputEtaRod.value) || 0 : 0;
+
+  const consumoMinLegado = parseFloat(document.getElementById('edit-v-consumomin')?.value) || 0;
+  const consumoMaxLegado = parseFloat(document.getElementById('edit-v-consumomax')?.value) || 0;
 
   const dadosAtualizados = {
     placa: placaVal,
-    marca: modeloSelecionado ? `${modeloSelecionado.marca} ${modeloSelecionado.modelo}` : (document.getElementById('edit-v-marca')?.value.trim() || undefined),
+    marca: marcaTexto,
+    modelo_referencia_id: refId ? Number(refId) : null,
+    ano_modelo: parseInt(document.getElementById('edit-v-ano')?.value) || null,
     tanque: parseFloat(document.getElementById('edit-v-tanque')?.value) || 0,
-    consumo_min: parseFloat(document.getElementById('edit-v-consumomin')?.value) || 0,
-    consumo_max: parseFloat(document.getElementById('edit-v-consumomax')?.value) || 0,
     km_atual: parseFloat(document.getElementById('edit-v-kmatual')?.value) || 0,
     status: document.getElementById('edit-v-status')?.value || 'Disponivel',
-    tipo_frota: document.getElementById('edit-v-tipofrota')?.value || 'PROPRIO',
-    modelo_referencia_id: refId ? Number(refId) : null,
-    anomalias: document.getElementById('edit-v-anomalias')?.value.trim() || ''
+    tipo_frota: tipoFrotaVal,
+    motorista_autorizado: motoristaVal || null,
+    anomalias: document.getElementById('edit-v-anomalias')?.value.trim() || '',
+    // Novos campos da tabela modelos_referencia
+    consumo_gasolina_urbano: gasUrb || (modeloSelecionado?.consumo_gasolina_urbano ?? null),
+    consumo_gasolina_rodoviario: gasRod || (modeloSelecionado?.consumo_gasolina_rodoviario ?? null),
+    consumo_etanol_urbano: etaUrb || (modeloSelecionado?.consumo_etanol_urbano ?? null),
+    consumo_etanol_rodoviario: etaRod || (modeloSelecionado?.consumo_etanol_rodoviario ?? null),
+    // Retrocompatibilidade garantida para telas antigas
+    consumo_min: consumoMinLegado || etaUrb || gasUrb || 10,
+    consumo_max: consumoMaxLegado || gasRod || 14
   };
 
   try {

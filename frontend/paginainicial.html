@@ -467,7 +467,12 @@
             <option value="EXTERNO">Uso Esporádico / Externo</option>
           </select>
         </div>
-
+        <div id="box-cad-motorista-externo" class="hidden">
+          <label class="form-label text-indigo-700">Motorista Autorizado (Exclusivo)</label>
+          <select id="cad-v-motorista" class="form-control font-bold border-indigo-300">
+            <option value="">Selecione o condutor autorizado...</option>
+          </select>
+        </div>
         <button type="submit" class="btn-primary">
           <i class="ph-bold ph-plus"></i> Salvar Veículo        
         </button>
@@ -635,6 +640,12 @@
           <select id="edit-v-tipofrota" class="form-control font-bold">
             <option value="PROPRIO">Frota Regular</option>
             <option value="EXTERNO">Uso Esporádico / Externo</option>
+          </select>
+        </div>
+        <div id="box-edit-motorista-externo" class="hidden">
+          <label class="block text-xs font-bold text-indigo-700 mb-1">Motorista Autorizado (Exclusivo)</label>
+          <select id="edit-v-motorista" class="w-full bg-white border border-indigo-300 rounded-lg px-3 py-2 text-xs font-bold">
+            <option value="">Selecione o condutor autorizado...</option>
           </select>
         </div>
         <div>
