@@ -487,9 +487,13 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   let etaUrb = Number(veiculo?.consumo_etanol_urbano || 0);
   let etaRod = Number(veiculo?.consumo_etanol_rodoviario || 0);
 
-  // Se não estiverem no veículo, busca do catálogo de referência homologado
-  if ((!gasUrb || !gasRod) && veiculo?.modelo_referencia_id && Array.isArray(listaModelosReferencia)) {
-    const modeloHomologado = listaModelosReferencia.find(m => String(m.id) === String(veiculo.modelo_referencia_id));
+  // Se não estiverem no veículo, busca do catálogo de referência homologado de forma segura
+  const modelosRef = (typeof listaModelosReferencia !== 'undefined' && Array.isArray(listaModelosReferencia))
+    ? listaModelosReferencia
+    : [];
+
+  if ((!gasUrb || !gasRod) && veiculo?.modelo_referencia_id && modelosRef.length > 0) {
+    const modeloHomologado = modelosRef.find(m => String(m.id) === String(veiculo.modelo_referencia_id));
     if (modeloHomologado) {
       gasUrb = Number(modeloHomologado.consumo_gasolina_urbano || 0);
       gasRod = Number(modeloHomologado.consumo_gasolina_rodoviario || 0);
@@ -511,13 +515,16 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   let cMin = Number(veiculo?.consumo_min);
   let cMax = Number(veiculo?.consumo_max);
 
+  // Tratamento contra valores vazios, zerados ou NaN
   cMin = (!cMin || cMin <= 0 || isNaN(cMin)) ? 10 : cMin;
   cMax = (!cMax || cMax <= 0 || isNaN(cMax)) ? 14 : cMax;
 
   let mediaFabricante = (cMin + cMax) / 2;
   if (ehEtanol) mediaFabricante = mediaFabricante * 0.7;
 
-  return Number(Math.max(3, mediaFabricante).toFixed(2));
+  // 6. Piso de segurança absoluto: nunca retorna zero, negativo ou NaN
+  const mediaFinal = Number(Math.max(3, mediaFabricante).toFixed(2));
+  return (isNaN(mediaFinal) || mediaFinal <= 0) ? (ehEtanol ? 8.5 : 12.0) : mediaFinal;
 }
 
 async function handleFimRota(e) {
