@@ -65,6 +65,7 @@ async function carregarMetricasFinanceiras() {
     const abastecimentos = resAbast.data || [];
     const rotas = resRotas.data || [];
     const veiculos = resVeiculos.data || [];
+    popularSelectsFormulariosFinanceiros(veiculos);
 
     // 2. Cálculos Gerais Consolidados
     processarTotaisGerais(abastecimentos, rotas);
@@ -242,3 +243,64 @@ function renderizarAuditoriaCupons(abastecimentos, veiculos) {
     tbody.appendChild(tr);
   });
 }
+
+// =========================================================================
+// CONTROLE DOS MODAIS POPUP E POVOAMENTO DOS CARROS
+// =========================================================================
+
+// Variável de cache para garantir que os selects sempre tenham os dados
+let cacheListaVeiculos = [];
+
+function abrirModalContratoAluguel() {
+  if (cacheListaVeiculos.length > 0) popularSelectsFormulariosFinanceiros(cacheListaVeiculos);
+  document.getElementById('modal-contrato-aluguel')?.classList.remove('hidden');
+}
+
+function fecharModalContratoAluguel() {
+  document.getElementById('modal-contrato-aluguel')?.classList.add('hidden');
+  document.getElementById('formContratoAluguel')?.reset();
+}
+
+function abrirModalCustosSeguros() {
+  if (cacheListaVeiculos.length > 0) popularSelectsFormulariosFinanceiros(cacheListaVeiculos);
+  document.getElementById('modal-custos-seguros')?.classList.remove('hidden');
+}
+
+function fecharModalCustosSeguros() {
+  document.getElementById('modal-custos-seguros')?.classList.add('hidden');
+  document.getElementById('formCustosSeguros')?.reset();
+}
+
+// Povoa os selects nos modais popup com os carros ativos do banco
+function popularSelectsFormulariosFinanceiros(veiculos) {
+  cacheListaVeiculos = veiculos || [];
+  const selAluguel = document.getElementById('aluguel-veiculo');
+  const selSeguro = document.getElementById('seguro-veiculo');
+
+  if (!selAluguel && !selSeguro) return;
+
+  if (cacheListaVeiculos.length === 0) {
+    if (selAluguel) selAluguel.innerHTML = '<option value="">Nenhum veículo disponível</option>';
+    if (selSeguro) selSeguro.innerHTML = '<option value="">Nenhum veículo disponível</option>';
+    return;
+  }
+
+  let options = '<option value="">Selecione o veículo...</option>';
+  cacheListaVeiculos.forEach(v => {
+    const nome = v.nome_frota || v.id;
+    const placa = v.placa ? `[${v.placa}]` : '';
+    const marca = v.marca ? `- ${v.marca}` : '';
+    const identificador = v.placa || v.id;
+    options += `<option value="${identificador}">${nome} ${marca} ${placa}</option>`;
+  });
+
+  if (selAluguel) selAluguel.innerHTML = options;
+  if (selSeguro) selSeguro.innerHTML = options;
+}
+
+// Expõe para o escopo global
+window.abrirModalContratoAluguel = abrirModalContratoAluguel;
+window.fecharModalContratoAluguel = fecharModalContratoAluguel;
+window.abrirModalCustosSeguros = abrirModalCustosSeguros;
+window.fecharModalCustosSeguros = fecharModalCustosSeguros;
+window.popularSelectsFormulariosFinanceiros = popularSelectsFormulariosFinanceiros;

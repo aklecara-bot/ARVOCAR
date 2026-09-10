@@ -580,100 +580,115 @@
       </section>
 
       <!-- 4. Aba Adjacente: Gestão de Manutenções Preventivas -->
-      <section id="view-manutencao" class="hidden space-y-6">
-        <div class="card-panel">
-          <div class="card-header-bar">
-            <div class="card-icon-box" style="background-color: #dcfce7; color: #15803d;">
-              <i class="ph-bold ph-wrench text-xl"></i>
-            </div>
-            <div>
-              <h3 class="card-title">Confirmação de Manutenção & Troca de Fluidos</h3>
-              <p class="card-subtitle">Registre trocas de óleo, pneus e revisões para zerar os contadores preventivos</p>
-            </div>
+  <section id="view-manutencao" class="hidden space-y-6">
+    <div class="card-panel">
+      <div class="card-header-bar">
+        <div class="card-icon-box" style="background-color: #dcfce7; color: #15803d;">
+          <i class="ph-bold ph-wrench text-xl"></i>
+        </div>
+        <div>
+          <h3 class="card-title">Confirmação de Manutenção & Troca de Fluidos</h3>
+          <p class="card-subtitle">Registre manutenções, peças e anexe a nota fiscal correspondente</p>
+        </div>
+      </div>
+
+      <form id="form-registro-manutencao-aba" onsubmit="salvarConfirmacaoManutencaoAba(event)" class="space-y-4">
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Veículo *</label>
+            <select id="manut-aba-veiculo" required onchange="atualizarKmManutencaoAba()" class="form-control font-bold bg-white">
+              <option value="">Selecione o veículo...</option>
+            </select>
           </div>
 
-          <form id="form-registro-manutencao-aba" onsubmit="salvarConfirmacaoManutencaoAba(event)" class="space-y-4">
-            <div class="form-grid-2">
-              <div>
-                <label class="form-label">Veículo</label>
-                <select id="manut-aba-veiculo" required onchange="atualizarKmManutencaoAba()" class="form-control font-bold bg-white">
-                  <option value="">Selecione o veículo...</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="form-label">Serviço Realizado</label>
-                <select id="manut-aba-item" required class="form-control font-bold bg-white">
-                  <option value="Óleo & Filtros">Óleo & Filtros (Ciclo 10.000 km)</option>
-                  <option value="Pastilhas de Freio">Pastilhas de Freio (Ciclo 25.000 km)</option>
-                  <option value="Pneus">Troca de Pneus / Rodízio (Ciclo 45.000 km)</option>
-                  <option value="Correia Dentada">Correia Dentada (Ciclo 50.000 km)</option>
-                  <option value="Fluidos Gerais">Fluidos Gerais / Radiador</option>
-                  <option value="Outros">Outras Intervenções Mecânicas</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label class="form-label">KM no Momento da Troca</label>
-                <input type="number" id="manut-aba-km" required min="0" placeholder="Ex: 50200" class="form-control font-mono font-bold" />
-              </div>
-
-              <div>
-                <label class="form-label">Valor Total (R$)</label>
-                <input type="number" step="0.01" id="manut-aba-valor" required placeholder="0,00" class="form-control font-mono" />
-              </div>
-
-              <div>
-                <label class="form-label">Oficina / Estabelecimento</label>
-                <input type="text" id="manut-aba-oficina" placeholder="Ex: Mecânica Silva..." class="form-control uppercase" />
-              </div>
-            </div>
-
-            <div>
-              <label class="form-label">Observações do Serviço</label>
-              <textarea id="manut-aba-obs" rows="2" placeholder="Especificações do óleo, marca de filtros, notas adicionais..." class="form-control form-textarea"></textarea>
-            </div>
-
-            <button type="submit" id="btn-submit-manut-aba" class="btn-primary">
-              <i class="ph-bold ph-check"></i> Registrar e Atualizar Contadores
-            </button>
-          </form>
+          <div>
+            <label class="form-label">Serviço Realizado *</label>
+            <select id="manut-aba-item" required class="form-control font-bold bg-white">
+              <option value="Óleo & Filtros">Óleo & Filtros (Ciclo 10.000 km)</option>
+              <option value="Pastilhas de Freio">Pastilhas de Freio (Ciclo 25.000 km)</option>
+              <option value="Pneus">Troca de Pneus / Rodízio (Ciclo 45.000 km)</option>
+              <option value="Correia Dentada">Correia Dentada (Ciclo 50.000 km)</option>
+              <option value="Fluidos Gerais">Fluidos Gerais / Radiador</option>
+              <option value="Outros">Outras Intervenções Mecânicas</option>
+            </select>
+          </div>
         </div>
 
-        <!-- Tabela Histórica de Manutenções -->
-        <div class="card-panel p-0 overflow-hidden flex flex-col">
-          <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <div>
-              <h3 class="card-title text-sm">Histórico de Manutenções Confirmadas</h3>
-              <p class="card-subtitle">Registro histórico para cálculo de TCO e controle de revisões</p>
-            </div>
-            <button type="button" onclick="carregarHistoricoManutencoes()" class="btn-nav-action bg-slate-200 text-slate-700 hover:bg-slate-300 border-none text-xs">
-              <i class="ph-bold ph-arrows-clockwise text-sm"></i> Atualizar
-            </button>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="form-label">KM no Momento da Troca *</label>
+            <input type="number" id="manut-aba-km" required min="0" placeholder="Ex: 50200" class="form-control font-mono font-bold" />
           </div>
-          <div class="table-wrapper flex-1">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Placa / Veículo</th>
-                  <th>Serviço</th>
-                  <th>KM Troca</th>
-                  <th>Próxima Revisão</th>
-                  <th>Oficina</th>
-                </tr>
-              </thead>
-              <tbody id="grid-historico-manutencoes">
-                <tr>
-                  <td colspan="6" class="py-8 text-center text-slate-400 font-medium">Carregando manutenções...</td>
-                </tr>
-              </tbody>
-            </table>
+
+          <div>
+            <label class="form-label">Valor Total (R$) *</label>
+            <input type="number" step="0.01" id="manut-aba-valor" required placeholder="0,00" class="form-control font-mono" />
+          </div>
+
+          <div>
+            <label class="form-label">Oficina / Estabelecimento</label>
+            <input type="text" id="manut-aba-oficina" placeholder="Ex: Mecânica Silva..." class="form-control uppercase" />
           </div>
         </div>
-      </section>
+
+      <!-- Upload do Cupom Fiscal / Ordem de Serviço -->
+        <div>
+          <label class="form-label">Comprovante Fiscal / Ordem de Serviço (Foto ou Arquivo)</label>
+          <div class="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 text-center transition bg-slate-50 relative cursor-pointer">
+            <input type="file" id="manut-aba-foto" accept="image/*" capture="environment" onchange="previewImagemManutencao(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div id="box-preview-placeholder-manut" class="space-y-1.5 pointer-events-none">
+              <i class="ph-bold ph-camera text-2xl text-slate-400"></i>
+              <p class="text-xs font-bold text-slate-600">Tirar foto do cupom ou carregar documento</p>
+              <p class="text-[10px] text-slate-400">Formatos aceitos: JPG, PNG, WEBP</p>
+            </div>
+            <img id="img-preview-manut" class="hidden mx-auto max-h-44 rounded-xl object-contain shadow-sm border border-slate-200 mt-2" />
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">Observações do Serviço</label>
+          <textarea id="manut-aba-obs" rows="2" placeholder="Especificações do óleo, marca de filtros, notas adicionais..." class="form-control form-textarea"></textarea>
+        </div>
+
+        <button type="submit" id="btn-submit-manut-aba" class="btn-primary">
+          <i class="ph-bold ph-check"></i> Registrar e Atualizar Contadores
+        </button>
+      </form>
+    </div>
+
+    <!-- Tabela Histórica com Coluna de Cupom -->
+    <div class="card-panel p-0 overflow-hidden flex flex-col">
+      <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <div>
+          <h3 class="card-title text-sm">Histórico de Manutenções Confirmadas</h3>
+          <p class="card-subtitle">Registro histórico para cálculo de TCO e auditoria mecânica</p>
+        </div>
+        <button type="button" onclick="carregarHistoricoManutencoes()" class="btn-nav-action bg-slate-200 text-slate-700 hover:bg-slate-300 border-none text-xs">
+          <i class="ph-bold ph-arrows-clockwise text-sm"></i> Atualizar
+        </button>
+      </div>
+      <div class="table-wrapper flex-1">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Placa / Veículo</th>
+              <th>Serviço</th>
+              <th>KM Troca</th>
+              <th>Valor</th>
+              <th>Oficina</th>
+              <th style="text-align: center;">Cupom</th>
+            </tr>
+          </thead>
+          <tbody id="grid-historico-manutencoes">
+            <tr>
+              <td colspan="7" class="py-8 text-center text-slate-400 font-medium">Carregando manutenções...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 
     </div>
   </main>

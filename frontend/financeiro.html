@@ -112,7 +112,178 @@
       </div>
 
     </div>
+<!-- BARRA DE ACIONAMENTO DOS MODAIS FINANCEIROS -->
+<div class="card-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4">
+  <div>
+    <h2 class="card-title text-sm">Contratos e Parâmetros Financeiros</h2>
+    <p class="card-subtitle">Cadastre os valores de locação e franquias de seguro dos veículos</p>
+  </div>
+  <div class="flex items-center gap-2.5">
+    <button type="button" onclick="abrirModalContratoAluguel()" class="btn-nav-action btn-nav-amber">
+      <i class="ph-bold ph-file-text text-base"></i>
+      <span>Contrato de Aluguel</span>
+    </button>
+    <button type="button" onclick="abrirModalCustosSeguros()" class="btn-nav-action btn-nav-green">
+      <i class="ph-bold ph-shield-check text-base"></i>
+      <span>Custos e Seguros</span>
+    </button>
+  </div>
+</div>
 
+<!-- =========================================================================
+     MODAL 1: CONTRATO DE ALUGUEL (POPUP)
+     ========================================================================= -->
+<div id="modal-contrato-aluguel" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto space-y-4">
+    
+    <div class="card-header-bar" style="margin-bottom: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9;">
+      <div class="card-icon-box">
+        <i class="ph-bold ph-file-text text-xl"></i>
+      </div>
+      <div>
+        <h3 class="card-title">Contrato de Aluguel</h3>
+        <p class="card-subtitle">Parâmetros de locação e franquia de KM</p>
+      </div>
+      <button type="button" onclick="fecharModalContratoAluguel()" class="btn-logout" style="background: transparent; border: none; color: #64748b; margin-left: auto;">
+        <i class="ph-bold ph-x text-lg"></i>
+      </button>
+    </div>
+
+    <form id="formContratoAluguel" onsubmit="salvarContratoAluguel(event)" class="space-y-3">
+      <div>
+        <label class="form-label">Selecionar Veículo *</label>
+        <select id="aluguel-veiculo" required class="form-control font-bold bg-white">
+          <option value="">-- Carregando carros --</option>
+        </select>
+      </div>
+
+      <div class="form-grid-2">
+        <div>
+          <label class="form-label">Data de Início *</label>
+          <input type="date" id="aluguel-inicio" required class="form-control" />
+        </div>
+        <div>
+          <label class="form-label">Data de Término *</label>
+          <input type="date" id="aluguel-termino" required class="form-control" />
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Responsável *</label>
+        <input type="text" id="aluguel-responsavel" required placeholder="Nome do responsável" class="form-control" />
+      </div>
+
+      <div class="form-grid-2">
+        <div>
+          <label class="form-label">Código de Reserva</label>
+          <input type="text" id="aluguel-cod-reserva" placeholder="Ex: RES-1029" class="form-control uppercase" />
+        </div>
+        <div>
+          <label class="form-label">Código do Aluguel</label>
+          <input type="text" id="aluguel-cod-aluguel" placeholder="Ex: LOC-5541" class="form-control uppercase" />
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div>
+          <label class="form-label">Tarifa Mensal (R$)</label>
+          <input type="number" step="0.01" id="aluguel-tarifa" placeholder="0,00" class="form-control font-mono" />
+        </div>
+        <div>
+          <label class="form-label">Valor KM Excedente (R$)</label>
+          <input type="number" step="0.01" id="aluguel-km-excedente" placeholder="0,00" class="form-control font-mono" />
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Franquia KM/Dia</label>
+        <input type="number" id="aluguel-franquia" placeholder="Ex: 100" class="form-control font-mono" />
+      </div>
+
+      <div class="flex gap-2 pt-3 border-t border-slate-100">
+        <button type="button" onclick="fecharModalContratoAluguel()" class="btn-logout" style="background-color: #64748b; flex: 1; justify-content: center;">
+          Cancelar
+        </button>
+        <button type="submit" id="btn-salvar-contrato" class="btn-primary" style="flex: 2; margin-top: 0;">
+          <i class="ph-bold ph-check"></i> Cadastrar Contrato
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- =========================================================================
+     MODAL 2: CUSTOS E SEGUROS (POPUP)
+     ========================================================================= -->
+<div id="modal-custos-seguros" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto space-y-4">
+    
+    <div class="card-header-bar" style="margin-bottom: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9;">
+      <div class="card-icon-box" style="background-color: #dcfce7; color: #15803d;">
+        <i class="ph-bold ph-shield-check text-xl"></i>
+      </div>
+      <div>
+        <h3 class="card-title">Custos e Seguros</h3>
+        <p class="card-subtitle">Apólices, franquias e coberturas</p>
+      </div>
+      <button type="button" onclick="fecharModalCustosSeguros()" class="btn-logout" style="background: transparent; border: none; color: #64748b; margin-left: auto;">
+        <i class="ph-bold ph-x text-lg"></i>
+      </button>
+    </div>
+
+    <form id="formCustosSeguros" onsubmit="salvarCustosSeguros(event)" class="space-y-3">
+      <div>
+        <label class="form-label">Selecionar Veículo *</label>
+        <select id="seguro-veiculo" required class="form-control font-bold bg-white">
+          <option value="">-- Carregando carros --</option>
+        </select>
+      </div>
+
+      <div class="form-grid-2">
+        <div>
+          <label class="form-label">Limite Reparos (R$)</label>
+          <input type="number" step="0.01" id="seguro-limite-reparos" placeholder="0,00" class="form-control font-mono" />
+        </div>
+        <div>
+          <label class="form-label">Danos Terceiros (R$)</label>
+          <input type="number" step="0.01" id="seguro-danos-terceiros" placeholder="0,00" class="form-control font-mono" />
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div>
+          <label class="form-label">Cobertura PT/Roubo (R$)</label>
+          <input type="number" step="0.01" id="seguro-cobertura-pt" placeholder="0,00" class="form-control font-mono" />
+        </div>
+        <div>
+          <label class="form-label">KM Aluguel</label>
+          <input type="number" id="seguro-km-aluguel" placeholder="Ex: 15000" class="form-control font-mono" />
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div>
+          <label class="form-label">Início da Vigência *</label>
+          <input type="date" id="seguro-inicio" required class="form-control" />
+        </div>
+        <div>
+          <label class="form-label">Fim da Vigência *</label>
+          <input type="date" id="seguro-fim" required class="form-control" />
+        </div>
+      </div>
+
+      <div class="flex gap-2 pt-3 border-t border-slate-100">
+        <button type="button" onclick="fecharModalCustosSeguros()" class="btn-logout" style="background-color: #64748b; flex: 1; justify-content: center;">
+          Cancelar
+        </button>
+        <button type="submit" id="btn-salvar-custos" class="btn-primary" style="flex: 2; margin-top: 0;">
+          <i class="ph-bold ph-check"></i> Cadastrar Custos
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+    
     <!-- TABELA ANALÍTICA POR VEÍCULO (TCO E CUSTO/KM INDIVIDUAL) -->
     <div class="card-panel space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">

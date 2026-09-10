@@ -132,6 +132,24 @@ function setModule(mod) {
   }
 }
 
+// Pré-visualização da imagem anexada na manutenção
+function previewImagemManutencao(event) {
+  const input = event.target;
+  const img = document.getElementById('img-preview-manut');
+  const placeholder = document.getElementById('box-preview-placeholder-manut');
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      if (img) {
+        img.src = e.target.result;
+        img.classList.remove('hidden');
+      }
+      if (placeholder) placeholder.classList.add('hidden');
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
 // Preenche a lista de veículos no formulário da aba de manutenções
 function popularSelectManutencaoAba() {
   const sel = document.getElementById('manut-aba-veiculo');
@@ -1556,6 +1574,10 @@ async function salvarConfirmacaoManutencaoAba(e) {
   const veiculoId = document.getElementById('manut-aba-veiculo')?.value;
   const item = document.getElementById('manut-aba-item')?.value;
   const kmAtual = parseFloat(document.getElementById('manut-aba-km')?.value) || 0;
+  const valorTotal = parseFloat(document.getElementById('manut-aba-valor')?.value) || 0;
+  const oficina = document.getElementById('manut-aba-oficina')?.value.trim() || null;
+  const obs = document.getElementById('manut-aba-obs')?.value.trim() || null;
+  const fotoInput = document.getElementById('manut-aba-foto');
 
   if (!veiculoId) {
     alert("Por favor, selecione um veículo.");
@@ -1573,6 +1595,34 @@ async function salvarConfirmacaoManutencaoAba(e) {
   if (item.includes('Correia')) intervaloKm = 50000;
 
   try {
+    let urlComprovante = null;
+
+    // Upload do cupom fiscal da manutenção
+    if (fotoInput && fotoInput.files && fotoInput.files[0]) {
+      const file = fotoInput.files[0];
+      const ext = file.name.split('.').pop();
+      const fileName = `manut_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+      
+      const { error: upErr } = await db.storage.from('comprovantes').upload(fileName, file);
+      if (upErr) {
+        console.warn("Aviso de upload do comprovante:", upErr);
+      } else {
+        urlComprovante = db.storage.from('comprovantes').getPublicUrl(fileName).data?.publicUrl;
+      }
+    }
+
+    const payload = {
+      placa: veiculoId,
+      item: item,
+      km_ultima_troca: kmAtual,
+      intervalo_km: intervaloKm,
+      data_ultima_troca: new Date().toISOString().split('T')[0],
+      valor_total: valorTotal,
+      oficina: oficina,
+      observacoes: obs,
+      url_comprovante: urlComprovante
+    };
+
     const { error } = await db.from('manutencoes_preventivas').insert([{
       placa: veiculoId,
       item: item,
@@ -1632,7 +1682,15 @@ async function carregarHistoricoManutencoes() {
         <td class="py-2.5 px-3 font-semibold text-slate-700">${m.item || '-'}</td>
         <td class="py-2.5 px-3 font-mono">${Number(m.km_ultima_troca || 0).toLocaleString('pt-BR')} km</td>
         <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">${proximaRevisao.toLocaleString('pt-BR')} km</td>
-        <td class="py-2.5 px-3 text-slate-500 uppercase text-[11px]">-</td>
+        <<td class="py-2.5 px-3 font-mono text-emerald-700 font-bold">${valorFmt}</td>
+        <td class="py-2.5 px-3 text-slate-500 uppercase text-[11px]">${m.oficina || '-'}</td>
+        <td class="py-2.5 px-3 text-center">
+          ${m.url_comprovante ? `
+            <a href="${m.url_comprovante}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold">
+              <i class="ph-bold ph-receipt text-xs"></i> Ver Nota
+            </a>
+          ` : '<span class="text-slate-300 text-[10px]">Sem nota</span>'}
+        </td>
       `;
       tbody.appendChild(tr);
     });
