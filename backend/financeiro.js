@@ -298,9 +298,158 @@ function popularSelectsFormulariosFinanceiros(veiculos) {
   if (selSeguro) selSeguro.innerHTML = options;
 }
 
+// =========================================================================
+// CONTROLE DE PERÍODOS E FILTROS DE DATA (PADRÃO RELATÓRIOS E GRÁFICOS)
+// =========================================================================
+let periodoAtual = 'mes';
+let dadosBrutosAbastecimentos = [];
+let dadosBrutosRotas = [];
+let dadosBrutosVeiculos = [];
+
+// Define as datas do input conforme o atalho clicado
+function setPeriodoFinanceiro(p) {
+  periodoAtual = p;
+
+  // Atualiza a cor dos botões de atalho
+  ['dia', 'semana', 'mes', 'trimestre', 'ano', 'todos'].forEach(btn => {
+    const item = document.getElementById(`btn-periodo-${btn}`);
+    if (item) {
+      if (btn === p) {
+        item.className = "flex-1 py-1.5 px-3 rounded-lg bg-emerald-800 text-white shadow transition text-center whitespace-nowrap";
+      } else {
+        item.className = "flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap";
+      }
+    }
+  });
+
+  const hoje = new Date();
+  const dtIniInput = document.getElementById('filtro-data-inicio');
+  const dtFimInput = document.getElementById('filtro-data-fim');
+
+  if (p === 'todos') {
+    if (dtIniInput) dtIniInput.value = '';
+    if (dtFimInput) dtFimInput.value = '';
+    aplicarFiltrosEAtualizarFinanceiro();
+    return;
+  }
+
+  let dIni = new Date(hoje);
+  let dFim = new Date(hoje);
+
+  if (p === 'dia') {
+    // Apenas a data de hoje
+  } else if (p === 'semana') {
+    // Início da semana (domingo) até hoje
+    dIni.setDate(hoje.getDate() - hoje.getDay());
+  } else if (p === 'mes') {
+    // Primeiro dia do mês corrente
+    dIni = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  } else if (p === 'trimestre') {
+    // Início do trimestre corrente
+    const mesInicioTrimestre = Math.floor(hoje.getMonth() / 3) * 3;
+    dIni = new Date(hoje.getFullYear(), mesInicioTrimestre, 1);
+  } else if (p === 'ano') {
+    // Primeiro dia do ano corrente
+    dIni = new Date(hoje.getFullYear(), 0, 1);
+  }
+
+  const fmt = (d) => {
+    const ano = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+  };
+
+  if (dtIniInput) dtIniInput.value = fmt(dIni);
+  if (dtFimInput) dtFimInput.value = fmt(dFim);
+
+  aplicarFiltrosEAtualizarFinanceiro();
+}
+
+function aplicarFiltroPersonalizadoDatas() {
+  // Quando o usuário digita datas manualmente, desseleciona os botões rápidos
+  ['dia', 'semana', 'mes', 'trimestre', 'ano', 'todos'].forEach(btn => {
+    const item = document.getElementById(`btn-periodo-${btn}`);
+    if (item) item.className = "flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap";
+  });
+  periodoAtual = 'custom';
+}
+
+function limparFiltrosFinanceiro() {
+  document.getElementById('filtro-data-inicio').value = '';
+  document.getElementById('filtro-data-fim').value = '';
+  setPeriodoFinanceiro('mes');
+}
+
+// Carrega os dados brutos uma única vez ou ao forçar atualização
+async function carregarMetricasFinanceiras() {
+  try {
+    const [resAbast, resRotas, resVeiculos] = await Promise.all([
+      db.from('abastecimentos').select('*').order('data_hora', { ascending: false }),
+      db.from('rotas').select('*').eq('status', 'Concluida').order('data_retorno', { ascending: false }),
+      db.from('veiculos').select('*')
+    ]);
+
+    if (resAbast.error) throw resAbast.error;
+    if (resRotas.error) throw resRotas.error;
+    if (resVeiculos.error) throw resVeiculos.error;
+
+    dadosBrutosAbastecimentos = resAbast.data || [];
+    dadosBrutosRotas = resRotas.data || [];
+    dadosBrutosVeiculos = resVeiculos.data || [];
+
+    if (typeof popularSelectsFormulariosFinanceiros === 'function') {
+      popularSelectsFormulariosFinanceiros(dadosBrutosVeiculos);
+    }
+
+    // Inicializa no padrão "Mês"
+    setPeriodoFinanceiro('mes');
+  } catch (err) {
+    console.error("Erro ao carregar dados financeiros:", err);
+    alert("Falha ao carregar métricas: " + err.message);
+  }
+}
+
+// Filtra as informações com base no intervalo de datas e recalcula as métricas
+function aplicarFiltrosEAtualizarFinanceiro() {
+  const dtIni = document.getElementById('filtro-data-inicio')?.value;
+  const dtFim = document.getElementById('filtro-data-fim')?.value;
+
+  const dFiltroIni = dtIni ? new Date(`${dtIni}T00:00:00`) : null;
+  const dFiltroFim = dtFim ? new Date(`${dtFim}T23:59:59`) : null;
+
+  // Filtra Abastecimentos
+  const abastsFiltrados = dadosBrutosAbastecimentos.filter(a => {
+    if (!a.data_hora) return true;
+    const d = new Date(a.data_hora);
+    if (dFiltroIni && d < dFiltroIni) return false;
+    if (dFiltroFim && d > dFiltroFim) return false;
+    return true;
+  });
+
+  // Filtra Rotas
+  const rotasFiltradas = dadosBrutosRotas.filter(r => {
+    const refData = r.data_retorno || r.data_saida;
+    if (!refData) return true;
+    const d = new Date(refData);
+    if (dFiltroIni && d < dFiltroIni) return false;
+    if (dFiltroFim && d > dFiltroFim) return false;
+    return true;
+  });
+
+  // Atualiza os painéis com os dados refinados pelo período
+  processarTotaisGerais(abastsFiltrados, rotasFiltradas);
+  processarAnalisePorVeiculo(dadosBrutosVeiculos, abastsFiltrados, rotasFiltradas);
+  renderizarAuditoriaCupons(abastsFiltrados, dadosBrutosVeiculos);
+}
+
 // Expõe para o escopo global
 window.abrirModalContratoAluguel = abrirModalContratoAluguel;
 window.fecharModalContratoAluguel = fecharModalContratoAluguel;
 window.abrirModalCustosSeguros = abrirModalCustosSeguros;
 window.fecharModalCustosSeguros = fecharModalCustosSeguros;
 window.popularSelectsFormulariosFinanceiros = popularSelectsFormulariosFinanceiros;
+window.setPeriodoFinanceiro = setPeriodoFinanceiro;
+window.aplicarFiltroPersonalizadoDatas = aplicarFiltroPersonalizadoDatas;
+window.aplicarFiltrosEAtualizarFinanceiro = aplicarFiltrosEAtualizarFinanceiro;
+window.limparFiltrosFinanceiro = limparFiltrosFinanceiro;

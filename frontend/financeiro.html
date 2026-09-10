@@ -48,17 +48,51 @@
   <main class="max-w-7xl mx-auto px-4 py-6 w-full flex-1 space-y-6">
 
     <!-- FILTRO TEMPORAL E AÇÕES -->
-    <div class="card-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4">
-      <div class="flex items-center gap-3">
-        <label for="filtro-periodo" class="text-xs font-bold uppercase tracking-wider text-slate-600">Período de Análise:</label>
-        <select id="filtro-periodo" onchange="carregarMetricasFinanceiras()" class="form-control text-xs font-bold max-w-[180px]">
-        <option value="15" selected>Últimos 15 dias</option>
-          <option value="30" selected>Últimos 30 dias</option>
-          <option value="60">Últimos 60 dias</option>
-          <option value="90">Últimos 90 dias</option>
-          <option value="todos">Todo o Histórico</option>
-        </select>
-      </div>
+   <!-- FILTRO DE DATAS IDÊNTICO AO DE RELATÓRIOS E GRÁFICOS -->
+<div class="card-panel space-y-4">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+    <div>
+      <h2 class="card-title text-sm flex items-center gap-1.5">
+        <i class="ph-bold ph-funnel text-brand-600"></i> Filtro de Período Financeiro
+      </h2>
+      <p class="card-subtitle">Selecione o intervalo de datas ou utilize os atalhos rápidos</p>
+    </div>
+    
+    <!-- Botões de Atalho Rápido de Período -->
+    <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold gap-1 overflow-x-auto">
+      <button type="button" id="btn-periodo-dia" onclick="setPeriodoFinanceiro('dia')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap">Dia</button>
+      <button type="button" id="btn-periodo-semana" onclick="setPeriodoFinanceiro('semana')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap">Semana</button>
+      <button type="button" id="btn-periodo-mes" onclick="setPeriodoFinanceiro('mes')" class="flex-1 py-1.5 px-3 rounded-lg bg-emerald-800 text-white shadow transition text-center whitespace-nowrap">Mês</button>
+      <button type="button" id="btn-periodo-trimestre" onclick="setPeriodoFinanceiro('trimestre')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap">Trimestre</button>
+      <button type="button" id="btn-periodo-ano" onclick="setPeriodoFinanceiro('ano')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap">Ano</button>
+      <button type="button" id="btn-periodo-todos" onclick="setPeriodoFinanceiro('todos')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap">Tudo</button>
+    </div>
+  </div>
+
+  <!-- Intervalo com Inputs Date e Botões de Ação -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+    <div>
+      <label class="form-label text-xs font-bold text-slate-700 mb-1">Data Início</label>
+      <input type="date" id="filtro-data-inicio" onchange="aplicarFiltroPersonalizadoDatas()" class="form-control text-xs font-medium" />
+    </div>
+    
+    <div>
+      <label class="form-label text-xs font-bold text-slate-700 mb-1">Data Fim</label>
+      <input type="date" id="filtro-data-fim" onchange="aplicarFiltroPersonalizadoDatas()" class="form-control text-xs font-medium" />
+    </div>
+
+    <div class="flex gap-2 sm:col-span-2 lg:col-span-2">
+      <button type="button" onclick="aplicarFiltrosEAtualizarFinanceiro()" class="btn-primary flex-1 mt-0">
+        <i class="ph-bold ph-magnifying-glass"></i>
+        <span>Aplicar Filtro</span>
+      </button>
+      <button type="button" onclick="limparFiltrosFinanceiro()" class="btn-logout flex items-center justify-center gap-1 bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 rounded-xl font-bold border-none text-xs transition">
+        <i class="ph-bold ph-arrows-counter-clockwise"></i>
+        <span>Limpar</span>
+      </button>
+    </div>
+  </div>
+</div>
 
       <div class="flex items-center gap-3">
         <button onclick="carregarMetricasFinanceiras()" class="btn-nav-action bg-slate-800 text-white hover:bg-slate-900 border-none">
