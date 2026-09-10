@@ -132,6 +132,22 @@ function setModule(mod) {
   }
 }
 
+// Preenche a lista de veículos no formulário da aba de manutenções
+function popularSelectManutencaoAba() {
+  const sel = document.getElementById('manut-aba-veiculo');
+  if (!sel) return;
+
+  sel.innerHTML = '<option value="">Selecione o veículo...</option>';
+
+  (veiculos || []).forEach(v => {
+    const identificacao = v.placa || v.nome_frota || v.id;
+    const nome = v.nome_frota || v.id;
+    const placa = v.placa ? `[${v.placa}]` : '';
+    const marca = v.marca ? `- ${v.marca}` : '';
+    sel.innerHTML += `<option value="${identificacao}">${nome} ${marca} ${placa}</option>`;
+  });
+}
+
 function setSubTab(moduleName, tab) {
   if (moduleName === 'operacao') {
     const abasOperacao = ['saida', 'retorno', 'minhas-rotas'];
@@ -171,7 +187,7 @@ function setSubTab(moduleName, tab) {
     }
 
   } else {
-    const abasGestao = ['dashboard', 'cad-veiculos', 'cad-usuarios'];
+    const abasGestao = ['dashboard', 'cad-veiculos', 'cad-usuarios', 'manutencao'];
 
     abasGestao.forEach(t => {
       const view = document.getElementById(`view-${t}`);
@@ -206,6 +222,9 @@ function setSubTab(moduleName, tab) {
       popularSelectsModelosReferencia();
     } else if (tab === 'cad-usuarios') {
       renderTabelaUsuariosCad();
+    } else if (tab === 'manutencao') {
+      popularSelectManutencaoAba();
+      carregarHistoricoManutencoes();
     }
   }
 }
@@ -219,7 +238,6 @@ async function carregarTodosDadosDoBanco() {
   if (!usuarioSessao) return;
 
   try {
-    // 1. Carrega o catálogo de modelos de referência para cruzamento e preenchimento
     await carregarModelosReferencia();
 
     const { data: dadosVeiculos, error: errV } = await db.from('veiculos').select('*');
@@ -239,6 +257,7 @@ async function carregarTodosDadosDoBanco() {
       currentUserIndex = userIndex;
     }
 
+    popularSelectManutencaoAba();
     atualizarUsuarioNoCabecalho();
     aplicarPermissoesUsuario();
     renderAll();
@@ -310,10 +329,26 @@ async function handleInicioRota(e) {
     return;
   }
 
-  const agoraTimestamp = new Date().getTime();
   const emailAtual = user.email.toLowerCase().trim();
   const nomeCarro = veiculo.nome_frota || veiculo.id;
   const placaCarro = veiculo.placa;
+  const isExterno = (veiculo.tipo_frota || '').toUpperCase() === 'EXTERNO';
+
+  // TRAVA DE SEGURANÇA: Veículo Externo com motorista exclusivo
+  if (isExterno && veiculo.motorista_autorizado) {
+    const motoristaPermitido = veiculo.motorista_autorizado.toLowerCase().trim();
+    if (emailAtual !== motoristaPermitido && emailAtual !== ADMIN_EMAIL.toLowerCase().trim()) {
+      alert(
+        `⛔ VEÍCULO EXTERNO DE USO EXCLUSIVO!\n\n` +
+        `Este veículo está vinculado exclusivamente ao condutor:\n` +
+        `👤 ${veiculo.motorista_autorizado}\n\n` +
+        `Por favor, selecione um veículo da frota regular.`
+      );
+      return;
+    }
+  }
+
+  const agoraTimestamp = new Date().getTime();
 
   try {
     const { data: reservasCarro, error: errRes } = await db
@@ -364,10 +399,8 @@ async function handleInicioRota(e) {
     return;
   }
 
-  const isExterno = (veiculo.tipo_frota || '').toUpperCase() === 'EXTERNO';
   const kmInformadoInput = parseFloat(document.getElementById('form-inicio-km')?.value);
   const kmBanco = Number(veiculo.km_atual || 0);
-
   let kmSaidaFinal = (isExterno && !isNaN(kmInformadoInput) && kmInformadoInput > 0) ? kmInformadoInput : kmBanco;
 
   if (btn) {
@@ -487,7 +520,6 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   let etaUrb = Number(veiculo?.consumo_etanol_urbano || 0);
   let etaRod = Number(veiculo?.consumo_etanol_rodoviario || 0);
 
-  // Se não estiverem no veículo, busca do catálogo de referência homologado de forma segura
   const modelosRef = (typeof listaModelosReferencia !== 'undefined' && Array.isArray(listaModelosReferencia))
     ? listaModelosReferencia
     : [];
@@ -502,7 +534,6 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
     }
   }
 
-  // Se possuir dados detalhados (urbano e rodoviário), calcula a média mista
   if (ehEtanol && etaUrb > 0 && etaRod > 0) {
     const mediaEtanol = (etaUrb + etaRod) / 2;
     if (mediaEtanol >= 3 && mediaEtanol <= 35) return Number(mediaEtanol.toFixed(2));
@@ -515,14 +546,12 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   let cMin = Number(veiculo?.consumo_min);
   let cMax = Number(veiculo?.consumo_max);
 
-  // Tratamento contra valores vazios, zerados ou NaN
   cMin = (!cMin || cMin <= 0 || isNaN(cMin)) ? 10 : cMin;
   cMax = (!cMax || cMax <= 0 || isNaN(cMax)) ? 14 : cMax;
 
   let mediaFabricante = (cMin + cMax) / 2;
   if (ehEtanol) mediaFabricante = mediaFabricante * 0.7;
 
-  // 6. Piso de segurança absoluto: nunca retorna zero, negativo ou NaN
   const mediaFinal = Number(Math.max(3, mediaFabricante).toFixed(2));
   return (isNaN(mediaFinal) || mediaFinal <= 0) ? (ehEtanol ? 8.5 : 12.0) : mediaFinal;
 }
@@ -542,14 +571,12 @@ async function handleFimRota(e) {
     return;
   }
 
-  // 1. Busca a rota correspondente (deve vir ANTES do cálculo de deltaKm)
   const rota = (rotas || []).find(r => String(r.id) === String(rotaId));
   if (!rota) {
     alert("Erro: Rota não encontrada na lista.");
     return;
   }
 
-  // 2. Permissão estrita: criador da rota ou Admin
   const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
   let sessao;
   try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
@@ -562,7 +589,6 @@ async function handleFimRota(e) {
     return;
   }
 
-  // 3. Localização do veículo correspondente
   const veiculo = (veiculos || []).find(v =>
     (rota.placa && String(v.placa) === String(rota.placa)) ||
     String(v.id) === String(rota?.veiculo_id) ||
@@ -585,16 +611,11 @@ async function handleFimRota(e) {
 
   const situacao = document.querySelector('input[name="situacao_carro"]:checked')?.value || 'SEM';
   let anomaliaTexto = situacao === 'COM' ? (document.getElementById('form-fim-anomalia')?.value?.trim() || '') : '';
-  
-  // Agora sim deltaKm pode ser calculado com segurança
   const deltaKm = kmFinal - Number(rota.km_saida);
 
-  // 4. Recupera histórico de abastecimento de forma segura
   let histAbast = [];
   if (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos) && abastecimentos.length > 0) {
     histAbast = abastecimentos;
-  } else if (typeof listaAbastecimentosCache !== 'undefined' && Array.isArray(listaAbastecimentosCache) && listaAbastecimentosCache.length > 0) {
-    histAbast = listaAbastecimentosCache;
   } else {
     const localCache = localStorage.getItem('arvo_cache_abastecimentos');
     if (localCache) {
@@ -602,43 +623,7 @@ async function handleFimRota(e) {
     }
   }
 
-  if ((!histAbast || histAbast.length === 0) && navigator.onLine) {
-    try {
-      const idCarro = veiculo.id || rota.veiculo_id;
-      const placaCarro = placaAlvo;
-      const nomeFrota = veiculo.nome_frota;
-
-      const condicoesBusca = [];
-      if (idCarro) condicoesBusca.push(`veiculo_id.eq.${idCarro}`);
-      if (placaCarro) condicoesBusca.push(`placa.eq.${placaCarro}`);
-      if (nomeFrota) condicoesBusca.push(`veiculo_id.eq.${nomeFrota}`);
-
-      if (condicoesBusca.length > 0) {
-        const { data: dbAbasts } = await db
-          .from('abastecimentos')
-          .select('*')
-          .or(condicoesBusca.join(','))
-          .order('data_hora', { ascending: false })
-          .limit(10);
-
-        if (dbAbasts && dbAbasts.length > 0) {
-          histAbast = dbAbasts;
-        }
-      }
-    } catch (errDb) {
-      console.warn("Aviso ao resgatar abastecimentos sob demanda:", errDb);
-    }
-  }
-
-  // 5. Apuração do consumo e débito virtual
-  let medConsumo;
-  if (typeof obterMediaConsumoEsperada === 'function') {
-    medConsumo = obterMediaConsumoEsperada(veiculo, null, histAbast);
-  } else {
-    medConsumo = (Number(veiculo.consumo_min) + Number(veiculo.consumo_max)) / 2 || 12;
-  }
-
-  // Proteção contra divisão por zero / NaN
+  let medConsumo = obterMediaConsumoEsperada(veiculo, null, histAbast);
   medConsumo = (!medConsumo || isNaN(medConsumo) || medConsumo <= 0) ? 12 : medConsumo;
   const litrosEst = deltaKm > 0 ? Number((deltaKm / medConsumo).toFixed(2)) : 0;
   
@@ -652,7 +637,6 @@ async function handleFimRota(e) {
   const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str));
 
   try {
-    // 6. Atualiza a rota com os dados calculados
     const { error: erroRota } = await db.from('rotas').update({
       km_retorno: kmFinal,
       km_total: deltaKm,
@@ -665,7 +649,6 @@ async function handleFimRota(e) {
 
     if (erroRota) throw erroRota;
 
-    // 7. Atualiza o veículo
     const condicoesVeiculo = [];
     if (placaAlvo) condicoesVeiculo.push(`placa.eq.${placaAlvo}`);
     if (veiculo.uuid_veiculos && isUUID(veiculo.uuid_veiculos)) condicoesVeiculo.push(`uuid_veiculos.eq.${veiculo.uuid_veiculos}`);
@@ -693,7 +676,6 @@ async function handleFimRota(e) {
       if (erroVeiculo) console.warn("Aviso ao atualizar veículo:", erroVeiculo.message);
     }
 
-    // 8. Atualiza reservas pendentes
     try {
       const condicoesReserva = [`veiculo_id.eq.${rota.veiculo_id}`];
       if (placaAlvo) condicoesReserva.push(`veiculo_id.eq.${placaAlvo}`);
@@ -708,7 +690,6 @@ async function handleFimRota(e) {
       console.warn("Aviso ao concluir reservas:", resErr);
     }
 
-    // 9. Reset do formulário e interface
     e.target.reset();
     if (typeof toggleOutroDestino === 'function') toggleOutroDestino('');
     document.getElementById('fim-detalhes-viagem')?.classList.add('hidden');
@@ -747,7 +728,6 @@ function formatarDataHora(dataIso) {
 // =========================================================================
 
 async function carregarModelosReferencia() {
-  console.log("🔍 Iniciando busca em modelos_referencia...");
   try {
     const { data, error } = await db
       .from('modelos_referencia')
@@ -755,16 +735,11 @@ async function carregarModelosReferencia() {
       .order('marca', { ascending: true })
       .order('modelo', { ascending: true });
 
-    if (error) {
-      console.error("❌ Erro retornado pelo Supabase em modelos_referencia:", error);
-      throw error;
-    }
-
-    console.log(`✅ Modelos carregados com sucesso (${data?.length || 0} registros):`, data);
+    if (error) throw error;
     listaModelosReferencia = data || [];
     popularSelectsModelosReferencia();
   } catch (err) {
-    console.error("❌ Falha na requisição de modelos_referencia:", err);
+    console.error("Falha ao carregar modelos_referencia:", err);
   }
 }
 
@@ -791,75 +766,18 @@ function aoSelecionarModeloReferencia(origem = 'cad') {
 
   const setInput = (campoId, val) => {
     const el = document.getElementById(`${origem}-v-${campoId}`);
-    if (el) el.value = val;
+    if (el) el.value = val !== null && val !== undefined ? val : '';
   };
 
   setInput('marca', `${mod.marca} ${mod.modelo}`);
-  setInput('tanque', mod.tanque_litros || 45);
+  setInput('ano', mod.ano_modelo || 2024);
+  setInput('tanque', mod.tanque_litros || 47);
+  setInput('gas-urb', mod.consumo_gasolina_urbano || 0);
+  setInput('gas-rod', mod.consumo_gasolina_rodoviario || 0);
+  setInput('eta-urb', mod.consumo_etanol_urbano || 0);
+  setInput('eta-rod', mod.consumo_etanol_rodoviario || 0);
   setInput('consumomin', mod.consumo_etanol_urbano || mod.consumo_gasolina_urbano || 10);
   setInput('consumomax', mod.consumo_gasolina_rodoviario || 14);
-}
-
-async function handleCadVeiculo(e) {
-  e.preventDefault();
-
-  const placa = document.getElementById('cad-v-placa')?.value.toUpperCase().trim();
-  const idInformado = document.getElementById('cad-v-id')?.value?.toUpperCase().trim();
-
-  const refId = document.getElementById('cad-v-referencia')?.value || null;
-  const modeloSelecionado = listaModelosReferencia.find(m => String(m.id) === String(refId));
-  const tipoFrota = document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO';
-
-  const marcaTexto = modeloSelecionado 
-    ? `${modeloSelecionado.marca} ${modeloSelecionado.modelo}`.trim() 
-    : (document.getElementById('cad-v-marca')?.value?.trim() || 'Não Identificado');
-
-  const motoristaAutorizado = tipoFrota === 'EXTERNO'
-    ? document.getElementById('cad-v-motorista')?.value?.trim().toLowerCase()
-    : null;
-
-  if (tipoFrota === 'EXTERNO' && !motoristaAutorizado) {
-    alert("⚠️ Selecione o motorista exclusivo para este veículo externo.");
-    return;
-  }
-
-  const gasUrb = parseFloat(document.getElementById('cad-v-gas-urb')?.value) || 0;
-  const gasRod = parseFloat(document.getElementById('cad-v-gas-rod')?.value) || 0;
-  const etaUrb = parseFloat(document.getElementById('cad-v-eta-urb')?.value) || 0;
-  const etaRod = parseFloat(document.getElementById('cad-v-eta-rod')?.value) || 0;
-
-  const novoCarro = {
-    nome_frota: idInformado || placa,
-    placa: placa,
-    marca: marcaTexto,
-    modelo_referencia_id: refId ? Number(refId) : null,
-    ano_modelo: parseInt(document.getElementById('cad-v-ano')?.value) || null,
-    tanque: parseFloat(document.getElementById('cad-v-tanque')?.value) || 0,
-    km_atual: parseFloat(document.getElementById('cad-v-kminicial')?.value) || 0,
-    consumo_gasolina_urbano: gasUrb,
-    consumo_gasolina_rodoviario: gasRod,
-    consumo_etanol_urbano: etaUrb,
-    consumo_etanol_rodoviario: etaRod,
-    consumo_min: etaUrb || gasUrb || 10,
-    consumo_max: gasRod || 14,    
-    tipo_frota: dtipoFrota,
-    motorista_autorizado: motoristaAutorizado || null,
-    status: 'Disponivel',
-    anomalias: ''
-  };
-
-  try {
-    const { error } = await db.from('veiculos').insert([novoCarro]);
-    if (error) throw error;
-
-    e.target.reset();
-    toggleMotoristaExterno('cad');
-    alert(`✅ Veículo [${novoCarro.placa}] cadastrado com sucesso!`);
-    await carregarTodosDadosDoBanco();
-  } catch (err) {
-    console.error("Erro ao cadastrar veículo:", err);
-    alert("Erro ao cadastrar veículo: " + err.message);
-  }
 }
 
 function popularSelectMotoristas(selectId, valorSelecionado = '') {
@@ -893,8 +811,68 @@ function toggleMotoristaExterno(prefixo) {
   }
 }
 
+async function handleCadVeiculo(e) {
+  e.preventDefault();
+
+  const placa = document.getElementById('cad-v-placa')?.value.toUpperCase().trim();
+  const idInformado = document.getElementById('cad-v-id')?.value?.toUpperCase().trim();
+  const refId = document.getElementById('cad-v-referencia')?.value || null;
+  const tipoFrota = document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO';
+
+  const modeloSelecionado = listaModelosReferencia.find(m => String(m.id) === String(refId));
+  const marcaTexto = modeloSelecionado 
+    ? `${modeloSelecionado.marca} ${modeloSelecionado.modelo}`.trim() 
+    : (document.getElementById('cad-v-marca')?.value?.trim() || 'Não Identificado');
+
+  const motoristaAutorizado = tipoFrota === 'EXTERNO'
+    ? document.getElementById('cad-v-motorista')?.value?.trim().toLowerCase()
+    : null;
+
+  if (tipoFrota === 'EXTERNO' && !motoristaAutorizado) {
+    alert("⚠️ Selecione o motorista exclusivo para este veículo externo.");
+    return;
+  }
+
+  const gasUrb = parseFloat(document.getElementById('cad-v-gas-urb')?.value) || 0;
+  const gasRod = parseFloat(document.getElementById('cad-v-gas-rod')?.value) || 0;
+  const etaUrb = parseFloat(document.getElementById('cad-v-eta-urb')?.value) || 0;
+  const etaRod = parseFloat(document.getElementById('cad-v-eta-rod')?.value) || 0;
+
+  const novoCarro = {
+    nome_frota: idInformado || placa,
+    placa: placa,
+    marca: marcaTexto,
+    modelo_referencia_id: refId ? Number(refId) : null,
+    ano_modelo: parseInt(document.getElementById('cad-v-ano')?.value) || null,
+    tanque: parseFloat(document.getElementById('cad-v-tanque')?.value) || 47,
+    km_atual: parseFloat(document.getElementById('cad-v-kminicial')?.value) || 0,
+    consumo_gasolina_urbano: gasUrb,
+    consumo_gasolina_rodoviario: gasRod,
+    consumo_etanol_urbano: etaUrb,
+    consumo_etanol_rodoviario: etaRod,
+    consumo_min: etaUrb || gasUrb || 10,
+    consumo_max: gasRod || 14,
+    tipo_frota: tipoFrota,
+    motorista_autorizado: motoristaAutorizado || null,
+    status: 'Disponivel',
+    anomalias: ''
+  };
+
+  try {
+    const { error } = await db.from('veiculos').insert([novoCarro]);
+    if (error) throw error;
+
+    e.target.reset();
+    toggleMotoristaExterno('cad');
+    alert(`✅ Veículo [${novoCarro.placa}] cadastrado com sucesso!`);
+    await carregarTodosDadosDoBanco();
+  } catch (err) {
+    console.error("Erro ao cadastrar veículo:", err);
+    alert("Erro ao cadastrar veículo: " + err.message);
+  }
+}
+
 function abrirModalEditVeiculo(veiculoId) {
-  // 1. Localização flexível do veículo
   const v = (veiculos || []).find(item =>
     String(item.id) === String(veiculoId) ||
     String(item.uuid_veiculos) === String(veiculoId) ||
@@ -906,7 +884,6 @@ function abrirModalEditVeiculo(veiculoId) {
     return;
   }
 
-  // Funções seguras de atribuição
   const setVal = (id, val) => {
     const el = document.getElementById(id);
     if (el) el.value = (val !== undefined && val !== null) ? val : '';
@@ -917,7 +894,6 @@ function abrirModalEditVeiculo(veiculoId) {
     if (el) el.innerText = txt || '';
   };
 
-  // 2. Preenchimento seguro dos identificadores e dados básicos
   setVal('edit-v-id', v.uuid_veiculos || v.id);
   setText('modal-edit-v-title', v.placa || v.nome_frota || v.id);
   setVal('edit-v-placa', v.placa);
@@ -928,7 +904,6 @@ function abrirModalEditVeiculo(veiculoId) {
   setVal('edit-v-status', v.status || 'Disponivel');
   setVal('edit-v-anomalias', v.anomalias || '');
 
-  // 3. Preenchimento de modelos homologados e consumos técnicos
   setVal('edit-v-referencia', v.modelo_referencia_id || '');
   setVal('edit-v-consumomin', v.consumo_min || 0);
   setVal('edit-v-consumomax', v.consumo_max || 0);
@@ -937,36 +912,19 @@ function abrirModalEditVeiculo(veiculoId) {
   setVal('edit-v-eta-urb', v.consumo_etanol_urbano || '');
   setVal('edit-v-eta-rod', v.consumo_etanol_rodoviario || '');
 
-  // 4. Tratamento do tipo de frota e condutor externo
   const selectTipo = document.getElementById('edit-v-tipofrota');
   if (selectTipo) {
     const tipo = (v.tipo_frota || 'PROPRIO').toUpperCase();
     selectTipo.value = tipo;
-    if (typeof toggleMotoristaExterno === 'function') {
-      toggleMotoristaExterno('edit');
-    }
-    if (tipo === 'EXTERNO' && typeof popularSelectMotoristas === 'function') {
+    toggleMotoristaExterno('edit');
+    if (tipo === 'EXTERNO') {
       popularSelectMotoristas('edit-v-motorista', v.motorista_autorizado || '');
     }
   }
 
-  // 5. Abertura da janela modal
   const modal = document.getElementById('modal-edit-veiculo');
-  if (modal) {
-    modal.classList.remove('hidden');
-  } else {
-    console.error("Elemento 'modal-edit-veiculo' não encontrado no DOM.");
-  }
+  if (modal) modal.classList.remove('hidden');
 }
-
-function fecharModalEditVeiculo() {
-  const modal = document.getElementById('modal-edit-veiculo');
-  if (modal) modal.classList.add('hidden');
-}
-
-// Garante disponibilidade global no escopo da janela
-
-
 
 function fecharModalEditVeiculo() {
   const modal = document.getElementById('modal-edit-veiculo');
@@ -980,7 +938,6 @@ async function handleSalvarEditVeiculo(e) {
   const refId = document.getElementById('edit-v-referencia')?.value || null;
   const tipoFrotaVal = document.getElementById('edit-v-tipofrota')?.value || 'PROPRIO';
 
-  // 1. Validação de condutor exclusivo se o carro for de frota externa
   const motoristaVal = tipoFrotaVal === 'EXTERNO'
     ? document.getElementById('edit-v-motorista')?.value?.trim().toLowerCase()
     : null;
@@ -990,16 +947,11 @@ async function handleSalvarEditVeiculo(e) {
     return;
   }
 
-  // 2. Localização do modelo base no catálogo para montar a descrição da marca/modelo
-  const modeloSelecionado = (typeof listaModelosReferencia !== 'undefined' && Array.isArray(listaModelosReferencia))
-    ? listaModelosReferencia.find(m => String(m.id) === String(refId))
-    : null;
-
+  const modeloSelecionado = listaModelosReferencia.find(m => String(m.id) === String(refId));
   const marcaTexto = modeloSelecionado 
     ? `${modeloSelecionado.marca} ${modeloSelecionado.modelo}`.trim() 
     : (document.getElementById('edit-v-marca')?.value?.trim() || undefined);
 
-  // 3. Captura dos consumos técnicos detalhados (com fallback para os inputs legados de min/max)
   const inputGasUrb = document.getElementById('edit-v-gas-urb');
   const inputGasRod = document.getElementById('edit-v-gas-rod');
   const inputEtaUrb = document.getElementById('edit-v-eta-urb');
@@ -1009,9 +961,6 @@ async function handleSalvarEditVeiculo(e) {
   const gasRod = inputGasRod ? parseFloat(inputGasRod.value) || 0 : 0;
   const etaUrb = inputEtaUrb ? parseFloat(inputEtaUrb.value) || 0 : 0;
   const etaRod = inputEtaRod ? parseFloat(inputEtaRod.value) || 0 : 0;
-
-  const consumoMinLegado = parseFloat(document.getElementById('edit-v-consumomin')?.value) || 0;
-  const consumoMaxLegado = parseFloat(document.getElementById('edit-v-consumomax')?.value) || 0;
 
   const dadosAtualizados = {
     placa: placaVal,
@@ -1024,14 +973,12 @@ async function handleSalvarEditVeiculo(e) {
     tipo_frota: tipoFrotaVal,
     motorista_autorizado: motoristaVal || null,
     anomalias: document.getElementById('edit-v-anomalias')?.value.trim() || '',
-    // Novos campos da tabela modelos_referencia
     consumo_gasolina_urbano: gasUrb || (modeloSelecionado?.consumo_gasolina_urbano ?? null),
     consumo_gasolina_rodoviario: gasRod || (modeloSelecionado?.consumo_gasolina_rodoviario ?? null),
     consumo_etanol_urbano: etaUrb || (modeloSelecionado?.consumo_etanol_urbano ?? null),
     consumo_etanol_rodoviario: etaRod || (modeloSelecionado?.consumo_etanol_rodoviario ?? null),
-    // Retrocompatibilidade garantida para telas antigas
-    consumo_min: consumoMinLegado || etaUrb || gasUrb || 10,
-    consumo_max: consumoMaxLegado || gasRod || 14
+    consumo_min: etaUrb || gasUrb || 10,
+    consumo_max: gasRod || 14
   };
 
   try {
@@ -1292,6 +1239,8 @@ function renderFleetGrid() {
     const isManutencao = v.status === 'Em Manutenção';
     const nomeVeiculo = v.nome_frota || v.identificador || v.placa || v.id || 'Veículo';
     const idAcao = v.id || v.uuid_veiculos || v.placa;
+    const placaCarro = (v.placa || '').trim().toUpperCase();
+    const nomeFrotaCarro = (v.nome_frota || v.id || '').trim().toUpperCase();
 
     const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
     const badgeTipo = isExterno
@@ -1310,6 +1259,54 @@ function renderFleetGrid() {
     } else if (isManutencao) {
       statusBg = 'bg-purple-100 text-purple-700 border border-purple-200';
       statusTexto = '• Em Manutenção';
+    }
+
+    // =========================================================================
+    // APURAÇÃO DE CONSUMO REAL E EQUILÍBRIO DE INDICADORES
+    // =========================================================================
+    const rotasConcluidasCarro = (rotas || []).filter(r => {
+      const bateu = (placaCarro && String(r.placa || '').toUpperCase() === placaCarro) ||
+                    (nomeFrotaCarro && String(r.veiculo_id || '').toUpperCase() === nomeFrotaCarro) ||
+                    (v.uuid_veiculos && String(r.uuid_veiculos || '') === String(v.uuid_veiculos));
+      return bateu && r.status === 'Concluida';
+    });
+
+    const kmPercorridoRotas = rotasConcluidasCarro.reduce((acc, r) => acc + Number(r.km_total || 0), 0);
+    const litrosGastosRotas = rotasConcluidasCarro.reduce((acc, r) => acc + Number(r.consumo_litros || 0), 0);
+
+    let mediaExibicao = 0;
+    if (kmPercorridoRotas > 0 && litrosGastosRotas > 0) {
+      mediaExibicao = kmPercorridoRotas / litrosGastosRotas;
+    }
+
+    // Trava de sanidade para consumo: se for fora do plausível, usa média dos parâmetros homologados
+    if (mediaExibicao < 3 || mediaExibicao > 35) {
+      const gUrb = Number(v.consumo_gasolina_urbano || v.consumo_min || 10);
+      const gRod = Number(v.consumo_gasolina_rodoviario || v.consumo_max || 14);
+      mediaExibicao = (gUrb + gRod) / 2;
+    }
+
+    // Previsão preventiva (Óleo & Filtros: 10.000 km)
+    const kmAtual = Number(v.km_atual || 0);
+    const intervaloRevisao = 10000;
+    const kmUltimaTroca = Math.floor(kmAtual / intervaloRevisao) * intervaloRevisao;
+    const kmProximaTroca = kmUltimaTroca + intervaloRevisao;
+    const kmRestante = kmProximaTroca - kmAtual;
+    const pctUsado = Math.min(100, Math.max(0, ((kmAtual - kmUltimaTroca) / intervaloRevisao) * 100));
+    const diasEstimados = Math.max(1, Math.round(kmRestante / 50));
+
+    let prevBadgeBg = 'bg-emerald-100 text-emerald-800';
+    let prevBarraBg = 'bg-emerald-500';
+    let prevTexto = `Restam ${kmRestante.toLocaleString('pt-BR')} km (~${diasEstimados} dias)`;
+
+    if (kmRestante <= 500) {
+      prevBadgeBg = 'bg-rose-100 text-rose-800';
+      prevBarraBg = 'bg-rose-500';
+      prevTexto = `Vencendo! Restam ${kmRestante.toLocaleString('pt-BR')} km`;
+    } else if (pctUsado >= 80) {
+      prevBadgeBg = 'bg-amber-100 text-amber-800';
+      prevBarraBg = 'bg-amber-500';
+      prevTexto = `Atenção: restam ${kmRestante.toLocaleString('pt-BR')} km`;
     }
 
     const card = document.createElement('div');
@@ -1334,11 +1331,32 @@ function renderFleetGrid() {
         <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 mb-3 space-y-1">
           <div class="flex justify-between items-baseline">
             <span class="text-[10px] uppercase font-bold text-slate-400">Hodômetro</span>
-            <span class="text-lg font-bold font-mono text-slate-800">${Number(v.km_atual || 0).toLocaleString('pt-BR')} km</span>
+            <span class="text-lg font-bold font-mono text-slate-800">${kmAtual.toLocaleString('pt-BR')} km</span>
           </div>
           <div class="flex justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
             <span>Tanque: <b>${v.tanque || 0} L</b></span>
-            <span>Méd: <b>${(((Number(v.consumo_min || 0) + Number(v.consumo_max || 0)) / 2) || 0).toFixed(1)} km/L</b></span>
+            <span>Média: <b>${mediaExibicao.toFixed(1)} km/L</b></span>
+          </div>
+        </div>
+
+        <!-- Componente de Previsão Preventiva por Item -->
+        <div class="p-3 bg-white border border-slate-200 rounded-xl space-y-2 mb-3">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-800 flex items-center gap-1.5">
+              <i class="ph-bold ph-drop text-emerald-500"></i> Óleo & Filtros
+            </span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${prevBadgeBg}">
+              ${prevTexto}
+            </span>
+          </div>
+
+          <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+            <div class="${prevBarraBg} h-full rounded-full transition-all duration-500" style="width: ${pctUsado.toFixed(0)}%;"></div>
+          </div>
+
+          <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+            <span>Última troca: ${kmUltimaTroca.toLocaleString('pt-BR')} km</span>
+            <span>Próxima: ${kmProximaTroca.toLocaleString('pt-BR')} km</span>
           </div>
         </div>
 
@@ -1352,12 +1370,12 @@ function renderFleetGrid() {
 
       <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
         ${isEmUso ?
-        `<button onclick="abrirFinalizacaoDireta('${idAcao}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` :
-        (isForaUso || isManutencao ?
-          `<span class="text-xs font-bold text-slate-400 cursor-not-allowed">Indisponível</span>` :
-          `<button onclick="abrirInicioDireto('${idAcao}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
-        )
-      }
+          `<button onclick="abrirFinalizacaoDireto('${idAcao}')" class="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1">Encerrar Rota &rarr;</button>` :
+          (isForaUso || isManutencao ?
+            `<span class="text-xs font-bold text-slate-400 cursor-not-allowed">Indisponível</span>` :
+            `<button onclick="abrirInicioDireto('${idAcao}')" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">Iniciar Rota &rarr;</button>`
+          )
+        }
       </div>
     `;
     container.appendChild(card);
@@ -1475,7 +1493,26 @@ function renderSelectVeiculosInicio() {
   if (!select) return;
   select.innerHTML = '<option value="">Selecione um veículo...</option>';
 
+  const rawSessao = localStorage.getItem('arvo_usuario_logado');
+  let userEmail = '';
+  try {
+    userEmail = (JSON.parse(rawSessao)?.email || '').toLowerCase().trim();
+  } catch (e) {
+    userEmail = (rawSessao || '').toLowerCase().trim();
+  }
+  const ehAdmin = userEmail === ADMIN_EMAIL.toLowerCase().trim();
+
   (veiculos || []).filter(v => v.status === 'Disponivel').forEach(v => {
+    const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
+
+    // Se o carro for externo e tiver condutor exclusivo, só exibe para ele ou para o admin
+    if (isExterno && v.motorista_autorizado) {
+      const motoristaPermitido = v.motorista_autorizado.toLowerCase().trim();
+      if (!ehAdmin && userEmail !== motoristaPermitido) {
+        return;
+      }
+    }
+
     const nomeAmigavel = v.nome_frota || v.identificador || v.id;
 
     const ultimasRotas = (typeof rotas !== 'undefined' && Array.isArray(rotas) ? rotas : [])
@@ -1494,6 +1531,115 @@ function renderSelectVeiculosInicio() {
 
     select.innerHTML += `<option value="${v.id}">${v.placa} - ${nomeAmigavel} (${kmExibicao.toLocaleString('pt-BR')} km)</option>`;
   });
+}
+
+function atualizarKmManutencaoAba() {
+  const selValor = document.getElementById('manut-aba-veiculo')?.value;
+  const inputKm = document.getElementById('manut-aba-km');
+  if (!inputKm || !selValor) return;
+
+  const v = (veiculos || []).find(item => 
+    String(item.placa) === String(selValor) || 
+    String(item.nome_frota) === String(selValor) || 
+    String(item.id) === String(selValor)
+  );
+
+  if (v) {
+    inputKm.value = v.km_atual || 0;
+  }
+}
+
+async function salvarConfirmacaoManutencaoAba(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-submit-manut-aba');
+
+  const veiculoId = document.getElementById('manut-aba-veiculo')?.value;
+  const item = document.getElementById('manut-aba-item')?.value;
+  const kmAtual = parseFloat(document.getElementById('manut-aba-km')?.value) || 0;
+
+  if (!veiculoId) {
+    alert("Por favor, selecione um veículo.");
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Gravando...`;
+  }
+
+  let intervaloKm = 10000;
+  if (item.includes('Pastilhas')) intervaloKm = 25000;
+  if (item.includes('Pneus')) intervaloKm = 45000;
+  if (item.includes('Correia')) intervaloKm = 50000;
+
+  try {
+    const { error } = await db.from('manutencoes_preventivas').insert([{
+      placa: veiculoId,
+      item: item,
+      km_ultima_troca: kmAtual,
+      intervalo_km: intervaloKm,
+      data_ultima_troca: new Date().toISOString().split('T')[0]
+    }]);
+
+    if (error) throw error;
+
+    alert(`✅ Manutenção de "${item}" registrada para o veículo [${veiculoId}]!`);
+    document.getElementById('form-registro-manutencao-aba')?.reset();
+    
+    await carregarHistoricoManutencoes();
+    renderFleetGrid();
+  } catch (err) {
+    console.error("Erro ao registrar manutenção:", err);
+    alert("Erro ao registrar manutenção: " + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check"></i> Registrar e Atualizar Contadores`;
+    }
+  }
+}
+
+async function carregarHistoricoManutencoes() {
+  const tbody = document.getElementById('grid-historico-manutencoes');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-slate-400">Carregando histórico...</td></tr>';
+
+  try {
+    const { data, error } = await db
+      .from('manutencoes_preventivas')
+      .select('*')
+      .order('id', { ascending: false })
+      .limit(30);
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-400">Nenhum registro de manutenção encontrado.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    data.forEach(m => {
+      const proximaRevisao = Number(m.km_ultima_troca || 0) + Number(m.intervalo_km || 10000);
+      const dataFmt = m.data_ultima_troca ? new Date(m.data_ultima_troca).toLocaleDateString('pt-BR') : '-';
+
+      const tr = document.createElement('tr');
+      tr.className = "hover:bg-slate-50 transition";
+      tr.innerHTML = `
+        <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">${dataFmt}</td>
+        <td class="py-2.5 px-3 font-mono font-bold text-slate-900">${m.placa || '-'}</td>
+        <td class="py-2.5 px-3 font-semibold text-slate-700">${m.item || '-'}</td>
+        <td class="py-2.5 px-3 font-mono">${Number(m.km_ultima_troca || 0).toLocaleString('pt-BR')} km</td>
+        <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">${proximaRevisao.toLocaleString('pt-BR')} km</td>
+        <td class="py-2.5 px-3 text-slate-500 uppercase text-[11px]">-</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error("Erro ao carregar manutenções:", err);
+    tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-rose-500">Falha ao carregar manutenções.</td></tr>';
+  }
 }
 
 function atualizarKmInicialPreenchido() {
@@ -1657,10 +1803,6 @@ function toggleAnomaliaInput(show) {
     else box.classList.add('hidden');
   }
 }
-
-// =========================================================================
-// RENDER HISTÓRICO
-// =========================================================================
 
 function renderHistorico() {
   const tbody = document.getElementById('tabelaHistorico');
@@ -1861,6 +2003,8 @@ window.handleApagarVeiculo = handleApagarVeiculo;
 window.carregarModelosReferencia = carregarModelosReferencia;
 window.aoSelecionarModeloReferencia = aoSelecionarModeloReferencia;
 window.popularSelectsModelosReferencia = popularSelectsModelosReferencia;
+window.popularSelectMotoristas = popularSelectMotoristas;
+window.toggleMotoristaExterno = toggleMotoristaExterno;
 window.toggleVerSenhaEdicao = toggleVerSenhaEdicao;
 window.handleCadUsuario = handleCadUsuario;
 window.abrirModalEditUsuario = abrirModalEditUsuario;
@@ -1874,6 +2018,10 @@ window.toggleAnomaliaInput = toggleAnomaliaInput;
 window.filtrarHistorico = filtrarHistorico;
 window.abrirInicioDireto = abrirInicioDireto;
 window.abrirFinalizacaoDireta = abrirFinalizacaoDireto;
+window.popularSelectManutencaoAba = popularSelectManutencaoAba;
+window.atualizarKmManutencaoAba = atualizarKmManutencaoAba;
+window.salvarConfirmacaoManutencaoAba = salvarConfirmacaoManutencaoAba;
+window.carregarHistoricoManutencoes = carregarHistoricoManutencoes;
 
 // =========================================================================
 // INICIALIZAÇÃO
@@ -1883,7 +2031,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   solicitarPermissaoNotificacoes();
   verificarRotasExcedidas12h();
   setInterval(verificarRotasExcedidas12h, 5 * 60 * 1000);
+const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('modulo') === 'gestao') {
+    setModule('gestao');
+  }
 });
-
-
-// Fabrício Rocha Teixeira Desenvolvedor 

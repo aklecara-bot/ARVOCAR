@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARVOCAR - Gestão Financeira da Frota</title>
+  
+  <!-- Estilos e Ícones Globais do Sistema -->
+  <link rel="stylesheet" href="/EsTyle/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="app-body">
+
+  <!-- CABEÇALHO PADRONIZADO -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="flex items-center gap-3">
+        <div class="brand-badge-logo">
+          <i class="ph-bold ph-chart-line-up text-xl text-white"></i>
+        </div>
+        <div class="flex items-baseline">
+          <span class="brand-title">ARVOCAR</span>
+          <span class="brand-subtitle">FINANCEIRO</span>
+        </div>
+      </div>
+
+      <!-- Atalhos de Navegação -->
+      <div class="flex items-center gap-2">
+        <a href="paginainicial.html?modulo=gestao" class="btn-nav-action btn-nav-green">
+            <i class="ph-bold ph-chart-pie-slice text-base"></i>
+            <span class="hidden sm:inline">Painel de Gestão</span>
+        </a>
+        <!--<a href="abastecimento.html" class="btn-nav-action btn-nav-amber">
+          <i class="ph-bold ph-gas-pump text-base"></i>
+          <span class="hidden sm:inline">Abastecimento</span>
+        </a>-->
+        <button onclick="logout()" class="btn-logout" title="Sair do Sistema">
+          <i class="ph-bold ph-sign-out text-sm"></i>
+          <span class="hidden sm:inline">Sair</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <main class="max-w-7xl mx-auto px-4 py-6 w-full flex-1 space-y-6">
+
+    <!-- FILTRO TEMPORAL E AÇÕES -->
+    <div class="card-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4">
+      <div class="flex items-center gap-3">
+        <label for="filtro-periodo" class="text-xs font-bold uppercase tracking-wider text-slate-600">Período de Análise:</label>
+        <select id="filtro-periodo" onchange="carregarMetricasFinanceiras()" class="form-control text-xs font-bold max-w-[180px]">
+        <option value="15" selected>Últimos 15 dias</option>
+          <option value="30" selected>Últimos 30 dias</option>
+          <option value="60">Últimos 60 dias</option>
+          <option value="90">Últimos 90 dias</option>
+          <option value="todos">Todo o Histórico</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="carregarMetricasFinanceiras()" class="btn-nav-action bg-slate-800 text-white hover:bg-slate-900 border-none">
+          <i class="ph-bold ph-arrows-clockwise text-sm"></i>
+          <span>Atualizar Indicadores</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- CARDS DE KPIs CENTRAIS (CUSTO POR KM E VOLUMES) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- Custo por KM Geral -->
+      <div class="card-panel border-l-4 border-l-emerald-600 space-y-1">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Custo Total por KM</span>
+          <i class="ph-bold ph-currency-circle-dollar text-xl text-emerald-600"></i>
+        </div>
+        <div class="text-2xl font-black font-mono text-slate-900" id="kpi-custo-km">R$ 0,00</div>
+        <p class="text-[11px] text-slate-500">Gasto combustível / Quilômetros rodados</p>
+      </div>
+
+      <!-- Despesa Consolidada -->
+      <div class="card-panel border-l-4 border-l-amber-500 space-y-1">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Despesa Combustível</span>
+          <i class="ph-bold ph-gas-pump text-xl text-amber-500"></i>
+        </div>
+        <div class="text-2xl font-black font-mono text-slate-900" id="kpi-gasto-total">R$ 0,00</div>
+        <p class="text-[11px] text-slate-500" id="kpi-litros-totais">0 Litros consumidos</p>
+      </div>
+
+      <!-- Quilometragem Produzida -->
+      <div class="card-panel border-l-4 border-l-blue-600 space-y-1">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">KM Total Rodado</span>
+          <i class="ph-bold ph-gauge text-xl text-blue-600"></i>
+        </div>
+        <div class="text-2xl font-black font-mono text-slate-900" id="kpi-km-total">0 km</div>
+        <p class="text-[11px] text-slate-500" id="kpi-total-rotas">0 rotas concluídas</p>
+      </div>
+
+      <!-- Média Global de Consumo -->
+      <div class="card-panel border-l-4 border-l-purple-600 space-y-1">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Média Operacional</span>
+          <i class="ph-bold ph-speedometer text-xl text-purple-600"></i>
+        </div>
+        <div class="text-2xl font-black font-mono text-slate-900" id="kpi-media-consumo">0,0 km/L</div>
+        <p class="text-[11px] text-slate-500" id="kpi-preco-medio-litro">Preço médio: R$ 0,00/L</p>
+      </div>
+
+    </div>
+
+    <!-- TABELA ANALÍTICA POR VEÍCULO (TCO E CUSTO/KM INDIVIDUAL) -->
+    <div class="card-panel space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+        <div>
+          <h2 class="card-title text-base">Desempenho Financeiro por Veículo</h2>
+          <p class="card-subtitle">Eficiência operacional e custo por quilômetro por ativo da frota</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+            <tr>
+              <th class="py-3 px-3">Veículo / Placa</th>
+              <th class="py-3 px-3">KM Rodado</th>
+              <th class="py-3 px-3">Total Gasto (R$)</th>
+              <th class="py-3 px-3">Litros</th>
+              <th class="py-3 px-3">Média Real</th>
+              <th class="py-3 px-3">Custo / KM</th>
+              <th class="py-3 px-3">Status</th>
+            </tr>
+          </thead>
+          <tbody id="grid-financeiro-veiculos" class="divide-y divide-slate-100 font-medium">
+            <tr>
+              <td colspan="7" class="text-center py-6 text-slate-400">Carregando dados da frota...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- AUDITORIA DE CUPONS FISCAIS E CONCILIAÇÃO -->
+    <div class="card-panel space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h2 class="card-title text-base">Auditoria de Despesas & Comprovantes Fiscais</h2>
+          <p class="card-subtitle">Lançamentos recentes e validação de notas anexadas no bucket comprovantes</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+            <tr>
+              <th class="py-3 px-3">Data</th>
+              <th class="py-3 px-3">Veículo</th>
+              <th class="py-3 px-3">Posto / Local</th>
+              <th class="py-3 px-3">Combustível</th>
+              <th class="py-3 px-3">Litros</th>
+              <th class="py-3 px-3">Preço/L</th>
+              <th class="py-3 px-3">Valor Total</th>
+              <th class="py-3 px-3">Responsável</th>
+              <th class="py-3 px-3 text-center">Cupom</th>
+            </tr>
+          </thead>
+          <tbody id="grid-auditoria-cupons" class="divide-y divide-slate-100 font-medium">
+            <tr>
+              <td colspan="9" class="text-center py-6 text-slate-400">Carregando auditoria de notas...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/backend/financeiro.js"></script>
+</body>
+</html>
