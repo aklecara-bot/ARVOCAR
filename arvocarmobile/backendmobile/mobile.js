@@ -31,7 +31,19 @@ function salvarSessaoUnificada(usuario) {
   localStorage.setItem('arvo_usuario_logado', dados);
 }
 
-// Salva as credenciais do usuário quando logar online com sucesso
+function toggleSenhaMobile() {
+  const input = document.getElementById('m-senha');
+  const icone = document.getElementById('m-icone-senha');
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (icone) icone.className = 'ph-bold ph-eye-slash text-base';
+  } else {
+    input.type = 'password';
+    if (icone) icone.className = 'ph-bold ph-eye text-base';
+  }
+}
+
 function salvarCredenciaisOffline(email, senha, dadosUsuario) {
   const creds = JSON.parse(localStorage.getItem('arvo_creds_cache') || '{}');
   creds[email.toLowerCase()] = {
@@ -41,7 +53,6 @@ function salvarCredenciaisOffline(email, senha, dadosUsuario) {
   localStorage.setItem('arvo_creds_cache', JSON.stringify(creds));
 }
 
-// Valida credenciais salvas no aparelho em caso de falta de sinal
 function validarCredenciaisOffline(email, senha) {
   const creds = JSON.parse(localStorage.getItem('arvo_creds_cache') || '{}');
   const conta = creds[email.toLowerCase()];
@@ -57,8 +68,8 @@ async function handleMobileLogin(e) {
   const emailInput = document.getElementById('m-email');
   const senhaInput = document.getElementById('m-senha');
   const btn = document.getElementById('btn-m-login');
-  const erroBox = document.getElementById('erro-login-box');
-  const erroMsg = document.getElementById('erro-login-msg');
+  const erroBox = document.getElementById('erro-login-box') || document.getElementById('m-login-erro');
+  const erroMsg = document.getElementById('erro-login-msg') || document.getElementById('m-login-erro-msg');
 
   if (erroBox) erroBox.classList.add('hidden');
 
@@ -77,7 +88,7 @@ async function handleMobileLogin(e) {
   }
 
   try {
-    // 1. FLUXO OFFLINE: Se não há internet, valida pelo cache local do aparelho
+    // 1. FLUXO OFFLINE
     if (!navigator.onLine) {
       const usuarioOffline = validarCredenciaisOffline(email, senha);
       if (usuarioOffline) {
@@ -90,7 +101,7 @@ async function handleMobileLogin(e) {
       }
     }
 
-    // 2. FLUXO ONLINE: Valida diretamente no Supabase
+    // 2. FLUXO ONLINE
     const { data, error } = await db
       .from('usuarios')
       .select('*')
@@ -111,7 +122,6 @@ async function handleMobileLogin(e) {
       cnh: data.cnh || ''
     };
 
-    // Salva a sessão ativa e o cache de credenciais para uso offline futuro
     salvarSessaoUnificada(usuarioLogado);
     salvarCredenciaisOffline(email, senha, usuarioLogado);
 
@@ -157,6 +167,10 @@ function iniciarAppMobile() {
   switchMobileTab('iniciar');
   carregarDadosMobile();
   sincronizarFilaRotas();
+  
+  // Solicita permissão e valida alertas ao iniciar o app
+  solicitarPermissaoNotificacoes();
+  verificarRotasExcedidas12h();
 }
 
 function switchMobileTab(tab) {
@@ -165,13 +179,23 @@ function switchMobileTab(tab) {
     const el = document.getElementById(`tab-${t}`);
     const btn = document.getElementById(`nav-btn-${t}`);
     if (el) el.classList.add('hidden');
-    if (btn) btn.className = "flex flex-col items-center gap-1 text-slate-400 font-semibold transition";
+    if (btn) {
+      btn.classList.remove('text-brand-700', 'font-bold', 'mobile-nav-item-active');
+      btn.classList.add('text-slate-400', 'font-semibold', 'mobile-nav-item-inactive');
+    }
   });
 
   const activeView = document.getElementById(`tab-${tab}`);
   const activeBtn = document.getElementById(`nav-btn-${tab}`);
   if (activeView) activeView.classList.remove('hidden');
-  if (activeBtn) activeBtn.className = "flex flex-col items-center gap-1 text-brand-700 font-bold transition";
+  if (activeBtn) {
+    activeBtn.classList.remove('text-slate-400', 'font-semibold', 'mobile-nav-item-inactive');
+    activeBtn.classList.add('text-brand-700', 'font-bold', 'mobile-nav-item-active');
+  }
+
+  if (tab === 'historico') {
+    renderizarHistoricoMobile();
+  }
 }
 
 // =========================================================================
@@ -199,12 +223,12 @@ async function carregarDadosMobile() {
 
       const { data: dadosR } = await db.from('rotas').select('*').order('data_saida', { ascending: false });
       if (dadosR) {
-        // Mantém rotas offline pendentes não sincronizadas no topo
         const pendentes = rotas.filter(r => String(r.id).startsWith('temp_'));
         rotas = [...pendentes, ...dadosR.filter(r => !pendentes.some(p => p.id === r.id))];
         localStorage.setItem('arvo_cache_rotas', JSON.stringify(rotas));
         renderizarOpcoesRotasAtivas();
         renderizarHistoricoMobile();
+        verificarRotasExcedidas12h();
       }
     } catch (err) {
       console.warn("Sem conexão: utilizando dados de veículos e rotas salvos localmente.");
@@ -294,7 +318,6 @@ async function handleMobileInicioRota(e) {
   const uuidVeiculo = optSelecionada?.dataset?.uuid || null;
   const placaVeiculo = optSelecionada?.dataset?.placa || null;
 
-  // 1. Identifica o veículo no array carregado
   const veiculo = veiculos.find(v => 
     (uuidVeiculo && String(v.uuid_veiculos) === String(uuidVeiculo)) || 
     (placaVeiculo && String(v.placa) === String(placaVeiculo)) ||
@@ -312,7 +335,7 @@ async function handleMobileInicioRota(e) {
   const emailAtual = (usuarioLogado.email || '').toLowerCase().trim();
   const agoraTs = new Date().getTime();
 
-  // 2. BLOQUEIO DE AGENDAMENTO / RESERVA ATIVA
+  // Bloqueio de Agendamento / Reserva Ativa
   if (navigator.onLine) {
     try {
       const { data: reservasCarro, error: errRes } = await db
@@ -321,7 +344,6 @@ async function handleMobileInicioRota(e) {
         .eq('status', 'CONFIRMADA');
 
       if (!errRes && reservasCarro && reservasCarro.length > 0) {
-        // Localiza se há agendamento para este carro no horário atual
         const reservaAtiva = reservasCarro.find(r => {
           const bateuCarro = (placaFinal && String(r.placa) === String(placaFinal)) ||
                              String(r.veiculo_id) === String(nomeFrotaFinal) ||
@@ -335,8 +357,6 @@ async function handleMobileInicioRota(e) {
 
         if (reservaAtiva) {
           const donoReserva = (reservaAtiva.responsavel || '').toLowerCase().trim();
-
-          // Se o condutor que está tentando abrir não for o dono da reserva, barra a rota
           if (donoReserva !== emailAtual) {
             const dataFimFmt = new Date(reservaAtiva.data_fim).toLocaleString('pt-BR', {
               day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
@@ -359,7 +379,6 @@ async function handleMobileInicioRota(e) {
     }
   }
 
-  // 3. Validação dos campos do formulário
   const selectOrigem = document.getElementById('m-inicio-origem')?.value;
   const outroOrigem = document.getElementById('m-inicio-origem-outro')?.value?.trim();
   const origemFinal = selectOrigem === 'OUTRO' ? outroOrigem : selectOrigem;
@@ -391,7 +410,7 @@ async function handleMobileInicioRota(e) {
     status: 'Em Uso'
   };
 
-  // 4. Fluxo Offline
+  // Fluxo Offline
   if (!navigator.onLine) {
     const payloadOffline = { ...payloadRota, id: tempId, offline_sync: true };
     salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadOffline });
@@ -413,7 +432,7 @@ async function handleMobileInicioRota(e) {
     return;
   }
 
-  // 5. Fluxo Online no Supabase
+  // Fluxo Online
   try {
     const { data: inserido, error: insertErr } = await db
       .from('rotas')
@@ -423,7 +442,6 @@ async function handleMobileInicioRota(e) {
 
     if (insertErr) throw insertErr;
 
-    // Atualiza status do veículo para 'Em Uso' pela Placa
     let queryVeic = db.from('veiculos').update({ status: 'Em Uso' });
     if (placaFinal) {
       queryVeic = queryVeic.eq('placa', placaFinal);
@@ -545,7 +563,6 @@ async function handleMobileFimRota(e) {
     anomalia: anomaliaMarcada ? (relatorioAnomalia || 'Anomalia sem detalhes') : null
   };
 
-  // Se estiver offline ou a rota for um ID temporário
   if (!navigator.onLine || String(rota.id).startsWith('temp_')) {
     salvarNaFilaRotas({ tipo: 'FIM', payload: payloadFim });
     rota.status = 'Concluida';
@@ -586,19 +603,18 @@ async function handleMobileFimRota(e) {
     const veiculoAlvo = veiculos.find(v => 
       String(v.id) === String(rota.veiculo_id) || 
       String(v.uuid_veiculos) === String(rota.veiculo_id) || 
-      String(v.nome_frota) === String(rota.veiculo_id) ||
+      String(v.nome_frota) === String(rota.veiculo_id) || 
       String(v.placa) === String(rota.veiculo_id)
-      );
+    );
 
-      const idFiltro = veiculoAlvo?.uuid_veiculos || veiculoAlvo?.id || rota.veiculo_id;
+    const idFiltro = veiculoAlvo?.uuid_veiculos || veiculoAlvo?.id || rota.veiculo_id;
 
     await db.from('veiculos')
       .update({ 
-      km_atual: kmRetorno, 
-      status: 'Disponivel' 
-    })  .or(`uuid_veiculos.eq.${idFiltro},id.eq.${idFiltro},nome_frota.eq.${idFiltro}`);
+        km_atual: kmRetorno, 
+        status: 'Disponivel' 
+      }).or(`uuid_veiculos.eq.${idFiltro},id.eq.${idFiltro},nome_frota.eq.${idFiltro}`);
 
-    // Encerra eventual reserva confirmada vinculada ao veículo e motorista
     await db.from('reservas').update({ status: 'CONCLUIDA' })
       .eq('veiculo_id', rota.veiculo_id)
       .eq('responsavel', rota.responsavel)
@@ -659,7 +675,6 @@ async function sincronizarFilaRotas() {
 
         await db.from('veiculos').update({ status: 'Em Uso' }).eq('id', payload.veiculo_id);
 
-        // Atualiza referências de 'temp_' para o ID oficial gerado no Supabase
         fila.forEach(outroItem => {
           if (outroItem.tipo === 'FIM' && outroItem.payload.rota_id === tempId) {
             outroItem.payload.rota_id = rotaCriada.id;
@@ -692,7 +707,6 @@ async function sincronizarFilaRotas() {
   }
 }
 
-// Escuta retorno de rede
 window.addEventListener('online', sincronizarFilaRotas);
 
 function renderizarHistoricoMobile() {
@@ -737,13 +751,192 @@ function renderizarHistoricoMobile() {
   });
 }
 
-// Inicialização automática
+// =========================================================================
+// SISTEMA DE NOTIFICAÇÕES & ALERTAS (> 12H)
+// =========================================================================
+
+async function solicitarPermissaoNotificacoes() {
+  if ("Notification" in window && Notification.permission === "default") {
+    try {
+      await Notification.requestPermission();
+    } catch (e) {
+      console.warn("Permissão de notificação não concedida:", e);
+    }
+  }
+}
+
+async function dispararNotificacaoNativa(titulo, corpo) {
+  if (!("Notification" in window) || Notification.permission !== "granted") {
+    return;
+  }
+
+  try {
+    // 1. Prioriza o Service Worker (exigência técnica no Mobile / PWA)
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.showNotification) {
+        await reg.showNotification(titulo, {
+          body: corpo,
+          icon: "/imagens/logo3d192.png",
+          badge: "/imagens/logo3d192.png",
+          vibrate: [200, 100, 200],
+          tag: "alerta-rota-excedida"
+        });
+        return;
+      }
+    }
+
+    // 2. Fallback para navegadores de mesa
+    new Notification(titulo, {
+      body: corpo,
+      icon: "/imagens/logo3d192.png",
+      badge: "/imagens/logo3d192.png"
+    });
+  } catch (err) {
+    console.warn("Falha ao disparar notificação nativa:", err);
+  }
+}
+
+function exibirPopUpAlerta(rota, horasAbertas) {
+  const modalId = `modal-alerta-${rota.id}`;
+  if (document.getElementById(modalId)) return;
+
+  const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+  let emailUsuario = '';
+  if (rawSessao) {
+    try {
+      const parsed = JSON.parse(rawSessao);
+      emailUsuario = (parsed.email || '').toLowerCase().trim();
+    } catch {
+      emailUsuario = String(rawSessao).toLowerCase().trim();
+    }
+  }
+
+  const responsavelRota = String(rota.responsavel || '').toLowerCase().trim();
+  const isAdmin = emailUsuario === ADMIN_EMAIL.toLowerCase().trim();
+  const podeFinalizar = isAdmin || (emailUsuario && responsavelRota === emailUsuario);
+
+  const veic = veiculos.find(v => 
+    String(v.id) === String(rota.veiculo_id) || 
+    String(v.uuid_veiculos) === String(rota.veiculo_id) || 
+    String(v.nome_frota) === String(rota.veiculo_id) || 
+    String(v.placa) === String(rota.veiculo_id)
+  );
+
+  const nomeCarro = rota.nome_frota || (veic ? (veic.nome_frota || veic.id) : rota.veiculo_id) || 'Veículo';
+  const placaCarro = (veic && veic.placa) ? ` [${veic.placa}]` : (rota.placa ? ` [${rota.placa}]` : '');
+
+  const popUp = document.createElement('div');
+  popUp.id = modalId;
+  popUp.className = "fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in";
+  popUp.innerHTML = `
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-rose-100 text-center space-y-4">
+      <div class="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+        <i class="ph-bold ph-warning-circle"></i>
+      </div>
+      <div>
+        <h3 class="text-base font-black text-slate-900">Atenção: Rota Pendente!</h3>
+        <p class="text-xs text-slate-500 mt-1">
+          A rota <b class="text-slate-800">#${rota.id}</b> com o veículo <b class="text-slate-800">${nomeCarro}${placaCarro}</b> (Condutor: <b>${rota.responsavel}</b>) está aberta há mais de <span class="text-rose-600 font-bold">${Math.floor(horasAbertas)} horas</span>.
+        </p>
+      </div>
+
+      <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium text-left">
+        ${podeFinalizar 
+          ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento." 
+          : "Esta rota está aberta há mais de 12 horas. Apenas o condutor responsável ou o administrador podem encerrá-la."}
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button onclick="document.getElementById('${modalId}').remove()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+          ${podeFinalizar ? "Lembrar Depois" : "Fechar"}
+        </button>
+        ${podeFinalizar ? `
+          <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDiretaMobile('${rota.id}');" class="flex-1 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md transition">
+            Finalizar Agora
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(popUp);
+}
+
+function abrirFinalizacaoDiretaMobile(rotaId) {
+  switchMobileTab('finalizar');
+  const select = document.getElementById('m-fim-rota-select');
+  if (select) {
+    select.value = rotaId;
+    selecionarRotaFimMobile();
+  }
+}
+
+async function verificarRotasExcedidas12h() {
+  try {
+    const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+    if (!rawSessao) return;
+
+    let sessao;
+    try {
+      sessao = JSON.parse(rawSessao);
+    } catch {
+      sessao = { email: rawSessao };
+    }
+
+    const emailUsuario = (sessao?.email || '').toLowerCase().trim();
+    if (!emailUsuario) return;
+
+    const { data: rotasAtivas, error } = await db
+      .from('rotas')
+      .select('*')
+      .eq('status', 'Em Uso');
+
+    if (error || !rotasAtivas) return;
+
+    const agora = new Date().getTime();
+
+    rotasAtivas.forEach(rota => {
+      const dataRef = rota.data_saida || rota.created_at;
+      if (!dataRef) return;
+
+      const dataSaida = new Date(dataRef).getTime();
+      if (isNaN(dataSaida)) return;
+
+      const diferencaHoras = (agora - dataSaida) / (1000 * 60 * 60);
+
+      if (diferencaHoras >= 12) {
+        const responsavelRota = (rota.responsavel || '').toLowerCase().trim();
+        const isAdmin = emailUsuario === ADMIN_EMAIL.toLowerCase().trim();
+
+        // Exibe o alerta visual na interface
+        exibirPopUpAlerta(rota, diferencaHoras);
+
+        // Notificação nativa no SO para condutor responsável ou admin
+        if (responsavelRota === emailUsuario || isAdmin) {
+          dispararNotificacaoNativa(
+            "⚠️ ARVO - Rota Excedida",
+            `A rota #${rota.id} (${rota.veiculo_id}) está aberta há ${Math.floor(diferencaHoras)}h. Realize o encerramento.`
+          );
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Falha ao verificar rotas excedidas:", err);
+  }
+}
+
+// =========================================================================
+// INICIALIZAÇÃO E BINDINGS GLOBAIS
+// =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   const sessao = obterSessaoAtiva();
   if (sessao) {
     usuarioLogado = sessao;
     iniciarAppMobile();
   }
+
+  // Monitora rotas pendentes a cada 5 minutos
+  setInterval(verificarRotasExcedidas12h, 5 * 60 * 1000);
 });
 
 // Exportações Globais
@@ -759,3 +952,6 @@ window.handleMobileInicioRota = handleMobileInicioRota;
 window.selecionarRotaFimMobile = selecionarRotaFimMobile;
 window.calcularKmPercorridoMobile = calcularKmPercorridoMobile;
 window.handleMobileFimRota = handleMobileFimRota;
+window.solicitarPermissaoNotificacoes = solicitarPermissaoNotificacoes;
+window.verificarRotasExcedidas12h = verificarRotasExcedidas12h;
+window.abrirFinalizacaoDiretaMobile = abrirFinalizacaoDiretaMobile;
