@@ -905,19 +905,14 @@ async function verificarRotasExcedidas12h() {
       const diferencaHoras = (agora - dataSaida) / (1000 * 60 * 60);
 
       if (diferencaHoras >= 12) {
-        const responsavelRota = (rota.responsavel || '').toLowerCase().trim();
-        const isAdmin = emailUsuario === ADMIN_EMAIL.toLowerCase().trim();
-
-        // Exibe o alerta visual na interface
+        // 1. Exibe o pop-up na tela para qualquer usuário conectado
         exibirPopUpAlerta(rota, diferencaHoras);
 
-        // Notificação nativa no SO para condutor responsável ou admin
-        if (responsavelRota === emailUsuario || isAdmin) {
-          dispararNotificacaoNativa(
-            "⚠️ ARVO - Rota Excedida",
-            `A rota #${rota.id} (${rota.veiculo_id}) está aberta há ${Math.floor(diferencaHoras)}h. Realize o encerramento.`
-          );
-        }
+        // 2. Dispara a notificação nativa no aparelho para todos os usuários
+        dispararNotificacaoNativa(
+          "⚠️ ARVO - Rota Excedida",
+          `A rota #${rota.id} (${rota.veiculo_id}) está aberta há ${Math.floor(diferencaHoras)}h por ${rota.responsavel || 'condutor'}.`
+        );
       }
     });
   } catch (err) {
