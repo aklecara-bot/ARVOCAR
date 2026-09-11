@@ -29,13 +29,9 @@
       <!-- Atalhos de Navegação -->
       <div class="flex items-center gap-2">
         <a href="paginainicial.html?modulo=gestao" class="btn-nav-action btn-nav-green">
-            <i class="ph-bold ph-chart-pie-slice text-base"></i>
-            <span class="hidden sm:inline">Painel de Gestão</span>
+          <i class="ph-bold ph-chart-pie-slice text-base"></i>
+          <span class="hidden sm:inline">Painel de Gestão</span>
         </a>
-        <!--<a href="abastecimento.html" class="btn-nav-action btn-nav-amber">
-          <i class="ph-bold ph-gas-pump text-base"></i>
-          <span class="hidden sm:inline">Abastecimento</span>
-        </a>-->
         <button onclick="logout()" class="btn-logout" title="Sair do Sistema">
           <i class="ph-bold ph-sign-out text-sm"></i>
           <span class="hidden sm:inline">Sair</span>
@@ -47,28 +43,62 @@
   <!-- CONTEÚDO PRINCIPAL -->
   <main class="max-w-7xl mx-auto px-4 py-6 w-full flex-1 space-y-6">
 
-    <!-- FILTRO TEMPORAL E AÇÕES -->
-    <div class="card-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4">
-      <div class="flex items-center gap-3">
-        <label for="filtro-periodo" class="text-xs font-bold uppercase tracking-wider text-slate-600">Período de Análise:</label>
-        <select id="filtro-periodo" onchange="carregarMetricasFinanceiras()" class="form-control text-xs font-bold max-w-[180px]">
-        <option value="15" selected>Últimos 15 dias</option>
-          <option value="30" selected>Últimos 30 dias</option>
-          <option value="60">Últimos 60 dias</option>
-          <option value="90">Últimos 90 dias</option>
-          <option value="todos">Todo o Histórico</option>
-        </select>
+    <!-- FILTRO DE DATAS E NATUREZA DE DESPESA -->
+    <div class="card-panel space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+        <div>
+          <h2 class="card-title text-sm flex items-center gap-1.5">
+            <i class="ph-bold ph-funnel text-brand-600"></i> Filtro de Período Financeiro
+          </h2>
+          <p class="card-subtitle">Selecione o intervalo de datas ou utilize os atalhos rápidos</p>
+        </div>
+        
+        <!-- Botões de Atalho Rápido de Período -->
+        <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold gap-1 overflow-x-auto">
+          <button type="button" id="btn-periodo-dia" onclick="setPeriodoFinanceiro('dia')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap">Dia</button>
+          <button type="button" id="btn-periodo-semana" onclick="setPeriodoFinanceiro('semana')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap">Semana</button>
+          <button type="button" id="btn-periodo-mes" onclick="setPeriodoFinanceiro('mes')" class="flex-1 py-1.5 px-3 rounded-lg bg-emerald-800 text-white shadow transition text-center whitespace-nowrap">Mês</button>
+          <button type="button" id="btn-periodo-trimestre" onclick="setPeriodoFinanceiro('trimestre')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap">Trimestre</button>
+          <button type="button" id="btn-periodo-ano" onclick="setPeriodoFinanceiro('ano')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap">Ano</button>
+          <button type="button" id="btn-periodo-todos" onclick="setPeriodoFinanceiro('todos')" class="flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap">Tudo</button>
+        </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <button onclick="carregarMetricasFinanceiras()" class="btn-nav-action bg-slate-800 text-white hover:bg-slate-900 border-none">
-          <i class="ph-bold ph-arrows-clockwise text-sm"></i>
-          <span>Atualizar Indicadores</span>
-        </button>
+      <!-- Filtro por Categoria, Datas Personalizadas e Ações -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+        <div>
+          <label class="form-label text-xs font-bold text-slate-700 mb-1">Tipo de Custo</label>
+          <select id="filtro-tipo-custo" onchange="aplicarFiltrosEAtualizarFinanceiro()" class="form-control text-xs font-bold bg-white">
+            <option value="TODOS" selected>Todos os Custos</option>
+            <option value="COMBUSTIVEL">Apenas Combustível</option>
+            <option value="MANUTENCAO">Apenas Manutenção Preventiva</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label text-xs font-bold text-slate-700 mb-1">Data Início</label>
+          <input type="date" id="filtro-data-inicio" onchange="aplicarFiltroPersonalizadoDatas()" class="form-control text-xs font-medium" />
+        </div>
+        
+        <div>
+          <label class="form-label text-xs font-bold text-slate-700 mb-1">Data Fim</label>
+          <input type="date" id="filtro-data-fim" onchange="aplicarFiltroPersonalizadoDatas()" class="form-control text-xs font-medium" />
+        </div>
+
+        <div class="flex gap-2">
+          <button type="button" onclick="aplicarFiltrosEAtualizarFinanceiro()" class="btn-primary flex-1 mt-0">
+            <i class="ph-bold ph-magnifying-glass"></i>
+            <span>Aplicar Filtro</span>
+          </button>
+          <button type="button" onclick="limparFiltrosFinanceiro()" class="btn-logout flex items-center justify-center gap-1 bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 rounded-xl font-bold border-none text-xs transition">
+            <i class="ph-bold ph-arrows-counter-clockwise"></i>
+            <span>Limpar</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- CARDS DE KPIs CENTRAIS (CUSTO POR KM E VOLUMES) -->
+    <!-- CARDS DE KPIS CENTRAIS -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       
       <!-- Custo por KM Geral -->
@@ -78,17 +108,17 @@
           <i class="ph-bold ph-currency-circle-dollar text-xl text-emerald-600"></i>
         </div>
         <div class="text-2xl font-black font-mono text-slate-900" id="kpi-custo-km">R$ 0,00</div>
-        <p class="text-[11px] text-slate-500">Gasto combustível / Quilômetros rodados</p>
+        <p class="text-[11px] text-slate-500" id="kpi-sub-custo-km">Despesa total / Quilômetros rodados</p>
       </div>
 
       <!-- Despesa Consolidada -->
       <div class="card-panel border-l-4 border-l-amber-500 space-y-1">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Despesa Combustível</span>
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Despesa Total</span>
           <i class="ph-bold ph-gas-pump text-xl text-amber-500"></i>
         </div>
         <div class="text-2xl font-black font-mono text-slate-900" id="kpi-gasto-total">R$ 0,00</div>
-        <p class="text-[11px] text-slate-500" id="kpi-litros-totais">0 Litros consumidos</p>
+        <p class="text-[11px] text-slate-500" id="kpi-despesa-detalhe">Combustível: R$ 0,00 | Manut: R$ 0,00</p>
       </div>
 
       <!-- Quilometragem Produzida -->
@@ -101,195 +131,270 @@
         <p class="text-[11px] text-slate-500" id="kpi-total-rotas">0 rotas concluídas</p>
       </div>
 
-      <!-- Média Global de Consumo -->
+      <!-- Depreciação Operacional -->
       <div class="card-panel border-l-4 border-l-purple-600 space-y-1">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Média Operacional</span>
-          <i class="ph-bold ph-speedometer text-xl text-purple-600"></i>
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Depreciação Operacional</span>
+          <i class="ph-bold ph-trend-down text-xl text-purple-600"></i>
         </div>
-        <div class="text-2xl font-black font-mono text-slate-900" id="kpi-media-consumo">0,0 km/L</div>
-        <p class="text-[11px] text-slate-500" id="kpi-preco-medio-litro">Preço médio: R$ 0,00/L</p>
+        <div class="text-2xl font-black font-mono text-purple-700" id="kpi-depreciacao-total">R$ 0,00</div>
+        <p class="text-[11px] text-slate-500">Desgaste mecânico estimado por KM</p>
       </div>
 
     </div>
-<!-- BARRA DE ACIONAMENTO DOS MODAIS FINANCEIROS -->
-<div class="card-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4">
-  <div>
-    <h2 class="card-title text-sm">Contratos e Parâmetros Financeiros</h2>
-    <p class="card-subtitle">Cadastre os valores de locação e franquias de seguro dos veículos</p>
-  </div>
-  <div class="flex items-center gap-2.5">
-    <button type="button" onclick="abrirModalContratoAluguel()" class="btn-nav-action btn-nav-amber">
-      <i class="ph-bold ph-file-text text-base"></i>
-      <span>Contrato de Aluguel</span>
-    </button>
-    <button type="button" onclick="abrirModalCustosSeguros()" class="btn-nav-action btn-nav-green">
-      <i class="ph-bold ph-shield-check text-base"></i>
-      <span>Custos e Seguros</span>
-    </button>
-  </div>
-</div>
 
-<!-- =========================================================================
-     MODAL 1: CONTRATO DE ALUGUEL (POPUP)
-     ========================================================================= -->
-<div id="modal-contrato-aluguel" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto space-y-4">
-    
-    <div class="card-header-bar" style="margin-bottom: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9;">
-      <div class="card-icon-box">
-        <i class="ph-bold ph-file-text text-xl"></i>
-      </div>
+    <!-- =========================================================================
+         BARRA DE ACIONAMENTO DE PARÂMETROS FINANCEIROS (CARROS / EQUIPAMENTOS / VIAGENS)
+         ========================================================================= -->
+    <div class="card-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4">
       <div>
-        <h3 class="card-title">Contrato de Aluguel</h3>
-        <p class="card-subtitle">Parâmetros de locação e franquia de KM</p>
+        <h2 class="card-title text-sm">Contratos e Parâmetros Financeiros</h2>
+        <p class="card-subtitle">Gerencie os custos e regras de locação por categoria</p>
       </div>
-      <button type="button" onclick="fecharModalContratoAluguel()" class="btn-logout" style="background: transparent; border: none; color: #64748b; margin-left: auto;">
-        <i class="ph-bold ph-x text-lg"></i>
-      </button>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- 1. Pop-up Carros (Contrato + Custos/Seguros) -->
+        <button type="button" onclick="abrirModalParametrosCarros()" class="btn-nav-action btn-nav-amber">
+          <i class="ph-bold ph-car text-base"></i>
+          <span>Carros</span>
+        </button>
+        <!-- 2. Pop-up Equipamentos (Em branco) -->
+        <button type="button" onclick="abrirModalEquipamentos()" class="btn-nav-action btn-nav-green">
+          <i class="ph-bold ph-wrench text-base"></i>
+          <span>Equipamentos</span>
+        </button>
+        <!-- 3. Botão Viagens (Em branco) -->
+        <button type="button" onclick="abrirModalViagens()" class="btn-nav-action bg-indigo-700 text-white hover:bg-indigo-800 border-none">
+          <i class="ph-bold ph-airplane-tilt text-base"></i>
+          <span>Viagens</span>
+        </button>
+      </div>
     </div>
 
-    <form id="formContratoAluguel" onsubmit="salvarContratoAluguel(event)" class="space-y-3">
-      <div>
-        <label class="form-label">Selecionar Veículo *</label>
-        <select id="aluguel-veiculo" required class="form-control font-bold bg-white">
-          <option value="">-- Carregando carros --</option>
-        </select>
-      </div>
-
-      <div class="form-grid-2">
-        <div>
-          <label class="form-label">Data de Início *</label>
-          <input type="date" id="aluguel-inicio" required class="form-control" />
+    <!-- =========================================================================
+         MODAL 1: CARROS (CONCENTRA CONTRATO DE ALUGUEL E CUSTOS E SEGUROS)
+         ========================================================================= -->
+    <div id="modal-parametros-carros" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto space-y-4">
+        
+        <!-- Header do Modal com Abas Internas -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <div class="card-icon-box">
+              <i class="ph-bold ph-car text-xl"></i>
+            </div>
+            <div>
+              <h3 class="card-title">Parâmetros de Carros</h3>
+              <p class="card-subtitle">Configurações de contrato e coberturas de seguro</p>
+            </div>
+          </div>
+          <button type="button" onclick="fecharModalParametrosCarros()" class="btn-logout" style="background: transparent; border: none; color: #64748b;">
+            <i class="ph-bold ph-x text-lg"></i>
+          </button>
         </div>
-        <div>
-          <label class="form-label">Data de Término *</label>
-          <input type="date" id="aluguel-termino" required class="form-control" />
+
+        <!-- Seletor Interno de Abas: Contrato vs Seguro -->
+        <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1">
+          <button type="button" id="tab-btn-car-contrato" onclick="alternarAbaCarros('contrato')" class="flex-1 py-2 rounded-lg bg-amber-600 text-white shadow transition text-center flex items-center justify-center gap-1.5">
+            <i class="ph-bold ph-file-text"></i> Contrato de Aluguel
+          </button>
+          <button type="button" id="tab-btn-car-seguro" onclick="alternarAbaCarros('seguro')" class="flex-1 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition text-center flex items-center justify-center gap-1.5">
+            <i class="ph-bold ph-shield-check"></i> Custos e Seguros
+          </button>
         </div>
-      </div>
 
-      <div>
-        <label class="form-label">Responsável *</label>
-        <input type="text" id="aluguel-responsavel" required placeholder="Nome do responsável" class="form-control" />
-      </div>
+        <!-- CONTEÚDO 1: CONTRATO DE ALUGUEL -->
+        <div id="subview-car-contrato">
+          <form id="formContratoAluguel" onsubmit="salvarContratoAluguel(event)" class="space-y-3">
+            <div>
+              <label class="form-label">Selecionar Veículo *</label>
+              <select id="aluguel-veiculo" required class="form-control font-bold bg-white">
+                <option value="">-- Carregando carros --</option>
+              </select>
+            </div>
 
-      <div class="form-grid-2">
-        <div>
-          <label class="form-label">Código de Reserva</label>
-          <input type="text" id="aluguel-cod-reserva" placeholder="Ex: RES-1029" class="form-control uppercase" />
+            <div class="form-grid-2">
+              <div>
+                <label class="form-label">Data de Início *</label>
+                <input type="date" id="aluguel-inicio" required class="form-control" />
+              </div>
+              <div>
+                <label class="form-label">Data de Término *</label>
+                <input type="date" id="aluguel-termino" required class="form-control" />
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label">Responsável *</label>
+              <input type="text" id="aluguel-responsavel" required placeholder="Nome do responsável" class="form-control" />
+            </div>
+
+            <div class="form-grid-2">
+              <div>
+                <label class="form-label">Código de Reserva</label>
+                <input type="text" id="aluguel-cod-reserva" placeholder="Ex: RES-1029" class="form-control uppercase" />
+              </div>
+              <div>
+                <label class="form-label">Código do Aluguel</label>
+                <input type="text" id="aluguel-cod-aluguel" placeholder="Ex: LOC-5541" class="form-control uppercase" />
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div>
+                <label class="form-label">Tarifa Mensal (R$)</label>
+                <input type="number" step="0.01" id="aluguel-tarifa" placeholder="0,00" class="form-control font-mono" />
+              </div>
+              <div>
+                <label class="form-label">Valor KM Excedente (R$)</label>
+                <input type="number" step="0.01" id="aluguel-km-excedente" placeholder="0,00" class="form-control font-mono" />
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label">Franquia KM/Dia</label>
+              <input type="number" id="aluguel-franquia" placeholder="Ex: 100" class="form-control font-mono" />
+            </div>
+
+            <div class="flex gap-2 pt-3 border-t border-slate-100">
+              <button type="button" onclick="fecharModalParametrosCarros()" class="btn-logout" style="background-color: #64748b; flex: 1; justify-content: center;">
+                Cancelar
+              </button>
+              <button type="submit" id="btn-salvar-contrato" class="btn-primary" style="flex: 2; margin-top: 0; background-color: #d97706;">
+                <i class="ph-bold ph-check"></i> Cadastrar Contrato
+              </button>
+            </div>
+          </form>
         </div>
-        <div>
-          <label class="form-label">Código do Aluguel</label>
-          <input type="text" id="aluguel-cod-aluguel" placeholder="Ex: LOC-5541" class="form-control uppercase" />
+
+        <!-- CONTEÚDO 2: CUSTOS E SEGUROS -->
+        <div id="subview-car-seguro" class="hidden">
+          <form id="formCustosSeguros" onsubmit="salvarCustosSeguros(event)" class="space-y-3">
+            <div>
+              <label class="form-label">Selecionar Veículo *</label>
+              <select id="seguro-veiculo" required class="form-control font-bold bg-white">
+                <option value="">-- Carregando carros --</option>
+              </select>
+            </div>
+
+            <div class="form-grid-2">
+              <div>
+                <label class="form-label">Limite Reparos (R$)</label>
+                <input type="number" step="0.01" id="seguro-limite-reparos" placeholder="0,00" class="form-control font-mono" />
+              </div>
+              <div>
+                <label class="form-label">Danos Terceiros (R$)</label>
+                <input type="number" step="0.01" id="seguro-danos-terceiros" placeholder="0,00" class="form-control font-mono" />
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div>
+                <label class="form-label">Cobertura PT/Roubo (R$)</label>
+                <input type="number" step="0.01" id="seguro-cobertura-pt" placeholder="0,00" class="form-control font-mono" />
+              </div>
+              <div>
+                <label class="form-label">KM Aluguel</label>
+                <input type="number" id="seguro-km-aluguel" placeholder="Ex: 15000" class="form-control font-mono" />
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div>
+                <label class="form-label">Início da Vigência *</label>
+                <input type="date" id="seguro-inicio" required class="form-control" />
+              </div>
+              <div>
+                <label class="form-label">Fim da Vigência *</label>
+                <input type="date" id="seguro-fim" required class="form-control" />
+              </div>
+            </div>
+
+            <div class="flex gap-2 pt-3 border-t border-slate-100">
+              <button type="button" onclick="fecharModalParametrosCarros()" class="btn-logout" style="background-color: #64748b; flex: 1; justify-content: center;">
+                Cancelar
+              </button>
+              <button type="submit" id="btn-salvar-custos" class="btn-primary" style="flex: 2; margin-top: 0; background-color: #15803d;">
+                <i class="ph-bold ph-check"></i> Cadastrar Custos
+              </button>
+            </div>
+          </form>
         </div>
-      </div>
 
-      <div class="form-grid-2">
-        <div>
-          <label class="form-label">Tarifa Mensal (R$)</label>
-          <input type="number" step="0.01" id="aluguel-tarifa" placeholder="0,00" class="form-control font-mono" />
-        </div>
-        <div>
-          <label class="form-label">Valor KM Excedente (R$)</label>
-          <input type="number" step="0.01" id="aluguel-km-excedente" placeholder="0,00" class="form-control font-mono" />
-        </div>
       </div>
-
-      <div>
-        <label class="form-label">Franquia KM/Dia</label>
-        <input type="number" id="aluguel-franquia" placeholder="Ex: 100" class="form-control font-mono" />
-      </div>
-
-      <div class="flex gap-2 pt-3 border-t border-slate-100">
-        <button type="button" onclick="fecharModalContratoAluguel()" class="btn-logout" style="background-color: #64748b; flex: 1; justify-content: center;">
-          Cancelar
-        </button>
-        <button type="submit" id="btn-salvar-contrato" class="btn-primary" style="flex: 2; margin-top: 0;">
-          <i class="ph-bold ph-check"></i> Cadastrar Contrato
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- =========================================================================
-     MODAL 2: CUSTOS E SEGUROS (POPUP)
-     ========================================================================= -->
-<div id="modal-custos-seguros" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto space-y-4">
-    
-    <div class="card-header-bar" style="margin-bottom: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9;">
-      <div class="card-icon-box" style="background-color: #dcfce7; color: #15803d;">
-        <i class="ph-bold ph-shield-check text-xl"></i>
-      </div>
-      <div>
-        <h3 class="card-title">Custos e Seguros</h3>
-        <p class="card-subtitle">Apólices, franquias e coberturas</p>
-      </div>
-      <button type="button" onclick="fecharModalCustosSeguros()" class="btn-logout" style="background: transparent; border: none; color: #64748b; margin-left: auto;">
-        <i class="ph-bold ph-x text-lg"></i>
-      </button>
     </div>
 
-    <form id="formCustosSeguros" onsubmit="salvarCustosSeguros(event)" class="space-y-3">
-      <div>
-        <label class="form-label">Selecionar Veículo *</label>
-        <select id="seguro-veiculo" required class="form-control font-bold bg-white">
-          <option value="">-- Carregando carros --</option>
-        </select>
-      </div>
+    <!-- =========================================================================
+         MODAL 2: EQUIPAMENTOS (ESTRUTURA PREPARADA / SEM INFORMAÇÕES)
+         ========================================================================= -->
+    <div id="modal-equipamentos" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-center">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <div class="card-icon-box" style="background-color: #dcfce7; color: #15803d;">
+              <i class="ph-bold ph-wrench text-xl"></i>
+            </div>
+            <h3 class="card-title">Parâmetros de Equipamentos</h3>
+          </div>
+          <button type="button" onclick="fecharModalEquipamentos()" class="btn-logout" style="background: transparent; border: none; color: #64748b;">
+            <i class="ph-bold ph-x text-lg"></i>
+          </button>
+        </div>
 
-      <div class="form-grid-2">
-        <div>
-          <label class="form-label">Limite Reparos (R$)</label>
-          <input type="number" step="0.01" id="seguro-limite-reparos" placeholder="0,00" class="form-control font-mono" />
+        <div class="py-8 space-y-3">
+          <div class="w-14 h-14 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto text-2xl">
+            <i class="ph-bold ph-gear"></i>
+          </div>
+          <h4 class="text-sm font-bold text-slate-700">Módulo em Desenvolvimento</h4>
+          <p class="text-xs text-slate-400 max-w-xs mx-auto">
+            O cadastro de contratos, custos de locação e seguros de maquinários e equipamentos estará disponível nesta seção.
+          </p>
         </div>
-        <div>
-          <label class="form-label">Danos Terceiros (R$)</label>
-          <input type="number" step="0.01" id="seguro-danos-terceiros" placeholder="0,00" class="form-control font-mono" />
-        </div>
-      </div>
 
-      <div class="form-grid-2">
-        <div>
-          <label class="form-label">Cobertura PT/Roubo (R$)</label>
-          <input type="number" step="0.01" id="seguro-cobertura-pt" placeholder="0,00" class="form-control font-mono" />
-        </div>
-        <div>
-          <label class="form-label">KM Aluguel</label>
-          <input type="number" id="seguro-km-aluguel" placeholder="Ex: 15000" class="form-control font-mono" />
-        </div>
-      </div>
-
-      <div class="form-grid-2">
-        <div>
-          <label class="form-label">Início da Vigência *</label>
-          <input type="date" id="seguro-inicio" required class="form-control" />
-        </div>
-        <div>
-          <label class="form-label">Fim da Vigência *</label>
-          <input type="date" id="seguro-fim" required class="form-control" />
-        </div>
-      </div>
-
-      <div class="flex gap-2 pt-3 border-t border-slate-100">
-        <button type="button" onclick="fecharModalCustosSeguros()" class="btn-logout" style="background-color: #64748b; flex: 1; justify-content: center;">
-          Cancelar
-        </button>
-        <button type="submit" id="btn-salvar-custos" class="btn-primary" style="flex: 2; margin-top: 0;">
-          <i class="ph-bold ph-check"></i> Cadastrar Custos
+        <button type="button" onclick="fecharModalEquipamentos()" class="btn-primary w-full mt-0">
+          <span>Fechar</span>
         </button>
       </div>
-    </form>
-  </div>
-</div>
+    </div>
+
+    <!-- =========================================================================
+         MODAL 3: VIAGENS (ESTRUTURA PREPARADA / SEM INFORMAÇÕES)
+         ========================================================================= -->
+    <div id="modal-viagens" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-center">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <div class="card-icon-box" style="background-color: #e0e7ff; color: #4338ca;">
+              <i class="ph-bold ph-airplane-tilt text-xl"></i>
+            </div>
+            <h3 class="card-title">Parâmetros de Viagens</h3>
+          </div>
+          <button type="button" onclick="fecharModalViagens()" class="btn-logout" style="background: transparent; border: none; color: #64748b;">
+            <i class="ph-bold ph-x text-lg"></i>
+          </button>
+        </div>
+
+        <div class="py-8 space-y-3">
+          <div class="w-14 h-14 bg-indigo-50 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto text-2xl">
+            <i class="ph-bold ph-map-trifold"></i>
+          </div>
+          <h4 class="text-sm font-bold text-slate-700">Gestão de Diárias e Hospedagens</h4>
+          <p class="text-xs text-slate-400 max-w-xs mx-auto">
+            Os parâmetros de reembolso, diárias, adiantamentos e limites de despesas de viagem serão configurados aqui.
+          </p>
+        </div>
+
+        <button type="button" onclick="fecharModalViagens()" class="btn-primary w-full mt-0" style="background-color: #4338ca;">
+          <span>Fechar</span>
+        </button>
+      </div>
+    </div>
     
-    <!-- TABELA ANALÍTICA POR VEÍCULO (TCO E CUSTO/KM INDIVIDUAL) -->
+    <!-- TABELA ANALÍTICA POR VEÍCULO (CUSTO/KM: COMBUSTÍVEL + MANUTENÇÃO) -->
     <div class="card-panel space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
         <div>
           <h2 class="card-title text-base">Desempenho Financeiro por Veículo</h2>
-          <p class="card-subtitle">Eficiência operacional e custo por quilômetro por ativo da frota</p>
+          <p class="card-subtitle">Combustível, manutenções preventivas e custo médio por quilômetro</p>
         </div>
       </div>
 
@@ -297,13 +402,13 @@
         <table class="w-full text-left text-xs">
           <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
             <tr>
-              <th class="py-3 px-3">Veículo / Placa</th>
+              <th class="py-3 px-3">Placa / Veículo</th>
               <th class="py-3 px-3">KM Rodado</th>
-              <th class="py-3 px-3">Total Gasto (R$)</th>
-              <th class="py-3 px-3">Litros</th>
-              <th class="py-3 px-3">Média Real</th>
+              <th class="py-3 px-3">Combustível</th>
+              <th class="py-3 px-3">Manutenção</th>
+              <th class="py-3 px-3">Despesa Total</th>
               <th class="py-3 px-3">Custo / KM</th>
-              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3 text-center">Status</th>
             </tr>
           </thead>
           <tbody id="grid-financeiro-veiculos" class="divide-y divide-slate-100 font-medium">
@@ -315,12 +420,45 @@
       </div>
     </div>
 
-    <!-- AUDITORIA DE CUPONS FISCAIS E CONCILIAÇÃO -->
+    <!-- TABELA DE DEPRECIAÇÃO DO VEÍCULO SOB NOSSA JURISDIÇÃO (POR PLACA) -->
+    <div class="card-panel space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+        <div>
+          <h2 class="card-title text-base flex items-center gap-2">
+            <i class="ph-bold ph-trend-down text-rose-600"></i> Depreciação de Peças e Veículo sob nossa Jurisdição
+          </h2>
+          <p class="card-subtitle">Desgaste mecânico e perda contábil proporcional aos quilômetros percorridos nas rotas concluídas</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+            <tr>
+              <th class="py-3 px-3">Placa</th>
+              <th class="py-3 px-3">Identificador / Modelo</th>
+              <th class="py-3 px-3">KM sob Gestão</th>
+              <th class="py-3 px-3">Taxa Desgaste (R$/km)</th>
+              <th class="py-3 px-3">Depreciação Peças</th>
+              <th class="py-3 px-3">Depreciação Veículo</th>
+              <th class="py-3 px-3 font-bold text-rose-700">Depreciação Total</th>
+            </tr>
+          </thead>
+          <tbody id="grid-depreciacao-veiculos" class="divide-y divide-slate-100 font-medium">
+            <tr>
+              <td colspan="7" class="text-center py-6 text-slate-400">Carregando depreciação da frota...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- AUDITORIA DE CUPONS FISCAIS DE COMBUSTÍVEL -->
     <div class="card-panel space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100">
         <div>
-          <h2 class="card-title text-base">Auditoria de Despesas & Comprovantes Fiscais</h2>
-          <p class="card-subtitle">Lançamentos recentes e validação de notas anexadas no bucket comprovantes</p>
+          <h2 class="card-title text-base">Auditoria de Despesas & Comprovantes Fiscais (Combustível)</h2>
+          <p class="card-subtitle">Lançamentos de postos e validação de notas anexadas no bucket comprovantes</p>
         </div>
       </div>
 
@@ -342,6 +480,39 @@
           <tbody id="grid-auditoria-cupons" class="divide-y divide-slate-100 font-medium">
             <tr>
               <td colspan="9" class="text-center py-6 text-slate-400">Carregando auditoria de notas...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- AUDITORIA DE NOTAS FISCAIS DE MANUTENÇÃO & PEÇAS -->
+    <div class="card-panel space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h2 class="card-title text-base flex items-center gap-2">
+            <i class="ph-bold ph-receipt text-emerald-700"></i> Auditoria de Manutenções & Notas Fiscais
+          </h2>
+          <p class="card-subtitle">Comprovantes anexados na confirmação de manutenções e trocas de peças/fluidos</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+            <tr>
+              <th class="py-3 px-3">Data</th>
+              <th class="py-3 px-3">Placa</th>
+              <th class="py-3 px-3">Serviço</th>
+              <th class="py-3 px-3">KM Troca</th>
+              <th class="py-3 px-3">Valor</th>
+              <th class="py-3 px-3">Oficina</th>
+              <th class="py-3 px-3 text-center">Nota Fiscal</th>
+            </tr>
+          </thead>
+          <tbody id="grid-auditoria-manutencoes" class="divide-y divide-slate-100 font-medium">
+            <tr>
+              <td colspan="7" class="text-center py-6 text-slate-400">Carregando notas de manutenção...</td>
             </tr>
           </tbody>
         </table>
