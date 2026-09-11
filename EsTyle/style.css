@@ -1,12 +1,1160 @@
-/* Classes de navegação ativa */
+/* =========================================================================
+   VARIÁVEIS DE TEMA E RESET BASE
+   ========================================================================= */
+:root {
+  --brand-50: #f0fdf4;
+  --brand-100: #dcfce7;
+  --brand-300: #86efac;
+  --brand-500: #22c55e;
+  --brand-600: #16a34a;
+  --brand-700: #15803d;
+  --brand-800: #166534;
+  --brand-900: #14532d;
+  --brand-950: #052e16;
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+}
+
+body.app-body,
+body {
+  background-color: var(--slate-100);
+  color: var(--slate-800);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mobile-content {
+  flex: 1 1 0%;
+  width: 100%;
+  max-width: 28rem; /* 448px */
+  margin-left: auto;
+  margin-right: auto;
+  padding: 1rem;
+  padding-bottom: 6rem; /* 96px livres para a barra fixa inferior */
+  margin-top: 1rem;
+}
+
+/* =========================================================================
+   CABEÇALHO (HEADER) E ITENS DE NAVEGAÇÃO
+   ========================================================================= */
+.app-header {
+  background-color: var(--brand-900);
+  color: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.header-inner,
+.header-container {
+  max-width: 80rem; /* 1280px */
+  margin: 0 auto;
+  padding: 0 1rem;
+  height: 4rem; /* 64px */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-badge-logo,
+.brand-icon-box {
+  background-color: var(--brand-600);
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.brand-badge-logo img,
+.brand-icon-box img {
+  height: 1.5rem;
+  width: auto;
+}
+
+.brand-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.brand-subtitle {
+  color: var(--brand-300);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.5rem;
+}
+
+.header-modules-wrapper {
+  display: flex;
+  background-color: rgba(5, 46, 22, 0.6);
+  padding: 0.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--brand-800);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mobile-nav-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.25rem !important; /* gap-1 */
+  text-align: center !important;
+  text-decoration: none !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 0.625rem !important; /* text-[10px] */
+  line-height: 1 !important;
+  padding: 0.25rem 0.5rem !important;
+  transition: color 0.15s ease-in-out !important;
+}
+
+.mobile-nav-item i {
+  display: block !important;
+  font-size: 1.25rem !important; /* text-xl */
+  line-height: 1 !important;
+  margin: 0 auto !important;
+}
+
+.mobile-nav-item span {
+  display: block !important;
+  font-size: 0.625rem !important;
+  line-height: 1.2 !important;
+}
+
+/* Estado Ativo */
+.mobile-nav-item-active {
+  color: var(--brand-700, #15803d) !important;
+  font-weight: 700 !important;
+}
+
+/* Estado Inativo */
+.mobile-nav-item-inactive {
+  color: var(--slate-400, #94a3b8) !important;
+  font-weight: 600 !important;
+}
+
+.mobile-nav-item-inactive:hover {
+  color: var(--brand-700, #15803d) !important;
+}
+
+.btn-module-nav {
+  padding: 0.375rem 0.875rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
 .module-nav-active {
-  background-color: #15803d !important;
+  background-color: var(--brand-700) !important;
   color: #ffffff !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.subtab-active {
-  border-bottom-color: #16a34a !important;
-  color: #16a34a !important;
+.module-nav-inactive {
+  color: var(--brand-300);
+}
+
+.module-nav-inactive:hover {
+  color: #ffffff;
+}
+
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background-color: #ffffff;
+  border-top: 1px solid var(--slate-200, #e2e8f0);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem 1.5rem;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+
+
+/* ========================================================
+  BARRA DE FERRAMENTAS / FILTROS DO HISTÓRICO
+  =======================================================*/
+ 
+  .toolbar-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 640px) {
+  .toolbar-filtro {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.input-busca-rotas {
+  max-width: 20rem;
+  width: 100%;
+}
+
+/* =====================================================
+  iNFORMAÇÕES DO =CONDUTOR NO CABEÇALHO
+=======================================================*/
+
+.user-meta-info {
+  text-align: right;
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .user-meta-info {
+    display: block;
+  }
+}
+
+.user-meta-name {
+  font-size: 0.75rem;
   font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.user-meta-cnh {
+  font-size: 0.625rem;
+  color: var(--brand-100);
+}
+
+/* =========================================================================
+   BOTÕES DE AÇÃO E LINKS DO SISTEMA (PADRONIZADOS)
+   ========================================================================= */
+/* Botão Principal de Formulários */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--brand-700);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 10px 15px -3px rgba(20, 83, 45, 0.15), 0 4px 6px -4px rgba(20, 83, 45, 0.15);
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primary:hover {
+  background-color: var(--brand-800);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* Botões do Cabeçalho (Pills / Ações Rápidas) */
+.btn-nav-action,
+.btn-header-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  background-color: var(--brand-700);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.btn-nav-action:hover,
+.btn-header-action:hover,
+.btn-nav-green:hover {
+  background-color: var(--brand-800);
+}
+
+.btn-nav-green {
+  background-color: var(--brand-700);
+  color: #ffffff;
+}
+
+.btn-nav-amber,
+.btn-header-amber {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.btn-nav-amber:hover,
+.btn-header-amber:hover {
+  background-color: #b45309 !important;
+}
+
+/* Botão Voltar ao Painel (Reservas / Relatórios) */
+.header-voltar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--brand-800);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--brand-700);
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease-in-out;
+}
+
+.header-voltar-btn:hover {
+  background-color: var(--brand-700);
+}
+
+.btn-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: #be123c;
+  color: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-logout:hover {
+  background-color: #9f1239;
+}
+
+/* =========================================================================
+   FORMULÁRIOS, ENTRADAS E SELETORES
+   ========================================================================= */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.form-label,
+.label-reserva {
+  display: block;
+  font-size: 0.6875rem; /* 11px */
+  font-weight: 700;
+  color: var(--slate-700);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.35rem;
+}
+
+.form-control,
+.input-reserva {
+  width: 100%;
+  background-color: var(--slate-50);
+  border: 1px solid var(--slate-300);
+  color: var(--slate-800);
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.75rem;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control:focus,
+.input-reserva:focus {
+  background-color: #ffffff;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.form-control-readonly {
+  background-color: var(--slate-100);
+  border-color: var(--slate-200);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+}
+
+.form-sublabel {
+  font-size: 0.6875rem;
+  color: var(--slate-500);
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.form-textarea {
+  min-height: 4rem;
+  resize: vertical;
+}
+
+.btn-confirmar-reserva {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--brand-700);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(21, 128, 61, 0.2);
+  transition: all 0.2s ease-in-out;
+  margin-top: 1rem;
+}
+
+.btn-confirmar-reserva:hover {
+  background-color: var(--brand-800);
+}
+
+/* =========================================================================
+   CARDS DE PAINEL E ESTRUTURAS DE CONTEÚDO
+   ========================================================================= */
+.card-panel,
+.card-reservas {
+  background-color: #ffffff;
+  border-radius: 1.5rem;
+  border: 1px solid var(--slate-200);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.card-header-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--slate-100);
+  margin-bottom: 1.5rem;
+}
+
+.card-icon-box,
+.card-reservas-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  background-color: var(--brand-100);
+  color: var(--brand-700);
+  border-radius: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+}
+
+.card-title,
+.card-reservas-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--slate-900);
+  line-height: 1.2;
+  margin: 0;
+}
+
+.card-subtitle,
+.card-reservas-desc {
+  font-size: 0.75rem;
+  color: var(--slate-400);
+  margin-top: 0.125rem;
+}
+
+/* Sub-abas Secundárias */
+.subtabs-bar {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--slate-200);
+  padding: 0 1.5rem;
+}
+
+.subtabs-container {
+  max-width: 80rem;
+  margin: 0 auto;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.subtab-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--slate-500);
+  border-bottom: 2px solid transparent;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.subtab-link:hover {
+  color: var(--slate-800);
+}
+
+.subtab-active {
+  border-bottom: 2px solid var(--brand-600) !important;
+  color: var(--brand-600) !important;
+  font-weight: 700;
+}
+
+/* =========================================================================
+   LAYOUT DA TELA DE RESERVAS
+   ========================================================================= */
+.reservas-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .reservas-grid {
+    grid-template-columns: repeat(12, 1fr);
+  }
+  .reservas-col-form {
+    grid-column: span 4;
+  }
+  .reservas-col-main {
+    grid-column: span 8;
+  }
+}
+
+/* =========================================================================
+   TABELA PADRÃO DE DADOS
+   ========================================================================= */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--slate-600);
+  border-collapse: collapse;
+}
+
+.data-table th {
+  background-color: var(--slate-50);
+  border-bottom: 1px solid var(--slate-200);
+  font-weight: 700;
+  color: var(--slate-700);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem;
+}
+
+.data-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--slate-100);
+}
+
+.data-table tbody tr:hover {
+  background-color: var(--slate-50);
+}
+
+/* =========================================================================
+   BADGE DE CONTAGEM E TAGS
+   ========================================================================= */
+.badge-pill {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  background-color: var(--brand-50);
+  color: var(--brand-700);
+  border: 1px solid #bbf7d0;
+}
+
+.badge-tag {
+  background-color: var(--slate-100);
+  color: var(--slate-700);
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+.btn-table-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #e11d48;
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.btn-table-cancel:hover {
+  background-color: #ffe4e6;
+}
+
+/* =========================================================================
+   MODAL POPUP CENTRALIZADO
+   ========================================================================= */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-card {
+  background-color: #ffffff;
+  border-radius: 1.5rem;
+  max-width: 24rem;
+  width: 100%;
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--slate-100);
+}
+
+/* =======================================================================
+   CUSTOMIZAÇÃO DO FULLCALENDAR
+=========================================================================*/
+.fc .fc-toolbar-title {
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  color: var(--slate-900) !important;
+}
+
+.fc .fc-button-primary {
+  background-color: var(--slate-900) !important;
+  border-color: var(--slate-900) !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.35rem 0.75rem !important;
+}
+
+.fc .fc-button-primary:hover {
+  background-color: var(--slate-800) !important;
+  border-color: var(--slate-800) !important;
+}
+
+.fc .fc-button-active {
+  background-color: var(--brand-700) !important;
+  border-color: var(--brand-700) !important;
+}
+
+.fc .fc-today-button {
+  background-color: var(--slate-400) !important;
+  border-color: var(--slate-400) !important;
+  color: #ffffff !important;
+}
+
+.fc-theme-standard th {
+  background-color: #ffffff !important;
+  border-color: var(--slate-200) !important;
+  padding: 0.5rem 0 !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  color: var(--slate-800) !important;
+}
+
+.fc-theme-standard td {
+  border-color: var(--slate-200) !important;
+}
+
+.fc .fc-daygrid-day-number {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  color: var(--slate-600) !important;
+  padding: 0.25rem 0.5rem !important;
+}
+
+.fc-event {
+  border-radius: 0.375rem !important;
+  padding: 2px 4px !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  border: none !important;
+  cursor: pointer;
+}
+
+/* =======================================================================
+   CARDS DE INDICADORES (KPIs DO DASHBOARD
+=========================================================================*/
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.kpi-card {
+  background-color: #ffffff;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid var(--slate-200);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kpi-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kpi-value {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--slate-800);
+  margin-top: 0.5rem;
+  line-height: 1;
+}
+
+.kpi-subtext {
+  font-size: 0.75rem;
+  color: var(--slate-400);
+  margin-top: 0.25rem;
+  display: block;
+}
+
+/* =======================================================================
+   GRID DE VISÃO GERAL DOS VEICULOS
+=========================================================================*/
+
+.fleet-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .fleet-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .fleet-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* =========================================================================
+   POP-UP DE NOTIFICAÇÃO / ALERTA DE ROTA PENDENTE
+   ========================================================================= */
+.modal-alerta-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-alerta-card {
+  background-color: #ffffff;
+  border-radius: 1.5rem; /* rounded-3xl */
+  max-width: 24rem; /* max-w-sm */
+  width: 100%;
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid #ffe4e6;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.modal-alerta-icon-box {
+  width: 3.5rem;
+  height: 3.5rem;
+  background-color: #ffe4e6; /* rose-100 */
+  color: #e11d48; /* rose-600 */
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem auto;
+  font-size: 1.75rem;
+}
+
+.modal-alerta-box-aviso {
+  background-color: #fffbeb; /* amber-50 */
+  border: 1px solid #fde68a; /* amber-200 */
+  color: #92400e; /* amber-800 */
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.6875rem; /* 11px */
+  text-align: left;
+  line-height: 1.4;
+  margin: 1rem 0;
+}
+
+.modal-alerta-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.btn-alerta-lembrar {
+  flex: 1;
+  padding: 0.625rem;
+  background-color: #f1f5f9;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-alerta-lembrar:hover {
+  background-color: #e2e8f0;
+}
+
+.btn-alerta-finalizar {
+  flex: 1;
+  padding: 0.625rem;
+  background-color: #15803d; /* brand-700 */
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(21, 128, 61, 0.2);
+  transition: background-color 0.2s;
+}
+
+.btn-alerta-finalizar:hover {
+  background-color: #166534;
+}
+
+/* =========================================================================
+   RESPONSIVIDADE DO CABEÇALHO (HEADER)
+   ========================================================================= */
+.header-inner {
+  height: auto !important;
+  min-height: 4rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+/* Garante que botões e textos não estourem o container */
+.header-modules-wrapper {
+  flex-shrink: 0;
+}
+
+.header-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+/* Oculta textos secundários em telas intermediárias para poupar espaço */
+@media (max-width: 1100px) {
+  .brand-subtitle {
+    display: none !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .btn-nav-action span,
+  .btn-header-action span {
+    display: none; /* Mantém apenas os ícones em telas estreitas */
+  }
+  .btn-nav-action,
+  .btn-header-action {
+    padding: 0.45rem 0.6rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .header-inner {
+    justify-content: space-between;
+  }
+  .header-modules-wrapper {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.25rem;
+  }
+}
+
+/* =========================================================================
+   RESERVAS MOBILE - NAVEGAÇÃO SUPERIOR DE ABAS E CARDS
+   ========================================================================= */
+
+/* Barra de alternância de abas móvel (Novo Agendamento / Calendário) */
+.mobile-subtabs-bar {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--slate-200);
+  display: flex;
+  margin-bottom: 1rem;
+}
+
+.mobile-subtabs-header {
+  max-width: 28rem; /* max-w-md */
+  margin-left: auto;
+  margin-right: auto;
+  background-color: transparent;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
+  margin-bottom: 0;
+
+.mobile-subtab-btn {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.mobile-subtab-btn-active {
+  color: var(--brand-700) !important;
+  border-bottom-color: var(--brand-600) !important;
+  font-weight: 700 !important;
+}
+
+.mobile-subtab-btn-inactive {
+  color: var(--slate-400) !important;
+}
+
+.mobile-subtab-btn-inactive:hover {
+  color: var(--slate-700) !important;
+}
+
+/* Card individual da lista de reservas ativas no mobile */
+.reserva-mobile-card {
+   ESTRUTURAS ESPECÍFICAS - ARVOCAR MOBILE
+   ========================================================================= */
+
+/* =========================================================================
+   CONTAINER GERAL E PREENCHIMENTO SEGURO DE TELAS MÓVEIS
+   ========================================================================= */
+
+.mobile-shell {
+  max-width: 28rem; /* max-w-md */
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+.mobile-content {
+  flex: 1;
+  padding: 1rem;
+  padding-bottom: 6rem; /* Espaço livre para a bottom nav fixa */
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+/* =========================================================================
+   BARRA DE NAVEGAÇÃO INFERIOR FIXA (BOTTOM NAV)
+   ========================================================================= */
+
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #ffffff;
+  border-top: 1px solid var(--slate-200);
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 40;
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+  max-width: 28rem;
+  margin: 0 auto;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0.5rem));
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: none;
+  font-size: 0.625rem; /* 10px */
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease-in-out;
+}
+
+.mobile-nav-item-active {
+  color: var(--brand-700) !important;
+  font-weight: 700 !important;
+}
+
+.mobile-nav-item-inactive {
+  color: var(--slate-400) !important;
+  font-weight: 600;
+}
+
+/* =========================================================================
+   BOTÃO DE ENCERRAMENTO DE ROTA EM DESTAQUE
+   ========================================================================= */
+
+.btn-mobile-warning {
+  background-color: #d97706 !important; /* amber-600 */
+}
+
+.btn-mobile-warning:hover {
+  background-color: #b45309 !important; /* amber-700 */
+}
+
+/* =========================================================================
+   CARD COMPACTO DE HISTÓRICO MOBILE
+   ========================================================================= */
+
+.mobile-history-card {
+  background-color: #ffffff;
+  border: 1px solid var(--slate-200);
+  border-radius: 1rem;
+  padding: 0.875rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  margin-bottom: 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.box-resumo-amber {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background-color: #fffbeb; /* amber-50 */
+  border: 1px solid rgba(253, 230, 138, 0.7); /* amber-200/70 */
+  border-radius: 0.75rem; /* rounded-xl */
+}
+
+.upload-dropzone {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  text-align: center;
+  background-color: var(--slate-50, #f8fafc);
+  border: 1px dashed var(--slate-300, #cbd5e1);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.upload-dropzone:hover {
+  background-color: var(--slate-100, #f1f5f9);
+  border-color: var(--brand-500, #22c55e);
 }
