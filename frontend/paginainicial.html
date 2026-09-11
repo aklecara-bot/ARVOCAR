@@ -4,319 +4,289 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ARVO - Gestão e Operação de Frota</title>
-  
-  <!-- Tailwind CSS -->
+
+  <!-- Favicon e Ícone da Aba -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/imagens/logo3d192.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/imagens/logo3d192.png" />
+
+  <!-- Tailwind CSS & Ícones -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#f0fdf4',
-              100: '#dcfce7',
-              500: '#22c55e',
-              600: '#16a34a',
-              700: '#15803d',
-              800: '#166534',
-              900: '#14532d',
-            }
-          }
-        }      }
-    }
-  </script>
-  
-  <link rel="stylesheet" href="../Es-Tyle/style.css" />
+
+  <!-- Arquivo de Estilos Centralizado -->
+  <link rel="stylesheet" href="../EsTyle/style.css" />
+  <link rel="stylesheet" href="../EStyle/style.css" />
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
- 
-  <!-- Header -->
-  <header class="bg-brand-900 text-white shadow sticky top-0 z-50">
-    
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+
+<body class="app-body">
+
+  <!-- Cabeçalho Principal -->
+  <header class="app-header">
+    <div class="header-inner flex items-center justify-between">
       
-      <div class="flex items-center space-x-3">
-        <div class="bg-brand-600 p-2 rounded-xl flex items-center justify-center text-white shadow">
-          <img src="/imagens/arvocarwhite30.png" alt="">
+      <!-- Marca e Título -->
+      <div class="flex items-center space-x-2 shrink-0">
+        <div class="brand-badge-logo">
+          <img src="/imagens/arvocarwhite30.png" alt="ARVOCAR" class="h-6 w-auto" />
         </div>
-        <div>
-          <span class="text-xl font-black tracking-tight">ARVOCAR</span>
-          <span class="text-brand-300 text-xs font-semibold uppercase tracking-wider block sm:inline sm:ml-2">Controle de Rota</span>
+        <div class="flex items-baseline">
+          <span class="brand-title">ARVOCAR</span>
+          <span class="brand-subtitle hidden lg:inline">Controle de Rota</span>
         </div>
       </div>
 
-      <!-- Módulos -->
-        
-      <div class="flex bg-brand-950/60 p-1 rounded-xl border border-brand-800 text-xs font-semibold">
-        <button id="btn-mod-operacao" onclick="setModule('operacao')" class="module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
-          <i class="ph-bold ph-paper-plane-tilt"></i> Rotas
+      <!-- Módulos de Operação e Gestão -->
+      <div class="header-modules-wrapper shrink-0">
+        <button id="btn-mod-operacao" onclick="setModule('operacao')" class="btn-module-nav module-nav-active">
+          <i class="ph-bold ph-paper-plane-tilt"></i>
+          <span>Rotas</span>
         </button>
-        <!-- Oculto por padrão via classe 'hidden' -->
-        <button id="btn-mod-gestao" onclick="setModule('gestao')" class="hidden text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
-        <i class="ph-bold ph-chart-pie-slice"></i> Painel de Gestão
+        <button id="btn-mod-gestao" onclick="setModule('gestao')" class="btn-module-nav module-nav-inactive hidden">
+          <i class="ph-bold ph-chart-pie-slice"></i>
+          <span>Painel de Gestão</span>
         </button>
       </div>
-      <a href="reservas.html" class="flex items-center gap-1.5 text-xs bg-brand-700 hover:bg-brand-800 text-white font-bold px-3.5 py-2 rounded-xl shadow transition">
-        <i class="ph-bold ph-calendar-check text-base"></i>
-        <span>Reservas</span>
-        </a>
-      <a href="abastecimento.html" class="flex items-center gap-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-2 rounded-xl shadow transition">
-        <i class="ph-bold ph-gas-pump text-base"></i>
-        <span>Abastecimento</span>
+
+      <!-- Links Rápidos e Botão de Logout -->
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <a href="reservas.html" class="btn-nav-action btn-nav-green" title="Reservas">
+          <i class="ph-bold ph-calendar-check text-base"></i>
+          <span>Reservas</span>
         </a>
 
-      <!-- Usuário Ativo -->
-      <div class="flex items-center space-x-3">
-        <div class="hidden md:flex flex-col text-right">
-          <span id="topUserDisplay" class="text-xs font-bold text-slate-100">ronald@arvo.tec.br</span>
-          <span id="topUserCnh" class="text-[11px] text-brand-300">CNH: 05498231201</span>
+        <a href="abastecimento.html" class="btn-nav-action btn-nav-amber" title="Abastecimento">
+          <i class="ph-bold ph-gas-pump text-base"></i>
+          <span>Abastecimento</span>
+        </a>
+
+        <div class="hidden xl:flex flex-col text-right ml-1 mr-1">
+          <span id="topUserDisplay" class="text-xs font-bold leading-tight text-white truncate max-w-[160px]"></span>
+          <span id="topUserCnh" class="text-[10px] text-brand-200"></span>
         </div>
-        <button onclick="fazerLogout()" title="Terminar Sessão" class="flex items-center gap-1.5 text-xs bg-rose-600/80 hover:bg-rose-600 text-white px-3 py-2 rounded-lg border border-rose-500 font-bold transition shadow-sm">
-          <i class="ph-bold ph-sign-out text-base"></i>
+
+        <button onclick="fazerLogout()" title="Sair" class="btn-logout">
+          <i class="ph-bold ph-sign-out text-sm"></i>
           <span class="hidden sm:inline">Sair</span>
         </button>
       </div>
-
     </div>
   </header>
-
-  <!-- Subnav Operação -->
-  <div id="subnav-operacao" class="bg-white border-b border-slate-200">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <nav class="flex space-x-8 -mb-px">
-        <button onclick="setSubTab('operacao', 'saida')" id="subtab-saida" class="subtab-active py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-brand-600 text-brand-600 flex items-center gap-2">
-          <i class="ph-bold ph-key text-base"></i> 1. Iniciar Rota (Check-int)
-        </button>
-        <button onclick="setSubTab('operacao', 'retorno')" id="subtab-retorno" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
-          <i class="ph-bold ph-map-pin-line text-base"></i> 2. Finalizar Rota (Check-out & Avarias)
-        </button>
-        <button onclick="setSubTab('operacao', 'minhas-rotas')" id="subtab-minhas-rotas" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
-          <i class="ph-bold ph-clock-counter-clockwise text-base"></i> Log de Rotas
-        </button>
-        
-      </nav>
-    </div>
-  </div>
-
-  <!-- Subnav Gestão -->
-  <div id="subnav-gestao" class="hidden bg-white border-b border-slate-200">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <nav class="flex space-x-8 -mb-px">
-        <button onclick="setSubTab('gestao', 'dashboard')" id="subtab-dashboard" class="subtab-active py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-brand-600 text-brand-600 flex items-center gap-2">
-          <i class="ph-bold ph-gauge text-base"></i> Visão Geral da Frota
-        </button>
-        <button onclick="setSubTab('gestao', 'cad-veiculos')" id="subtab-cad-veiculos" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
-          <i class="ph-bold ph-car text-base"></i> Gestão de Veículos
-        </button>
-        <button onclick="setSubTab('gestao', 'cad-usuarios')" id="subtab-cad-usuarios" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
-          <i class="ph-bold ph-users-three text-base"></i> Gestão de Usuários / CNH
-        </button>
-      </nav>
-      <div class="py-2">
-      <a href="relatorios.html" class="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition">
-        <i class="ph-bold ph-chart-line-up text-base"></i>
-        <span>Relatórios e Gráficos</span>
-      </a>
-      </div>
-    </div>
-  </div>
 
   <!-- Conteúdo Principal -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-    <!-- MÓDULO OPERAÇÃO -->
+    <!-- =========================================================================
+         MÓDULO DE OPERAÇÃO
+         ========================================================================= -->
     <div id="module-operacao" class="space-y-6">
 
-      <!-- Iniciar Rota -->
+      <!-- Submenu / Abas de Rotas -->
+      <div class="subtabs-bar">
+        <div class="subtabs-container">
+          <button id="subtab-saida" onclick="setSubTab('operacao', 'saida')" class="subtab-link subtab-active">
+            <i class="ph-bold ph-key"></i> Iniciar Rota
+          </button>
+          <button id="subtab-retorno" onclick="setSubTab('operacao', 'retorno')" class="subtab-link">
+            <i class="ph-bold ph-map-pin"></i> Finalizar Rota
+          </button>
+          <button id="subtab-minhas-rotas" onclick="setSubTab('operacao', 'minhas-rotas')" class="subtab-link">
+            <i class="ph-bold ph-clock-counter-clockwise"></i> Todas as Rotas
+          </button>
+        </div>
+      </div>
+
+      <!-- 1. Iniciar Rota (Check-in) -->
       <section id="view-saida" class="max-w-2xl mx-auto">
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-          <div class="flex items-center gap-3 pb-5 border-b border-slate-100 mb-6">
-            <div class="p-3 bg-brand-100 text-brand-700 rounded-xl">
-              <img src="/imagens/arvoMobiwhite.png" alt="arvocar">
+        <div class="card-panel">
+          <div class="card-header-bar">
+            <div class="card-icon-box">
+              <i class="ph-bold ph-key text-xl"></i>
             </div>
             <div>
-              <h2 class="text-xl font-bold text-slate-900">Iniciar Rota (Retirada)</h2>
-              <p class="text-xs text-slate-500">Rotas com limite de 12 horas</p>
+              <h2 class="card-title">Iniciar Rota (Retirada)</h2>
+              <p class="card-subtitle">Rotas com limite de 12 horas</p>
             </div>
           </div>
 
           <form id="formInicioRota" onsubmit="handleInicioRota(event)" class="space-y-4">
             <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Usuario</label>
-              <input type="text" id="form-inicio-Usuario" readonly class="w-full bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-3.5 py-2 text-sm font-medium cursor-not-allowed" />
+              <label class="form-label">Usuário</label>
+              <input type="text" id="form-inicio-Usuario" readonly class="form-control form-control-readonly" />
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Selecione o Veículo Disponível</label>
-              <select id="form-inicio-veiculo" onchange="atualizarKmInicialPreenchido()" required class="w-full bg-white border border-slate-300 text-slate-800 rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <label class="form-label">Selecione o Veículo Disponível</label>
+              <select id="form-inicio-veiculo" onchange="atualizarKmInicialPreenchido()" required class="form-control">
                 <option value="">Carregando veículos...</option>
               </select>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="form-grid-2">
               <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">KM Inicial (Bloqueado)</label>
+                <label class="form-label">KM Inicial (Bloqueado)</label>
                 <div class="relative">
-                  <input type="number" id="form-inicio-km" readonly class="w-full bg-slate-100 border border-slate-200 text-slate-800 font-mono font-bold rounded-lg px-3.5 py-2 text-sm focus:outline-none" />
-                  <span class="absolute right-3 top-2 text-xs text-slate-400 font-medium">km</span>
+                  <input type="number" id="form-inicio-km" readonly class="form-control form-control-readonly" placeholder="km" />
+                  <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">km</span>
                 </div>
-                <span class="text-[11px] text-slate-500 mt-1 block">Carregado da última devolução.</span>
+                <span class="form-sublabel">Carregado da última devolução.</span>
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Origem da Saída</label>
-                <select id="form-inicio-origem" required class="w-full bg-white border border-slate-300 text-slate-800 rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <label class="form-label">Origem da Saída</label>
+                <select id="form-inicio-origem" onchange="toggleOutroOrigem(this.value)" required class="form-control">
                   <option value="ALEGRE">ALEGRE</option>
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
                   <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
-                  <option value="LOCADORA CACHOEIRO">lOCADORA CACHOEIRO</option>
+                  <option value="LOCADORA CACHOEIRO">LOCADORA CACHOEIRO</option>
                   <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
+                  <option value="OUTRO">OUTRO (Digitar...)</option>
                 </select>
+                <input type="text" id="form-inicio-origem-texto" placeholder="Digite o local de saída..." class="form-control hidden mt-2" />
               </div>
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Finalidade / Projeto</label>
-              <select id="form-inicio-finalidade" required class="w-full bg-white border border-slate-300 text-slate-800 rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
-                <option value="">...</option>          
+              <label class="form-label">Finalidade / Projeto</label>
+              <select id="form-inicio-finalidade" required class="form-control">
+                <option value="">...</option>
                 <option value="CO INVESTIMENTO WWF">CO INVESTIMENTO WWF</option>
-                <option value="DEMANDAS INTERNAS">DEMANDAS INTERNAS</option>
+                <option value="DEMANDAS INTERNAS" selected>DEMANDAS INTERNAS</option>
                 <option value="DEMANDAS EXTERNAS">DEMANDAS EXTERNAS</option>
                 <option value="IMPLANTACAO DE AREAS">IMPLANTAÇÃO DE ÁREAS</option>
                 <option value="REFLORESTAR">REFLORESTAR</option>
                 <option value="RELACOES INSTITUCIONAIS">RELAÇÕES INSTITUCIONAIS</option>
                 <option value="REMINERALIZADOR">REMINERALIZADOR</option>
                 <option value="PSA GESTAGUA">PSA GESTÁGUA</option>
-                <option value="PPC">PPC</option> 
+                <option value="PPC">PPC</option>
               </select>
             </div>
 
-            <div class="pt-4">
-              <button id="btn-submit-inicio" type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2">
-                <i class="ph-bold ph-check-circle text-lg"></i> Iniciar Rota
-              </button>
-            </div>
+            <button id="btn-submit-inicio" type="submit" class="btn-primary">
+              <i class="ph-bold ph-check-circle text-lg"></i>
+              <span>Iniciar Rota</span>
+            </button>
           </form>
         </div>
       </section>
 
-      <!-- Finalizar Rota -->
+      <!-- 2. Finalizar Rota (Check-out) -->
       <section id="view-retorno" class="hidden max-w-2xl mx-auto">
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-          <div class="flex items-center gap-3 pb-5 border-b border-slate-100 mb-6">
-            <div class="p-3 bg-amber-100 text-amber-700 rounded-xl">
-              <img src="/imagens/arvoMobiwhite.png" alt="">
+        <div class="card-panel">
+          <div class="card-header-bar">
+            <div class="card-icon-box" style="background-color: #fef3c7; color: #b45309;">
+              <i class="ph-bold ph-flag-checkered text-xl"></i>
             </div>
             <div>
-              <h2 class="text-xl font-bold text-slate-900">Finalizar Rota (Devolução)</h2>
-              <p class="text-xs text-slate-500">Apuração de KM e avarias</p>
+              <h2 class="card-title">Finalizar Rota (Devolução)</h2>
+              <p class="card-subtitle">Informe o local de entrega e odômetro final</p>
             </div>
           </div>
 
           <form id="formFimRota" onsubmit="handleFimRota(event)" class="space-y-4">
             <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Selecionar Rota Ativa</label>
-              <select id="form-fim-rota-select" onchange="selecionarRotaFim()" required class="w-full bg-white border border-slate-300 text-slate-800 rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                <option value="">Carregando rotas...</option>
+              <label class="form-label">Selecione sua Rota Ativa</label>
+              <select id="form-fim-rota-select" onchange="selecionarRotaFim()" required class="form-control">
+                <option value="">Selecione uma viagem em trânsito...</option>
               </select>
             </div>
 
-            <div id="fim-detalhes-viagem" class="hidden p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-600">
-              <div class="flex justify-between"><span>Veículo:</span> <b id="fim-info-veiculo" class="text-slate-800">-</b></div>
-              <div class="flex justify-between"><span>Usuario:</span> <b id="fim-info-Usuario" class="text-slate-800">-</b></div>
-              <div class="flex justify-between"><span>KM de Saída:</span> <b id="fim-info-kmsaida" class="text-slate-800 font-mono">-</b></div>
-              <div class="flex justify-between"><span>Estimativa de Consumo:</span> <b id="fim-info-consumo-est" class="text-slate-800">-</b></div>
+            <!-- Resumo da rota ativa -->
+            <div id="fim-detalhes-viagem" class="info-summary-box hidden">
+              <div class="info-summary-row"><span>Veículo:</span> <b id="fim-info-veiculo">-</b></div>
+              <div class="info-summary-row"><span>Condutor:</span> <b id="fim-info-Usuario">-</b></div>
+              <div class="info-summary-row"><span>KM Saída:</span> <b id="fim-info-kmsaida" class="font-mono">-</b></div>
+              <div class="info-summary-row"><span>Consumo Estimado:</span> <b id="fim-info-consumo-est" class="font-mono">-</b></div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="form-grid-2">
               <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">KM Final no Hodômetro</label>
+                <label class="form-label">KM Final</label>
                 <div class="relative">
-                  <input type="number" id="form-fim-km" oninput="calcularKmPercorrido()" required class="w-full bg-white border border-slate-300 text-slate-800 font-mono font-bold rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" placeholder="Ex: 77200" />
-                  <span class="absolute right-3 top-2 text-xs text-slate-400 font-medium">km</span>
+                  <input type="number" id="form-fim-km" oninput="calcularKmPercorrido()" required class="form-control" />
+                  <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">km</span>
                 </div>
-                <span id="km-calc-feedback" class="text-[11px] text-slate-500 mt-1 block">Insira o KM do painel.</span>
+                <span id="km-calc-feedback" class="text-[11px] font-bold mt-1 block"></span>
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Local de Entrega</label>
-                <select id="form-fim-destino" required class="w-full bg-white border border-slate-300 text-slate-800 rounded-lg px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                <label class="form-label">Local de Devolução</label>
+                <select id="form-fim-destino" onchange="toggleOutroDestino(this.value)" required class="form-control">
                   <option value="ALEGRE">ALEGRE</option>
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
                   <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
-                  <option value="LOCADORA CACHOEIRO">lOCADORA CACHOEIRO</option>
+                  <option value="LOCADORA CACHOEIRO">LOCADORA CACHOEIRO</option>
                   <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
+                  <option value="OUTRO">OUTRO (Digitar...)</option>
                 </select>
+                <input type="text" id="form-fim-destino-texto" placeholder="Digite o local de devolução..." class="form-control hidden mt-2" />
               </div>
             </div>
 
-            <!-- Anomalias -->
-            <div class="border-t border-slate-100 pt-4 space-y-3">
-              <div class="flex items-center justify-between">
-                <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Situação do Carro</label>
-                <div class="flex items-center gap-4 text-xs font-semibold">
-                  <label class="flex items-center gap-1.5 cursor-pointer">
-                    <input type="radio" name="situacao_carro" value="SEM" checked onchange="toggleAnomaliaInput(false)" class="text-brand-600 focus:ring-brand-500" />
-                    <span class="text-emerald-700">Sem Anomalias</span>
-                  </label>
-                  <label class="flex items-center gap-1.5 cursor-pointer">
-                    <input type="radio" name="situacao_carro" value="COM" onchange="toggleAnomaliaInput(true)" class="text-rose-600 focus:ring-rose-500" />
-                    <span class="text-rose-700">Com Avarias / Ruídos</span>
-                  </label>
-                </div>
+            <!-- Situação de Avarias -->
+            <div class="pt-2 border-t border-slate-100">
+              <label class="form-label">Situação do Carro</label>
+              <div class="flex items-center gap-4 text-xs font-semibold mb-2">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="situacao_carro" value="SEM" checked onchange="toggleAnomaliaInput(false)" />
+                  <span class="text-emerald-700">Sem Problemas</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="situacao_carro" value="COM" onchange="toggleAnomaliaInput(true)" />
+                  <span class="text-rose-700">Com Avarias / Ruídos</span>
+                </label>
               </div>
-
               <div id="box-anomalia" class="hidden">
-                <label class="block text-xs font-bold text-rose-700 uppercase tracking-wider mb-1">Descreva o Problema Mecânico / Elétrico</label>
-                <textarea id="form-fim-anomalia" rows="3" placeholder="Ex: Pneu dianteiro gasto, ruído na suspensão..." class="w-full bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-lg p-3 focus:ring-2 focus:ring-rose-500 focus:outline-none"></textarea>
+                <textarea id="form-fim-anomalia" rows="2" placeholder="Descreva os danos ou problemas observados..." class="form-control form-textarea textarea-anomalia"></textarea>
               </div>
             </div>
 
-            <div class="pt-4">
-              <button id="btn-submit-fim" type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2">
-    <i class="ph-bold ph-check-circle text-lg"></i> Finalizar Rota
-  </button>
-            </div>
+            <button id="btn-submit-fim" type="submit" class="btn-primary" style="background-color: #d97706;">
+              <i class="ph-bold ph-check text-lg"></i>
+              <span>Finalizar Rota</span>
+            </button>
           </form>
         </div>
       </section>
 
-      <!-- Log de Rotas -->
-      <section id="view-minhas-rotas" class="hidden space-y-4">
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <!-- 3. Minhas Rotas (Log / Histórico) -->
+      <section id="view-minhas-rotas" class="hidden">
+        <div class="card-panel">
+          
+          <div class="toolbar-filtro">
             <div>
-              <h2 class="text-base font-bold text-slate-800">Histórico de Rotas Registradas</h2>
-              <p class="text-xs text-slate-500">Atualização automática</p>
+              <h2 class="card-title">Histórico de Rotas</h2>
+              <p class="card-subtitle">Todas as viagens registradas no sistema</p>
             </div>
-            <input type="text" id="filtro-rotas" oninput="filtrarHistorico()" placeholder="Buscar por veículo ou Usuario..." class="text-xs border border-slate-300 rounded-lg px-3 py-2 w-72 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            <div>
+              <input type="text" id="filtro-rotas" oninput="filtrarHistorico()" placeholder="Buscar por veículo ou condutor..." class="form-control input-busca-rotas" />
+            </div>
           </div>
 
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs text-slate-600">
-              <thead class="bg-slate-50 border-b border-slate-200 font-bold text-slate-700 uppercase tracking-wider text-xs">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <th class="py-3 px-3">ID Rota</th>
-                  <th class="py-3 px-3">ID Arvo</th>
-                  <th class="py-3 px-3">Condutor</th>
-                  <th class="py-3 px-3">Trajeto</th>
-                  <th class="py-3 px-3">Finalidade</th>
-                  <th class="py-3 px-3">Saída (Data / KM)</th>
-                  <th class="py-3 px-3">Retorno (Data / KM)</th>
-                  <th class="py-3 px-3 text-center">Distância</th>
-                  <th class="py-3 px-3 text-center">Consumo Est.</th>
-                  <th class="py-3 px-3">Anomalia</th>
-                  <th class="py-3 px-3 text-center">Status</th>
+                  <th>Cód.</th>
+                  <th>Veículo</th>
+                  <th>Condutor</th>
+                  <th>Trajeto</th>
+                  <th>Finalidade</th>
+                  <th>Saída</th>
+                  <th>Retorno</th>
+                  <th style="text-align: center;">KM</th>
+                  <th style="text-align: center;">Consumo</th>
+                  <th>Avarias</th>
+                  <th style="text-align: center;">Status</th>
                 </tr>
               </thead>
-              <tbody id="tabelaHistorico" class="divide-y divide-slate-100"></tbody>
+              <tbody id="tabelaHistorico">
+                <tr>
+                  <td colspan="11" class="py-8 text-center text-slate-400 font-medium">Carregando rotas...</td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -324,268 +294,549 @@
 
     </div>
 
-    <!-- MÓDULO GESTÃO -->
+    <!-- =========================================================================
+         MÓDULO DE GESTÃO (ADMINISTRADOR)
+         ========================================================================= -->
     <div id="module-gestao" class="hidden space-y-6">
 
-      <!-- Visão Geral -->
+      <!-- Sub-abas do Painel de Gestão -->
+      <div class="subtabs-bar">
+        <div class="subtabs-container" style="justify-content: space-between; align-items: center; width: 100%;">
+          <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+            <button onclick="setSubTab('gestao', 'dashboard')" id="subtab-dashboard" class="subtab-link subtab-active">
+              <i class="ph-bold ph-gauge text-base"></i> Visão Geral da Frota
+            </button>
+            <button onclick="setSubTab('gestao', 'cad-veiculos')" id="subtab-cad-veiculos" class="subtab-link">
+              <i class="ph-bold ph-car text-base"></i> Gestão de Veículos
+            </button>
+            <button onclick="setSubTab('gestao', 'cad-usuarios')" id="subtab-cad-usuarios" class="subtab-link">
+              <i class="ph-bold ph-users-three text-base"></i> Gestão de Condutores / CNH
+            </button>
+            <button onclick="setSubTab('gestao', 'manutencao')" id="subtab-manutencao" class="subtab-link">
+              <i class="ph-bold ph-wrench text-base"></i> Gestão de Manutenções
+            </button>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <a href="financeiro.html" class="btn-nav-action bg-emerald-800 text-white hover:bg-emerald-900">
+              <i class="ph-bold ph-chart-line-up text-base"></i>
+              <span>Financeiro</span>
+            </a>
+            <a href="relatorios.html" class="btn-header-action" style="padding: 0.4rem 0.75rem;">
+              <i class="ph-bold ph-chart-line-up text-base"></i>
+              <span>Relatórios e Gráficos</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1. Aba: Visão Geral da Frota -->
       <section id="view-dashboard" class="space-y-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Frota Total</span>
-              <div class="p-2 bg-slate-100 rounded-lg text-slate-600"><i class="ph-bold ph-truck text-lg"></i></div>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Frota Total</span>
+              <div style="padding: 0.5rem; background-color: #f1f5f9; border-radius: 0.5rem; color: #475569;">
+                <i class="ph-bold ph-truck text-lg"></i>
+              </div>
             </div>
-            <p id="kpi-total-veiculos" class="text-2xl font-black text-slate-800 mt-2">0</p>
-            <span class="text-xs text-slate-400">Veículos cadastrados</span>
+            <p id="kpi-total-veiculos" class="kpi-value">0</p>
+            <span class="kpi-subtext">Veículos cadastrados</span>
           </div>
 
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Em Rota Ativa</span>
-              <div class="p-2 bg-amber-50 rounded-lg text-amber-600"><i class="ph-bold ph-road-horizon text-lg"></i></div>
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Em Rota Ativa</span>
+              <div style="padding: 0.5rem; background-color: #fef3c7; border-radius: 0.5rem; color: #d97706;">
+                <i class="ph-bold ph-road-horizon text-lg"></i>
+              </div>
             </div>
-            <p id="kpi-em-rota" class="text-2xl font-black text-amber-600 mt-2">0</p>
-            <span class="text-xs text-slate-400">Veículos em trânsito</span>
+            <p id="kpi-em-rota" class="kpi-value" style="color: #d97706;">0</p>
+            <span class="kpi-subtext">Veículos em trânsito</span>
           </div>
 
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Disponíveis</span>
-              <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600"><i class="ph-bold ph-check-circle text-lg"></i></div>
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Disponíveis</span>
+              <div style="padding: 0.5rem; background-color: #dcfce7; border-radius: 0.5rem; color: #15803d;">
+                <i class="ph-bold ph-check-circle text-lg"></i>
+              </div>
             </div>
-            <p id="kpi-disponiveis" class="text-2xl font-black text-emerald-600 mt-2">6</p>
-            <span class="text-xs text-slate-400">Prontos na base</span>
+            <p id="kpi-disponiveis" class="kpi-value" style="color: #15803d;">0</p>
+            <span class="kpi-subtext">Prontos na base</span>
           </div>
 
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Alertas de Avaria</span>
-              <div class="p-2 bg-rose-50 rounded-lg text-rose-600"><i class="ph-bold ph-warning text-lg"></i></div>
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Alertas de Avaria</span>
+              <div style="padding: 0.5rem; background-color: #ffe4e6; border-radius: 0.5rem; color: #be123c;">
+                <i class="ph-bold ph-warning text-lg"></i>
+              </div>
             </div>
-            <p id="kpi-anomalias" class="text-2xl font-black text-rose-600 mt-2">0</p>
-            <span class="text-xs text-slate-400">Pendências mecânicas</span>
+            <p id="kpi-anomalias" class="kpi-value" style="color: #be123c;">0</p>
+            <span class="kpi-subtext">Pendências mecânicas</span>
           </div>
         </div>
 
         <div>
-          <h2 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <h2 class="card-title mb-4 flex items-center gap-2">
             <i class="ph-bold ph-car-profile text-brand-600"></i> Frotas e Status Operacional
           </h2>
-          <div id="fleetGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          <div id="fleetGrid" class="fleet-grid"></div>
         </div>
       </section>
 
+      <!-- 2. Aba: Gestão de Veículos -->
       <section id="view-cad-veiculos" class="hidden space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-            <h3 class="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
-              <i class="ph-bold ph-plus-circle text-brand-600"></i> Cadastrar Veículo
-            </h3>
-            <p class="text-xs text-slate-500 mb-5">Parâmetros de tanque, placa e consumo</p>
+          <!-- Formulário Veículo -->
+          <div class="card-panel">
+            <div class="card-header-bar">
+              <div class="card-icon-box">
+                <i class="ph-bold ph-car-plus text-xl"></i>
+              </div>
+              <div>
+                <h3 class="card-title">Novo Veículo</h3>
+                <p class="card-subtitle">Cadastre carro na frota</p>
+              </div>
+            </div>
 
             <form id="formCadVeiculo" onsubmit="handleCadVeiculo(event)" class="space-y-3.5">
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Identificador (ex: ARVO 16)</label>
-                <input type="text" id="cad-v-id" required placeholder="ARVO 16" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 uppercase font-semibold" />
+                <label class="form-label">Identificação / Nome na Frota</label>
+                <input type="text" id="cad-v-id" placeholder="ARVO 16" required class="form-control font-semibold uppercase" />
               </div>
 
-              <div class="grid grid-cols-2 gap-3">
+              <div class="form-grid-2">
                 <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Placa</label>
-                  <input type="text" id="cad-v-placa" required placeholder="ABC1D23" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 uppercase font-mono" />
+                  <label class="form-label">Modelo</label>
+                  <select id="cad-v-referencia" onchange="aoSelecionarModeloReferencia('cad')" class="form-control bg-white">
+                    <option value="">-- Selecione o Modelo Base --</option>
+                  </select>
                 </div>
                 <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Marca / Modelo</label>
-                  <input type="text" id="cad-v-marca" required placeholder="Fiat Mobi" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500" />
+                  <label class="form-label">Placa</label>
+                  <input type="text" id="cad-v-placa" placeholder="ABC1D23" required class="form-control font-mono uppercase" />
                 </div>
               </div>
 
-              <div class="grid grid-cols-3 gap-2">
+              <div class="form-grid-2">
                 <div>
-                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Tanque (L)</label>
-                  <input type="number" id="cad-v-tanque" required min="10" max="200" placeholder="47" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-mono" />
+                  <label class="form-label">Marca</label>
+                  <input type="text" id="cad-v-marca" placeholder="Fiat" required class="form-control" />
                 </div>
                 <div>
-                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Min (km/L)</label>
-                  <input type="number" step="0.1" id="cad-v-consumomin" required placeholder="9.5" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-mono" />
+                  <label class="form-label">Ano Modelo</label>
+                  <input type="number" id="cad-v-ano" placeholder="2024" class="form-control font-mono" />
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">Capacidade (L)</label>
+                  <input type="number" id="cad-v-tanque" value="47" required class="form-control font-mono" />
                 </div>
                 <div>
-                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Max (km/L)</label>
-                  <input type="number" step="0.1" id="cad-v-consumomax" required placeholder="14.2" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-mono" />
+                  <label class="form-label">KM Inicial</label>
+                  <input type="number" id="cad-v-kminicial" required class="form-control font-mono" />
+                </div>
+              </div>
+
+              <!-- Consumo Gasolina -->
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">Gas Cidade (km/L)</label>
+                  <input type="number" step="0.1" id="cad-v-gas-urb" required class="form-control font-mono" />
+                </div>
+                <div>
+                  <label class="form-label">Gas Rodovia (km/L)</label>
+                  <input type="number" step="0.1" id="cad-v-gas-rod" required class="form-control font-mono" />
+                </div>
+              </div>
+
+              <!-- Consumo Etanol -->
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">Etanol Cidade (km/L)</label>
+                  <input type="number" step="0.1" id="cad-v-eta-urb" required class="form-control font-mono" />
+                </div>
+                <div>
+                  <label class="form-label">Etanol Rodovia (km/L)</label>
+                  <input type="number" step="0.1" id="cad-v-eta-rod" required class="form-control font-mono" />
                 </div>
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">KM Inicial no Hodômetro</label>
-                <input type="number" id="cad-v-kminicial" required min="0" placeholder="Ex: 54000" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 font-mono font-bold" />
+                <label class="form-label">Tipo de Frota</label>
+                <select id="cad-v-tipofrota" class="form-control font-bold">
+                  <option value="PROPRIO">Frota Regular</option>
+                  <option value="EXTERNO">Uso Esporádico / Externo</option>
+                </select>
               </div>
-
-              <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition text-xs flex items-center justify-center gap-1.5 mt-2">
-                <i class="ph-bold ph-plus"></i> Salvar Veículo na Frota
+              <div id="box-cad-motorista-externo" class="hidden">
+                <label class="form-label text-indigo-700">Motorista Autorizado (Exclusivo)</label>
+                <select id="cad-v-motorista" class="form-control font-bold border-indigo-300">
+                  <option value="">Selecione o condutor autorizado...</option>
+                </select>
+              </div>
+              <button type="submit" class="btn-primary">
+                <i class="ph-bold ph-plus"></i> Salvar Veículo        
               </button>
             </form>
           </div>
 
-          <!-- Tabela de Veículos com Botões de Editar e Apagar -->
-          <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 class="text-sm font-bold text-slate-800">Veículos Registrados</h3>
-              <span id="badge-total-carros" class="text-xs bg-slate-100 px-2.5 py-1 rounded-full font-bold text-slate-600">0 carros</span>
+          <!-- Tabela de Veículos -->
+          <div class="card-panel lg:col-span-2 p-0 overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 class="card-title text-sm">Veículos Registrados</h3>
+              <span id="badge-total-carros" class="badge-pill">0 carros</span>
             </div>
-            <div class="overflow-x-auto flex-1">
-              <table class="w-full text-left text-xs text-slate-600">
-                <thead class="bg-slate-50 border-b border-slate-200 font-bold text-slate-700 uppercase">
+            <div class="table-wrapper flex-1">
+              <table class="data-table">
+                <thead>
                   <tr>
-                    <th class="py-3 px-3">ID Arvo</th>
-                    <th class="py-3 px-3">Modelo</th>
-                    <th class="py-3 px-3">Placa</th>
-                    <th class="py-3 px-3 text-center">Tanque</th>
-                    <th class="py-3 px-3">Consumo</th>
-                    <th class="py-3 px-3 text-center">KM Atual</th>
-                    <th class="py-3 px-3 text-right">Status</th>                    
-                    <th class="py-3 px-3 text-center">Ações</th>
+                    <th>Identificação</th>
+                    <th>Modelo</th>
+                    <th>Placa</th>
+                    <th style="text-align: center;">Tanque</th>
+                    <th style="text-align: center;">Consumo</th>
+                    <th style="text-align: right;">KM Atual</th>
+                    <th style="text-align: center;">Status</th>
+                    <th style="text-align: center;">Ações</th>
                   </tr>
                 </thead>
-                <tbody id="tabelaVeiculosCadastrados" class="divide-y divide-slate-100"></tbody>
+                <tbody id="tabelaVeiculosCadastrados"></tbody>
               </table>
             </div>
           </div>
+
         </div>
       </section>
 
-      <!-- Cadastro & Edição de Usuários -->
+      <!-- 3. Aba: Gestão de Usuários / CNH -->
       <section id="view-cad-usuarios" class="hidden space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-            <h3 class="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
-              <i class="ph-bold ph-user-plus text-brand-600"></i> Cadastrar motorista
-            </h3>
-            <p class="text-xs text-slate-500 mb-5">Adicione Usuarios autorizados</p>
+          
+          <!-- Formulário Usuário -->
+          <div class="card-panel">
+            <div class="card-header-bar">
+              <div class="card-icon-box">
+                <i class="ph-bold ph-user-plus text-xl"></i>
+              </div>
+              <div>
+                <h3 class="card-title">Novo Condutor</h3>
+                <p class="card-subtitle">Cadastre condutores e CNH</p>
+              </div>
+            </div>
 
             <form id="formCadUsuario" onsubmit="handleCadUsuario(event)" class="space-y-3.5">
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Nome Completo</label>
-                <input type="text" id="cad-u-nome" required placeholder="Ex: Nome Sobrenome" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Email Corporativo</label>
-                <input type="email" id="cad-u-email" required placeholder="nome@arvo.tec.br" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+                <label class="form-label">Nome Completo</label>
+                <input type="text" id="cad-u-nome" required placeholder="Ex: Nome Sobrenome" class="form-control" />
               </div>
               <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Senha de Acesso</label>
-              <input type="password" id="cad-u-senha" required placeholder="••••••••" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500" />
+                <label class="form-label">E-mail de Acesso</label>
+                <input type="email" id="cad-u-email" required placeholder="nome@arvo.tec.br" class="form-control" />
               </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Nº Carteira (CNH)</label>
-                <input type="text" id="cad-u-cnh" required placeholder="12345678900" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono" />
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">Senha</label>
+                  <input type="password" id="cad-u-senha" required placeholder="••••••••" class="form-control" />
+                </div>
+                <div>
+                  <label class="form-label">Número CNH (Opcional)</label>
+                  <input type="text" id="cad-u-cnh" maxlength="11" pattern="\d{11}" placeholder="12345678900" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="form-control font-mono" />
+                </div>
               </div>
-
-              <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-4 rounded-xl shadow text-xs flex items-center justify-center gap-1.5 mt-2">
-                <i class="ph-bold ph-check"></i> Salvar no Banco
+              <button type="submit" class="btn-primary">
+                <i class="ph-bold ph-plus"></i> Salvar Condutor
               </button>
             </form>
           </div>
 
-          <!-- Tabela de Usuários com Botões de Editar e Apagar -->
-          <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 class="text-sm font-bold text-slate-800">Usuarios Habilitados</h3>
-              <span id="badge-total-users" class="text-xs bg-slate-100 px-2.5 py-1 rounded-full font-bold text-slate-600">0 Usuarios</span>
+          <!-- Tabela Usuários -->
+          <div class="card-panel lg:col-span-2 p-0 overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 class="card-title text-sm">Condutores Habilitados</h3>
+              <span id="badge-total-users" class="badge-pill">0 condutores</span>
             </div>
-            <div class="overflow-x-auto flex-1">
-              <table class="w-full text-left text-xs text-slate-600">
-                <thead class="bg-slate-50 border-b border-slate-200 font-bold text-slate-700 uppercase">
+            <div class="table-wrapper flex-1">
+              <table class="data-table">
+                <thead>
                   <tr>
-                    <th class="py-3 px-4">Nome</th>
-                    <th class="py-3 px-4">Email Corporativo</th>
-                    <th class="py-3 px-4 font-mono">Nº CNH</th>
-                    <th class="py-3 px-4 text-center">Status</th>
-                    <th class="py-3 px-4 text-center">Ações</th>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th class="font-mono">CNH</th>
+                    <th style="text-align: center;">Status</th>
+                    <th style="text-align: center;">Ações</th>
                   </tr>
                 </thead>
-                <tbody id="tabelaUsuariosCadastrados" class="divide-y divide-slate-100"></tbody>
+                <tbody id="tabelaUsuariosCadastrados"></tbody>
               </table>
             </div>
           </div>
+
         </div>
       </section>
 
+      <!-- 4. Aba Adjacente: Gestão de Manutenções Preventivas -->
+  <section id="view-manutencao" class="hidden space-y-6">
+    <div class="card-panel">
+      <div class="card-header-bar">
+        <div class="card-icon-box" style="background-color: #dcfce7; color: #15803d;">
+          <i class="ph-bold ph-wrench text-xl"></i>
+        </div>
+        <div>
+          <h3 class="card-title">Confirmação de Manutenção & Troca de Fluidos</h3>
+          <p class="card-subtitle">Registre manutenções, peças e anexe a nota fiscal correspondente</p>
+        </div>
+      </div>
+
+      <form id="form-registro-manutencao-aba" onsubmit="salvarConfirmacaoManutencaoAba(event)" class="space-y-4">
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Veículo *</label>
+            <select id="manut-aba-veiculo" required onchange="atualizarKmManutencaoAba()" class="form-control font-bold bg-white">
+              <option value="">Selecione o veículo...</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="form-label">Serviço Realizado *</label>
+            <select id="manut-aba-item" required class="form-control font-bold bg-white">
+              <option value="Óleo & Filtros">Óleo & Filtros (Ciclo 10.000 km)</option>
+              <option value="Pastilhas de Freio">Pastilhas de Freio (Ciclo 25.000 km)</option>
+              <option value="Pneus">Troca de Pneus / Rodízio (Ciclo 45.000 km)</option>
+              <option value="Correia Dentada">Correia Dentada (Ciclo 50.000 km)</option>
+              <option value="Fluidos Gerais">Fluidos Gerais / Radiador</option>
+              <option value="Outros">Outras Intervenções Mecânicas</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="form-label">KM no Momento da Troca *</label>
+            <input type="number" id="manut-aba-km" required min="0" placeholder="Ex: 50200" class="form-control font-mono font-bold" />
+          </div>
+
+          <div>
+            <label class="form-label">Valor Total (R$) *</label>
+            <input type="number" step="0.01" id="manut-aba-valor" required placeholder="0,00" class="form-control font-mono" />
+          </div>
+
+          <div>
+            <label class="form-label">Oficina / Estabelecimento</label>
+            <input type="text" id="manut-aba-oficina" placeholder="Ex: Mecânica Silva..." class="form-control uppercase" />
+          </div>
+        </div>
+
+      <!-- Upload do Cupom Fiscal / Ordem de Serviço -->
+        <div>
+          <label class="form-label">Comprovante Fiscal / Ordem de Serviço (Foto ou Arquivo)</label>
+          <div class="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 text-center transition bg-slate-50 relative cursor-pointer">
+            <input type="file" id="manut-aba-foto" accept="image/*" capture="environment" onchange="previewImagemManutencao(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <div id="box-preview-placeholder-manut" class="space-y-1.5 pointer-events-none">
+              <i class="ph-bold ph-camera text-2xl text-slate-400"></i>
+              <p class="text-xs font-bold text-slate-600">Tirar foto do cupom ou carregar documento</p>
+              <p class="text-[10px] text-slate-400">Formatos aceitos: JPG, PNG, WEBP</p>
+            </div>
+            <img id="img-preview-manut" class="hidden mx-auto max-h-44 rounded-xl object-contain shadow-sm border border-slate-200 mt-2" />
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">Observações do Serviço</label>
+          <textarea id="manut-aba-obs" rows="2" placeholder="Especificações do óleo, marca de filtros, notas adicionais..." class="form-control form-textarea"></textarea>
+        </div>
+
+        <button type="submit" id="btn-submit-manut-aba" class="btn-primary">
+          <i class="ph-bold ph-check"></i> Registrar e Atualizar Contadores
+        </button>
+      </form>
     </div>
 
+    <!-- Tabela Histórica com Coluna de Cupom -->
+    <div class="card-panel p-0 overflow-hidden flex flex-col">
+      <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <div>
+          <h3 class="card-title text-sm">Histórico de Manutenções Confirmadas</h3>
+          <p class="card-subtitle">Registro histórico para cálculo de TCO e auditoria mecânica</p>
+        </div>
+        <button type="button" onclick="carregarHistoricoManutencoes()" class="btn-nav-action bg-slate-200 text-slate-700 hover:bg-slate-300 border-none text-xs">
+          <i class="ph-bold ph-arrows-clockwise text-sm"></i> Atualizar
+        </button>
+      </div>
+      <div class="table-wrapper flex-1">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Placa / Veículo</th>
+              <th>Serviço</th>
+              <th>KM Troca</th>
+              <th>Valor</th>
+              <th>Oficina</th>
+              <th style="text-align: center;">Cupom</th>
+            </tr>
+          </thead>
+          <tbody id="grid-historico-manutencoes">
+            <tr>
+              <td colspan="7" class="py-8 text-center text-slate-400 font-medium">Carregando manutenções...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+    </div>
   </main>
 
   <!-- =========================================================================
-       MODAIS DE EDIÇÃO
+       MODAIS DO SISTEMA
        ========================================================================= -->
 
-  <!-- Modal Editar Veículo -->
-  <div id="modal-edit-veiculo" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
-          <i class="ph-bold ph-pencil-simple text-brand-600"></i> Editar Veículo: <span id="modal-edit-v-title" class="text-brand-700 font-mono"></span>
+  <!-- Modal Rápido de Manutenção (Chamado pelos cards da frota) -->
+  <div id="modal-manutencao" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+          <i class="ph-bold ph-wrench text-brand-600"></i> Confirmar Manutenção
         </h3>
-        <button onclick="fecharModalEditVeiculo()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+        <button type="button" onclick="fecharModalManutencao()" class="text-slate-400 hover:text-slate-600">
           <i class="ph-bold ph-x text-lg"></i>
         </button>
       </div>
 
-      <form id="formEditVeiculo" onsubmit="handleSalvarEditVeiculo(event)" class="space-y-3.5">
-        <input type="hidden" id="edit-v-id" />
-        
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Placa</label>
-            <input type="text" id="edit-v-placa" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs uppercase font-mono" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Marca / Modelo</label>
-            <input type="text" id="edit-v-marca" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-          </div>
+      <form id="form-registro-manutencao" onsubmit="salvarConfirmacaoManutencao(event)" class="space-y-3">
+        <div>
+          <label class="form-label text-xs font-bold text-slate-700">Veículo</label>
+          <select id="manut-veiculo" required onchange="atualizarKmManutencao()" class="form-control text-xs font-bold bg-white">
+            <option value="">Selecione o veículo...</option>
+          </select>
         </div>
 
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-bold text-slate-700 mb-1">Tanque (L)</label>
-            <input type="number" id="edit-v-tanque" required min="10" max="200" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-mono" />
+            <label class="form-label text-xs font-bold text-slate-700">Serviço Realizado</label>
+            <select id="manut-item" required class="form-control text-xs font-bold bg-white">
+              <option value="Óleo & Filtros">Óleo & Filtros</option>
+              <option value="Pneus">Troca de Pneus</option>
+              <option value="Pastilhas de Freio">Pastilhas de Freio</option>
+              <option value="Fluidos Gerais">Fluidos (Freio/Radiador)</option>
+              <option value="Correia Dentada">Correia Dentada</option>
+            </select>
           </div>
           <div>
-            <label class="block text-[11px] font-bold text-slate-700 mb-1">Min (km/L)</label>
-            <input type="number" step="0.1" id="edit-v-consumomin" required class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-mono" />
-          </div>
-          <div>
-            <label class="block text-[11px] font-bold text-slate-700 mb-1">Max (km/L)</label>
-            <input type="number" step="0.1" id="edit-v-consumomax" required class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-mono" />
+            <label class="form-label text-xs font-bold text-slate-700">KM no Momento</label>
+            <input type="number" id="manut-km" required class="form-control text-xs font-mono font-bold" />
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">KM Atual</label>
-            <input type="number" id="edit-v-kmatual" required min="0" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold" />
+            <label class="form-label text-xs font-bold text-slate-700">Valor Total (R$)</label>
+            <input type="number" step="0.01" id="manut-valor" required placeholder="0,00" class="form-control text-xs font-mono" />
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Status</label>
-            <select id="edit-v-status" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold">
-              <option value="Disponivel">Disponível</option>
-              <option value="Em Manutenção">Em Manutenção</option>
-              <option value="Em Uso">Em Uso</option>
-              <option value="Fora de Uso">Fora de Uso</option>
-              
-           </select>
+            <label class="form-label text-xs font-bold text-slate-700">Oficina / Local</label>
+            <input type="text" id="manut-oficina" placeholder="Ex: Auto Mecânica Silva" class="form-control text-xs uppercase" />
           </div>
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Anomalias / Observações</label>
-          <textarea id="edit-v-anomalias" rows="2" placeholder="Observações de avaria..." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs"></textarea>
+          <label class="form-label text-xs font-bold text-slate-700">Observações / Detalhes</label>
+          <textarea id="manut-obs" rows="2" placeholder="Ex: Substituído óleo 5W30 sintético e filtro de ar..." class="form-control text-xs"></textarea>
         </div>
 
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="fecharModalManutencao()" class="w-1/2 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50">Cancelar</button>
+          <button type="submit" id="btn-salvar-manut" class="w-1/2 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow flex items-center justify-center gap-1.5">
+            <i class="ph-bold ph-check"></i> Confirmar Troca
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Editar Veículo -->
+  <div id="modal-edit-veiculo" class="hidden modal-backdrop">
+    <div class="modal-card" style="max-width: 32rem;">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="card-title flex items-center gap-2">
+          <i class="ph-bold ph-pencil-simple text-brand-600"></i> Editar Veículo: <span id="modal-edit-v-title" class="text-brand-700 font-mono"></span>
+        </h3>
+        <button onclick="fecharModalEditVeiculo()" class="btn-logout" style="background: transparent; border: none; color: #64748b;">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form id="formEditVeiculo" onsubmit="handleSalvarEditVeiculo(event)" class="space-y-3.5 mt-3">
+        <input type="hidden" id="edit-v-id" />
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Placa</label>
+            <input type="text" id="edit-v-placa" required class="form-control font-mono uppercase" />
+          </div>
+          <div>
+            <label class="form-label">Modelo Homologado</label>
+            <select id="edit-v-referencia" onchange="aoSelecionarModeloReferencia('edit')" class="form-control font-bold bg-white">
+              <option value="">-- Selecione o Modelo Base --</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="form-label">Tanque (L)</label>
+            <input type="number" id="edit-v-tanque" required min="10" max="200" class="form-control font-mono" />
+          </div>
+          <div>
+            <label class="form-label">Mín (km/L)</label>
+            <input type="number" step="0.1" id="edit-v-consumomin" required class="form-control font-mono" />
+          </div>
+          <div>
+            <label class="form-label">Máx (km/L)</label>
+            <input type="number" step="0.1" id="edit-v-consumomax" required class="form-control font-mono" />
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">KM Atual</label>
+            <input type="number" id="edit-v-kmatual" required min="0" class="form-control font-mono font-bold" />
+          </div>
+          <div>
+            <label class="form-label">Status Operacional</label>
+            <select id="edit-v-status" required class="form-control font-bold">
+              <option value="Disponivel">Disponível</option>
+              <option value="Em Manutenção">Em Manutenção</option>
+              <option value="Em Uso">Em Uso</option>
+              <option value="Fora de Uso">Fora de Uso</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Tipo de Frota</label>
+          <select id="edit-v-tipofrota" class="form-control font-bold">
+            <option value="PROPRIO">Frota Regular</option>
+            <option value="EXTERNO">Uso Esporádico / Externo</option>
+          </select>
+        </div>
+        <div id="box-edit-motorista-externo" class="hidden">
+          <label class="block text-xs font-bold text-indigo-700 mb-1">Motorista Autorizado (Exclusivo)</label>
+          <select id="edit-v-motorista" class="w-full bg-white border border-indigo-300 rounded-lg px-3 py-2 text-xs font-bold">
+            <option value="">Selecione o condutor autorizado...</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Avarias / Observações</label>
+          <textarea id="edit-v-anomalias" rows="2" placeholder="Observações de avaria..." class="form-control form-textarea"></textarea>
+        </div>
         <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-          <button type="button" onclick="fecharModalEditVeiculo()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold">Cancelar</button>
-          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5">
+          <button type="button" onclick="fecharModalEditVeiculo()" class="btn-logout" style="background-color: #64748b;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-primary" style="margin-top: 0; width: auto; padding: 0.5rem 1rem;">
             <i class="ph-bold ph-check"></i> Salvar Alterações
           </button>
         </div>
@@ -594,71 +845,55 @@
   </div>
 
   <!-- Modal Editar Usuário -->
-  <div id="modal-edit-usuario" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+  <div id="modal-edit-usuario" class="hidden modal-backdrop">
+    <div class="modal-card" style="max-width: 28rem;">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
-          <i class="ph-bold ph-pencil-simple text-brand-600"></i> Editar Usuario
-        </h3>
-        <button onclick="fecharModalEditUsuario()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+        <h3 class="card-title">Editar Condutor</h3>
+        <button onclick="fecharModalEditUsuario()" class="btn-logout" style="background: transparent; border: none; color: #64748b;">
           <i class="ph-bold ph-x text-lg"></i>
         </button>
       </div>
 
-      <form id="formEditUsuario" onsubmit="handleSalvarEditUsuario(event)" class="space-y-3.5">
+      <form id="formEditUsuario" onsubmit="handleSalvarEditUsuario(event)" class="space-y-3.5 mt-3">
         <input type="hidden" id="edit-u-id" />
-        
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Nome Completo</label>
-          <input type="text" id="edit-u-nome" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Email Corporativo</label>
-          <input type="email" id="edit-u-email" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+          <label class="form-label">Nome Completo</label>
+          <input type="text" id="edit-u-nome" required class="form-control" />
         </div>
         <div>
-        <label class="block text-xs font-bold text-slate-700 mb-1">Senha de Acesso</label>
-        <div class="relative">
-          <input 
-            type="text" 
-            id="edit-u-senha" 
-            required
-            placeholder="Digite a senha..." 
-            class="w-full bg-slate-50 border border-slate-300 text-slate-800 font-mono font-semibold rounded-lg pl-3 pr-10 py-2 text-xs focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none" 
-          />
-          <button 
-            type="button" 
-            onclick="toggleVerSenhaEdicao()" 
-            title="Mostrar / Ocultar Senha"
-            class="absolute right-3 top-2 text-slate-400 hover:text-slate-600 focus:outline-none"
-          >
-            <i id="icone-senha-edit" class="ph-bold ph-eye text-base"></i>
-          </button>
+          <label class="form-label">E-mail</label>
+          <input type="email" id="edit-u-email" required class="form-control" />
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="form-grid-2">
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Nº CNH</label>
-            <input type="text" id="edit-u-cnh" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono" />
+            <label class="form-label">Senha</label>
+            <input type="password" id="edit-u-senha" required class="form-control" />
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Status</label>
-            <select id="edit-u-status" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold">
-              <option value="Ativo">Ativo</option>
-              <option value="Inativo">Inativo</option>
-            </select>
+            <label class="form-label">Número CNH</label>
+            <input type="text" id="edit-u-cnh" maxlength="11" pattern="\d{11}" placeholder="12345678900" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="form-control font-mono" />
           </div>
         </div>
-
+        <div>
+          <label class="form-label">Status</label>
+          <select id="edit-u-status" required class="form-control font-bold">
+            <option value="Ativo">Ativo</option>
+            <option value="Inativo">Inativo</option>
+          </select>
+        </div>
         <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-          <button type="button" onclick="fecharModalEditUsuario()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold">Cancelar</button>
-          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5">
-            <i class="ph-bold ph-check"></i> Salvar Alterações
+          <button type="button" onclick="fecharModalEditUsuario()" class="btn-logout" style="background-color: #64748b;">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-primary" style="margin-top: 0; width: auto; padding: 0.5rem 1rem;">
+            <i class="ph-bold ph-check"></i> Salvar Condutor
           </button>
         </div>
       </form>
     </div>
   </div>
-  </body>
+
+  <!-- Script da Regra de Negócio Web -->
+  <script src="../backend/app.js"></script>
+</body>
 </html>
-  <script src="/backend/app.js"></script>
