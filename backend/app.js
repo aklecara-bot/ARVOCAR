@@ -394,6 +394,28 @@ async function handleInicioRota(e) {
   const isExterno = (veiculo.tipo_frota || '').toUpperCase() === 'EXTERNO';
   const kmInformadoInput = parseFloat(document.getElementById('form-inicio-km')?.value);
   const kmBanco = Number(veiculo.km_atual || 0);
+  const condutorAutorizado = (veiculo.motorista_autorizado || '').toLowerCase().trim();
+  const condutorLogado = (user?.email || usuarioLogado?.email || '').toLowerCase().trim();
+  const ehAdmin = condutorLogado === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : 'admin@arvo.tec.br').toLowerCase().trim();
+
+  if (isExterno) {
+    if (!condutorAutorizado) {
+      alert("⚠️ Este veículo externo não possui condutor autorizado configurado. Contate o Administrador.");
+      if (btn) { btn.disabled = false; btn.innerHTML = `Iniciar Rota`; }
+      return;
+    }
+
+    if (condutorLogado !== condutorAutorizado && !ehAdmin) {
+      alert(
+        `⛔ ACESSO RESTRITO!\n\n` +
+        `Este veículo externo é de uso exclusivo do condutor:\n` +
+        `👤 ${veiculo.motorista_autorizado}\n\n` +
+        `Por favor, utilize um veículo da frota regular.`
+      );
+      if (btn) { btn.disabled = false; btn.innerHTML = `Iniciar Rota`; }
+      return;
+    }
+  }
 
   let kmSaidaFinal = (isExterno && !isNaN(kmInformadoInput) && kmInformadoInput > 0) ? kmInformadoInput : kmBanco;
 
@@ -669,6 +691,33 @@ function formatarDataHora(dataIso) {
 // =========================================================================
 // 6. GESTÃO DE VEÍCULOS (EXCLUSIVO ADMIN MASTER)
 // =========================================================================
+
+function veiculoVisivelParaUsuario(v, user) {
+  const tipo = (v?.tipo_frota || '').toUpperCase().trim();
+  const isExterno = tipo.includes('EXTERN') || tipo.includes('ESPORADIC');
+
+  // Carros da frota regular continuam visíveis para todos
+  if (!isExterno) return true;
+
+  const emailUsuario = (user?.email || '').toLowerCase().trim();
+  const adminPadrao = (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : 'admin@arvo.tec.br').toLowerCase().trim();
+  const ehAdmin = emailUsuario === adminPadrao;
+
+  // Admin sempre enxerga tudo
+  if (ehAdmin) return true;
+
+  const motoristaAutorizado = (v?.motorista_autorizado || '').toLowerCase().trim();
+
+  // Se for externo e não tiver motorista atribuído, fica oculto para usuários comuns
+  if (!motoristaAutorizado) return false;
+
+  // Libera se o condutor logado bater com o motorista credenciado (por e-mail, nome ou ID)
+  if (emailUsuario === motoristaAutorizado) return true;
+  if (user?.nome && user.nome.toLowerCase().trim() === motoristaAutorizado) return true;
+  if (user?.id && String(user.id).trim() === motoristaAutorizado) return true;
+
+  return false;
+}
 
 async function handleCadVeiculo(e) {
   e.preventDefault();
@@ -1022,7 +1071,40 @@ function renderFleetGrid() {
   if (!container) return;
   container.innerHTML = '';
 
-  veiculos.forEach(v => {
+  // 1. Identifica o usuário conectado na sessão
+  const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+  let user = (typeof usuarios !== 'undefined' && usuarios && typeof currentUserIndex !== 'undefined' && usuarios[currentUserIndex]) 
+    ? usuarios[currentUserIndex] 
+    : null;
+    
+  if (!user && rawSessao) {
+    try { user = JSON.parse(rawSessao); } catch (e) { user = { email: rawSessao }; }
+  }
+
+  // 2. Filtra os veículos respeitando a regra de carros externos
+  (veiculos || []).filter(v => {
+    const tipo = (v?.tipo_frota || '').toUpperCase().trim();
+    const isCarroExterno = tipo.includes('EXTERN') || tipo.includes('ESPORADIC');
+
+    // Se for carro normal da frota, exibe para qualquer usuário
+    if (!isCarroExterno) return true;
+
+    // Se for externo, verifica se o usuário é o Admin
+    const emailUsuario = (user?.email || '').toLowerCase().trim();
+    const adminEmail = (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : 'admin@arvo.tec.br').toLowerCase().trim();
+    if (emailUsuario === adminEmail) return true;
+
+    // Se for externo e não tiver condutor cadastrado, oculta de condutores comuns
+    const motoristaAutorizado = (v?.motorista_autorizado || '').toLowerCase().trim();
+    if (!motoristaAutorizado) return false;
+
+    // Libera se o condutor logado bater com o motorista credenciado (por e-mail, nome ou ID)
+    if (emailUsuario === motoristaAutorizado) return true;
+    if (user?.nome && user.nome.toLowerCase().trim() === motoristaAutorizado) return true;
+    if (user?.id && String(user.id).trim() === motoristaAutorizado) return true;
+
+    return false;
+  }).forEach(v => {
     const isEmUso = v.status === 'Em Uso';
     const isForaUso = v.status === 'Fora de Uso';
     const isManutencao = v.status === 'Em Manutenção';
@@ -1218,6 +1300,10 @@ function renderSelectVeiculosInicio() {
   const select = document.getElementById('form-inicio-veiculo');
   if (!select) return;
   select.innerHTML = '<option value="">Selecione um veículo...</option>';
+
+  const rawSessao = localStorage.getItem('arvo_usuario_logado');
+  let usuarioAtual = null;
+  try { usuarioAtual = JSON.parse(rawSessao); } catch { usuarioAtual = { email: rawSessao }; }
 
   (veiculos || []).filter(v => v.status === 'Disponivel').forEach(v => {
     const nomeAmigavel = v.nome_frota || v.identificador || v.id;
@@ -1536,17 +1622,20 @@ function exibirPopUpAlerta(rota, horasAbertas) {
           ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento." 
           : "Esta rota está aberta há mais de 12 horas. Apenas o condutor responsável ou a administração podem encerrá-la."}
       </div>
-      <div class="flex gap-2 pt-2">
-        <button onclick="document.getElementById('${modalId}').remove()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
-          ${podeFinalizar ? "Lembrar Depois" : "Fechar"}
-        </button>
+      <div class="modal-alerta-actions">
         ${podeFinalizar ? `
-          <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDireta('${rota.id}');" class="flex-1 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-xl text-xs shadow-md transition">
+          <button onclick="document.getElementById('${modalId}').remove()" class="btn-alerta-lembrar">
+            Lembrar Depois
+          </button>
+          <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDireta('${rota.id || rota.veiculo_id}');" class="btn-alerta-finalizar">
             Finalizar Agora
           </button>
-        ` : ''}
+        ` : `
+          <button onclick="document.getElementById('${modalId}').remove()" class="btn-alerta-fechar">
+            Fechar
+          </button>
+        `}
       </div>
-    </div>
   `;
   document.body.appendChild(popUp);
 }

@@ -297,6 +297,33 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
 // =========================================================================
 // OPERAÇÃO DE ROTAS (INÍCIO / FIM)
 // =========================================================================
+function veiculoVisivelParaUsuario(v, user) {
+  const tipo = (v?.tipo_frota || '').toUpperCase().trim();
+  const isExterno = tipo.includes('EXTERN') || tipo.includes('ESPORADIC');
+
+  // Carros da frota regular continuam visíveis para todos
+  if (!isExterno) return true;
+
+  const emailUsuario = (user?.email || '').toLowerCase().trim();
+  const adminPadrao = (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : 'admin@arvo.tec.br').toLowerCase().trim();
+  const ehAdmin = emailUsuario === adminPadrao;
+
+  // Admin sempre enxerga tudo
+  if (ehAdmin) return true;
+
+  const motoristaAutorizado = (v?.motorista_autorizado || '').toLowerCase().trim();
+
+  // Se for externo e não tiver motorista atribuído, fica oculto para usuários comuns
+  if (!motoristaAutorizado) return false;
+
+  // Libera se o condutor logado bater com o motorista credenciado (por e-mail, nome ou ID)
+  if (emailUsuario === motoristaAutorizado) return true;
+  if (user?.nome && user.nome.toLowerCase().trim() === motoristaAutorizado) return true;
+  if (user?.id && String(user.id).trim() === motoristaAutorizado) return true;
+
+  return false;
+}
+
 function renderizarOpcoesVeiculos() {
   const select = document.getElementById('m-inicio-veiculo');
   if (!select || !usuarioLogado) return;
@@ -920,48 +947,88 @@ async function verificarRotasExcedidas12h() {
     });
 }
 
-function exibirPopUpAlerta(rota, horasAbertas, sessao) {
+function exibirPopUpAlerta(rota, horasAbertas) {
+  if (!rota || !rota.id) return;
   const modalId = `modal-alerta-${rota.id}`;
-  if (document.getElementById(modalId)) return;
 
-  const emailAtual = (sessao.email || '').toLowerCase().trim();
-  const condutorRota = (rota.responsavel || '').toLowerCase().trim();
-  const podeEncerrar = emailAtual === condutorRota || emailAtual === 'admin@arvo.tec.br';
+  // Se já existir na tela, remove para recriar atualizado
+  const modalAntigo = document.getElementById(modalId);
+  if (modalAntigo) modalAntigo.remove();
 
-  dispararNotificacaoNativa(
-    "⚠️ Alerta: Rota em Aberto Excedida",
-    `O veículo ${rota.veiculo_id} está com rota em aberto há mais de ${Math.floor(horasAbertas)} horas.`
-  );
+  // Leitura segura da sessão
+  const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+  let emailUsuario = '';
+  let nomeUsuario = '';
+
+  if (rawSessao) {
+    try {
+      const parsed = JSON.parse(rawSessao);
+      emailUsuario = (parsed.email || '').toLowerCase().trim();
+      nomeUsuario = (parsed.nome || '').toLowerCase().trim();
+    } catch {
+      emailUsuario = String(rawSessao).toLowerCase().trim();
+    }
+  }
+
+  const responsavelRota = String(rota.responsavel || '').toLowerCase().trim();
+  const isAdmin = emailUsuario === 'admin@arvo.tec.br';
+  const isCondutor = (emailUsuario && responsavelRota.includes(emailUsuario)) || (nomeUsuario && responsavelRota.includes(nomeUsuario));
+  const podeEncerrar = isAdmin || isCondutor;
+
+  if (typeof dispararNotificacaoNativa === 'function') {
+    dispararNotificacaoNativa(
+      "⚠️ Alerta: Rota em Aberto Excedida",
+      `O veículo ${rota.veiculo_id} está com rota em aberto há mais de ${Math.floor(horasAbertas)} horas.`
+    );
+  }
 
   const popUp = document.createElement('div');
   popUp.id = modalId;
-  popUp.className = "fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4";
+  popUp.className = "modal-alerta-backdrop";
+  // Estilo inline de contingência para garantir fixação e sobreposição
+  popUp.style.cssText = "position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(15, 23, 42, 0.75) !important; z-index: 99999 !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 1rem !important; box-sizing: border-box !important;";
+
   popUp.innerHTML = `
-    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-rose-100 text-center space-y-4">
-      <div class="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+    <div class="modal-alerta-card" style="background: #ffffff !important; border-radius: 1.5rem !important; max-width: 24rem !important; width: 100% !important; padding: 1.5rem !important; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3) !important; text-align: center !important; border: 1px solid #ffe4e6 !important;">
+      
+      <div class="modal-alerta-icon-box" style="width: 3.5rem; height: 3.5rem; background-color: #ffe4e6; color: #e11d48; border-radius: 1rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; font-size: 1.75rem;">
         <i class="ph-bold ph-warning-circle"></i>
       </div>
+
       <div>
-        <h3 class="text-base font-black text-slate-800">Rota Aberta Excedida!</h3>
-        <p class="text-xs text-slate-500 mt-1">
-          O veículo <b>${rota.veiculo_id}</b> (${rota.placa || '-'}) sob responsabilidade de <b>${rota.responsavel}</b> está em rota há mais de <b>${Math.floor(horasAbertas)} horas</b>.
+        <h3 class="modal-alerta-titulo" style="font-size: 1rem; font-weight: 900; color: #0f172a; margin: 0;">Atenção: Rota Pendente!</h3>
+        <p class="modal-alerta-texto" style="font-size: 0.75rem; color: #64748b; margin-top: 0.35rem; line-height: 1.3;">
+          A rota <b style="color: #0f172a;">#${rota.id}</b> com o veículo <b style="color: #0f172a;">${rota.veiculo_id} [${rota.placa || '-'}]</b> (Condutor: <b>${rota.responsavel}</b>) está aberta há mais de <span class="modal-alerta-horas" style="color: #e11d48; font-weight: 700;">${Math.floor(horasAbertas)} horas</span>.
         </p>
       </div>
 
-      <div class="flex gap-2 pt-2">
-        <button onclick="document.getElementById('${modalId}').remove()" class="flex-1 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl">
-          Fechar
-        </button>
+      <div class="modal-alerta-box-aviso" style="background-color: #fefce8; border: 1px solid #fef08a; color: #854d0e; font-size: 0.75rem; padding: 0.75rem; border-radius: 0.75rem; margin: 1rem 0; line-height: 1.35; text-align: left;">
+        ${podeEncerrar 
+          ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento." 
+          : "Esta rota está aberta há mais de 12 horas. Apenas o condutor responsável ou a administração podem encerrá-la."}
+      </div>
+
+      <div class="modal-alerta-actions" style="display: flex; gap: 0.5rem; width: 100%;">
         ${podeEncerrar ? `
-          <button onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDiretaMobile('${rota.id}');" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md">
+          <button type="button" onclick="document.getElementById('${modalId}').remove()" class="btn-alerta-lembrar" style="flex: 1; padding: 0.625rem; background-color: #f1f5f9; color: #334155; font-weight: 700; font-size: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer;">
+            Lembrar Depois
+          </button>
+          <button type="button" onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDiretaMobile('${rota.id}');" class="btn-alerta-finalizar" style="flex: 1; padding: 0.625rem; background-color: #15803d; color: #ffffff; font-weight: 700; font-size: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer;">
             Finalizar Agora
           </button>
-        ` : ''}
+        ` : `
+          <button type="button" onclick="document.getElementById('${modalId}').remove()" class="btn-alerta-fechar" style="width: 100%; padding: 0.625rem; background-color: #d97706; color: #ffffff; font-weight: 700; font-size: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer; display: block;">
+            Fechar
+          </button>
+        `}
       </div>
     </div>
   `;
+
   document.body.appendChild(popUp);
 }
+
+
 
 // =========================================================================
 // INICIALIZAÇÃO NO DOM E EXPORTAÇÃO GLOBAL
@@ -997,3 +1064,4 @@ window.calcularKmPercorridoMobile = calcularKmPercorridoMobile;
 window.handleMobileFimRota = handleMobileFimRota;
 window.abrirFinalizacaoDiretaMobile = abrirFinalizacaoDiretaMobile;
 window.obterMediaConsumoEsperada = obterMediaConsumoEsperada;
+window.exibirPopUpAlerta = exibirPopUpAlerta;

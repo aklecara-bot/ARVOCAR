@@ -906,8 +906,8 @@ body {
 .btn-alerta-finalizar {
   flex: 1;
   padding: 0.625rem;
-  background-color: #15803d; /* brand-700 */
-  color: #ffffff;
+  background-color: #15803d !important;
+  color: #ffffff !important;
   font-weight: 700;
   font-size: 0.75rem;
   border-radius: 0.75rem;
@@ -915,11 +915,33 @@ body {
   cursor: pointer;
   box-shadow: 0 4px 6px -1px rgba(21, 128, 61, 0.2);
   transition: background-color 0.2s;
+  display: block !important;
 }
 
 .btn-alerta-finalizar:hover {
   background-color: #166534;
 }
+
+/* Botão Fechar em destaque Laranja */
+.btn-alerta-fechar {
+  width: 100% !important;
+  padding: 0.625rem;
+  background-color: #d97706 !important; /* Laranja âmbar */
+  color: #ffffff !important;           /* Texto branco */
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.25);
+  transition: background-color 0.2s ease-in-out;
+  display: block;
+}
+
+.btn-alerta-fechar:hover {
+  background-color: #b45309 !important; /* Laranja escuro no hover */
+}
+
 
 /* =========================================================================
    RESPONSIVIDADE DO CABEÇALHO (HEADER)

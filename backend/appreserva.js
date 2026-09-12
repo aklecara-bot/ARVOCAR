@@ -1,43 +1,46 @@
- const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
-    const ADMIN_EMAIL = "admin@arvo.tec.br";
+const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
+const ADMIN_EMAIL = "admin@arvo.tec.br";
 
-    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    let usuarioLogado = null;
-    let veiculos = [];
-    let reservas = [];
-    let calendar = null;
+let usuarioLogado = null;
+let veiculos = [];
+let reservas = [];
+let rotas = []; // Lista de rotas para checagem de uso e cálculo de km
+let calendar = null;
 
-    // Cores por carro para visualização no calendário
-    const coresCarros = {
-      'ARVO 10': '#0284c7', // Azul
-      'ARVO 11': '#16a34a', // Verde
-      'ARVO 12': '#f59e0b', // Laranja
-      'ARVO 15': '#8b5cf6', // Roxo
-      'ARVO 16': '#ec4899', // Rosa
-      'DEFAULT': '#64748b'
-    };
+// Cores por carro para visualização no calendário
+const coresCarros = {
+  'ARVO 10': '#0284c7', // Azul
+  'ARVO 11': '#16a34a', // Verde
+  'ARVO 12': '#f59e0b', // Laranja
+  'ARVO 15': '#8b5cf6', // Roxo
+  'ARVO 16': '#ec4899', // Rosa
+  'DEFAULT': '#64748b'
+};
 
-    async function init() {
-      const sessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
-      if (!sessao) {
-        window.location.href = "login.html";
-        return;
-      }
-      usuarioLogado = JSON.parse(sessao);
+async function init() {
+  const sessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+  if (!sessao) {
+    window.location.href = "login.html";
+    return;
+  }
+  usuarioLogado = JSON.parse(sessao);
 
-      // Data inicial padrão: hoje
-      const hojeStr = new Date().toISOString().split('T')[0];
-      document.getElementById('res-data-inicio').value = hojeStr;
-      document.getElementById('res-data-fim').value = hojeStr;
+  // Data inicial padrão: hoje
+  const hojeStr = new Date().toISOString().split('T')[0];
+  const dtIniInput = document.getElementById('res-data-inicio');
+  const dtFimInput = document.getElementById('res-data-fim');
+  if (dtIniInput) dtIniInput.value = hojeStr;
+  if (dtFimInput) dtFimInput.value = hojeStr;
 
-      await carregarVeiculos();
-      await carregarReservas();
-      initCalendario();
-    }
+  await carregarVeiculos();
+  await carregarReservas();
+  initCalendario();
+}
 
-    async function carregarVeiculos() {
+async function carregarVeiculos() {
   const sel = document.getElementById('res-veiculo');
   if (!sel) return;
 
@@ -71,17 +74,38 @@
   }
 }
 
-    async function carregarReservas() {
-      const { data } = await db.from('reservas').select('*').eq('status', 'CONFIRMADA').order('data_inicio', { ascending: true });
-      reservas = data || [];
-      renderizarTabelaReservas();
-      if (calendar) {
-        calendar.refetchEvents();
-      }
-    }
+async function carregarReservas() {
+  try {
+    // Carrega reservas ativas e concluídas recentes
+    const { data: dadosReservas } = await db
+      .from('reservas')
+      .select('*')
+      .neq('status', 'CANCELADA')
+      .order('data_inicio', { ascending: true });
 
-    function initCalendario() {
+    reservas = dadosReservas || [];
+
+    // Carrega rotas para checagem em tempo real e cálculo de km
+    const { data: dadosRotas } = await db
+      .from('rotas')
+      .select('*')
+      .order('data_saida', { ascending: false });
+
+    rotas = dadosRotas || [];
+
+    renderizarTabelaReservas();
+    if (calendar) {
+      calendar.refetchEvents();
+    }
+  } catch (err) {
+    console.error("Erro ao carregar dados de reservas e rotas:", err);
+  }
+}
+
+function initCalendario() {
   const calendarEl = document.getElementById('calendar');
+  if (!calendarEl || typeof FullCalendar === 'undefined') return;
+
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     locale: 'pt-br',
@@ -131,125 +155,211 @@
   calendar.render();
 }
 
-    function ajustarCamposModalidade(tipo) {
-      const boxHoras = document.getElementById('box-horas');
-      const boxTurno = document.getElementById('box-turno');
-      const boxDataFim = document.getElementById('box-data-fim');
+function ajustarCamposModalidade(tipo) {
+  const boxHoras = document.getElementById('box-horas');
+  const boxTurno = document.getElementById('box-turno');
+  const boxDataFim = document.getElementById('box-data-fim');
 
-      boxHoras.classList.add('hidden');
-      boxTurno.classList.add('hidden');
-      boxDataFim.classList.remove('hidden');
+  if (boxHoras) boxHoras.classList.add('hidden');
+  if (boxTurno) boxTurno.classList.add('hidden');
+  if (boxDataFim) boxDataFim.classList.remove('hidden');
 
-      if (tipo === 'HORAS') {
-        boxHoras.classList.remove('hidden');
-      } else if (tipo === 'TURNO') {
-        boxTurno.classList.remove('hidden');
-      }
+  if (tipo === 'HORAS' && boxHoras) {
+    boxHoras.classList.remove('hidden');
+  } else if (tipo === 'TURNO' && boxTurno) {
+    boxTurno.classList.remove('hidden');
+  }
+}
+
+async function handleSalvarReserva(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-salvar-reserva');
+  const veiculoId = document.getElementById('res-veiculo').value;
+  const tipo = document.getElementById('res-tipo').value;
+  const dtInicioStr = document.getElementById('res-data-inicio').value;
+  let dtFimStr = document.getElementById('res-data-fim').value;
+
+  let dInicio, dFim;
+
+  if (tipo === 'HORAS') {
+    const hIni = document.getElementById('res-hora-inicio').value;
+    const hFim = document.getElementById('res-hora-fim').value;
+    dInicio = new Date(`${dtInicioStr}T${hIni}:00`);
+    dFim = new Date(`${dtInicioStr}T${hFim}:00`);
+  } else if (tipo === 'TURNO') {
+    const turno = document.getElementById('res-turno-sel').value;
+    if (turno === 'MANHA') {
+      dInicio = new Date(`${dtInicioStr}T07:00:00`);
+      dFim = new Date(`${dtInicioStr}T12:00:00`);
+    } else if (turno === 'TARDE') {
+      dInicio = new Date(`${dtInicioStr}T13:00:00`);
+      dFim = new Date(`${dtInicioStr}T18:00:00`);
+    } else {
+      dInicio = new Date(`${dtInicioStr}T18:00:00`);
+      const dSeguinte = new Date(dtInicioStr);
+      dSeguinte.setDate(dSeguinte.getDate() + 1);
+      dFim = new Date(`${dSeguinte.toISOString().split('T')[0]}T06:00:00`);
     }
+  } else {
+    dInicio = new Date(`${dtInicioStr}T00:00:00`);
+    dFim = new Date(`${dtFimStr}T23:59:59`);
+  }
 
-    async function handleSalvarReserva(e) {
-      e.preventDefault();
-      const btn = document.getElementById('btn-salvar-reserva');
-      const veiculoId = document.getElementById('res-veiculo').value;
-      const tipo = document.getElementById('res-tipo').value;
-      const dtInicioStr = document.getElementById('res-data-inicio').value;
-      let dtFimStr = document.getElementById('res-data-fim').value;
+  if (dFim <= dInicio) {
+    alert("Erro: A data/hora final deve ser posterior ao início.");
+    return;
+  }
 
-      let dInicio, dFim;
+  // Verificação de conflito de agenda no banco
+  const conflito = reservas.some(r => {
+    if (r.veiculo_id !== veiculoId || r.status === 'CANCELADA') return false;
+    const rIni = new Date(r.data_inicio);
+    const rFim = new Date(r.data_fim);
+    return (dInicio < rFim && dFim > rIni);
+  });
 
-      if (tipo === 'HORAS') {
-        const hIni = document.getElementById('res-hora-inicio').value;
-        const hFim = document.getElementById('res-hora-fim').value;
-        dInicio = new Date(`${dtInicioStr}T${hIni}:00`);
-        dFim = new Date(`${dtInicioStr}T${hFim}:00`);
-      } else if (tipo === 'TURNO') {
-        const turno = document.getElementById('res-turno-sel').value;
-        if (turno === 'MANHA') {
-          dInicio = new Date(`${dtInicioStr}T07:00:00`);
-          dFim = new Date(`${dtInicioStr}T12:00:00`);
-        } else if (turno === 'TARDE') {
-          dInicio = new Date(`${dtInicioStr}T13:00:00`);
-          dFim = new Date(`${dtInicioStr}T18:00:00`);
-        } else {
-          dInicio = new Date(`${dtInicioStr}T18:00:00`);
-          const dSeguinte = new Date(dtInicioStr);
-          dSeguinte.setDate(dSeguinte.getDate() + 1);
-          dFim = new Date(`${dSeguinte.toISOString().split('T')[0]}T06:00:00`);
-        }
-      } else {
-        dInicio = new Date(`${dtInicioStr}T00:00:00`);
-        dFim = new Date(`${dtFimStr}T23:59:59`);
-      }
+  if (conflito) {
+    alert(`❌ Conflito: O veículo ${veiculoId} já possui agendamento confirmado neste período! Escolha outro horário ou outro carro.`);
+    return;
+  }
 
-      if (dFim <= dInicio) {
-        alert("Erro: A data/hora final deve ser posterior ao início.");
-        return;
-      }
+  btn.disabled = true;
+  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
 
-      // Verificação de conflito de agenda no banco
-      const conflito = reservas.some(r => {
-        if (r.veiculo_id !== veiculoId) return false;
-        const rIni = new Date(r.data_inicio);
-        const rFim = new Date(r.data_fim);
-        return (dInicio < rFim && dFim > rIni);
-      });
+  const novaReserva = {
+    veiculo_id: veiculoId,
+    responsavel: usuarioLogado.email,
+    tipo_reserva: tipo,
+    data_inicio: dInicio.toISOString(),
+    data_fim: dFim.toISOString(),
+    finalidade: document.getElementById('res-finalidade').value,
+    observacao: document.getElementById('res-obs') ? document.getElementById('res-obs').value.trim() : '',
+    status: 'CONFIRMADA'
+  };
 
-      if (conflito) {
-        alert(`❌ Conflito: O veículo ${veiculoId} já possui agendamento confirmado neste período! Escolha outro horário ou outro carro.`);
-        return;
-      }
+  try {
+    const { error } = await db.from('reservas').insert([novaReserva]);
+    if (error) throw error;
 
-      btn.disabled = true;
-      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
+    alert(`✅ Veículo ${veiculoId} reservado com sucesso!`);
+    e.target.reset();
+    ajustarCamposModalidade('DIAS');
+    await carregarReservas();
+  } catch (err) {
+    alert("Erro ao gravar reserva: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i class="ph-bold ph-check"></i> Confirmar Agendamento`;
+  }
+}
 
-      const novaReserva = {
-        veiculo_id: veiculoId,
-        responsavel: usuarioLogado.email,
-        tipo_reserva: tipo,
-        data_inicio: dInicio.toISOString(),
-        data_fim: dFim.toISOString(),
-        finalidade: document.getElementById('res-finalidade').value,
-        observacao: document.getElementById('res-obs').value.trim(),
-        status: 'CONFIRMADA'
-      };
+async function cancelarReserva(reservaId, responsavel) {
+  const ehAdmin = (usuarioLogado?.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const ehDono = (usuarioLogado?.email || '').toLowerCase() === responsavel.toLowerCase();
 
-      try {
-        const { error } = await db.from('reservas').insert([novaReserva]);
-        if (error) throw error;
+  if (!ehAdmin && !ehDono) {
+    alert("Você só pode cancelar reservas feitas por você mesmo.");
+    return;
+  }
 
-        alert(`✅ Veículo ${veiculoId} reservado com sucesso!`);
-        e.target.reset();
-        ajustarCamposModalidade('DIAS');
-        await carregarReservas();
-      } catch (err) {
-        alert("Erro ao gravar reserva: " + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<i class="ph-bold ph-check"></i> Confirmar Agendamento`;
-      }
+  if (confirm(`Deseja cancelar esta reserva do veículo?`)) {
+    const { error } = await db.from('reservas').update({ status: 'CANCELADA' }).eq('id', reservaId);
+    if (error) {
+      alert("Erro ao cancelar: " + error.message);
+    } else {
+      alert("Reserva cancelada com sucesso!");
+      await carregarReservas();
     }
+  }
+}
 
-    async function cancelarReserva(reservaId, responsavel) {
-      const ehAdmin = usuarioLogado.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-      const ehDono = usuarioLogado.email.toLowerCase() === responsavel.toLowerCase();
+// LÓGICA DINÂMICA PARA AS AÇÕES E STATUS DAS RESERVAS
+// LÓGICA DINÂMICA COM CORES GARANTIDAS (CSS INLINE)
+function obterStatusEAcaoReserva(r, veic, ehAdmin, ehDono) {
+  const agora = new Date().getTime();
+  const dtInicio = new Date(r.data_inicio).getTime();
+  const dtFim = new Date(r.data_fim).getTime();
 
-      if (!ehAdmin && !ehDono) {
-        alert("Você só pode cancelar reservas feitas por você mesmo.");
-        return;
-      }
+  const condutorReserva = (r.responsavel || '').toLowerCase().trim();
+  const veicNome = String(veic?.nome_frota || r.veiculo_id || '').toUpperCase().trim();
+  const veicPlaca = String(veic?.placa || r.placa || '').toUpperCase().trim();
 
-      if (confirm(`Deseja cancelar esta reserva do veículo?`)) {
-        const { error } = await db.from('reservas').update({ status: 'CANCELADA' }).eq('id', reservaId);
-        if (error) {
-          alert("Erro ao cancelar: " + error.message);
-        } else {
-          alert("Reserva cancelada com sucesso!");
-          await carregarReservas();
-        }
-      }
+  // Filtra rotas do carro correspondente
+  const rotasDoVeiculo = (rotas || []).filter(rt => {
+    const vRota = String(rt.veiculo_id || '').toUpperCase().trim();
+    const pRota = String(rt.placa || '').toUpperCase().trim();
+    return (veicNome && (vRota === veicNome || pRota === veicNome)) ||
+           (veicPlaca && (vRota === veicPlaca || pRota === veicPlaca));
+  });
+
+  const botaoCancelar = (ehAdmin || ehDono) ? `
+    <button onclick="cancelarReserva(${r.id}, '${r.responsavel}')" 
+      style="color: #e11d48; background: none; border: none; cursor: pointer; font-size: 11px; font-weight: 700; padding: 2px 6px; display: inline-flex; align-items: center; gap: 4px;"
+      title="Cancelar Agendamento">
+      <i class="ph-bold ph-x-circle"></i> Cancelar
+    </button>
+  ` : '';
+
+  // 1. ANTES DA DATA MARCADA (FUTURO) -> Âmbar / Laranja
+  if (agora < dtInicio && r.status !== 'CONCLUIDA') {
+    return `
+      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;">
+        <span style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 3px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; display: inline-block;">
+          AGENDADO
+        </span>
+        ${botaoCancelar}
+      </div>
+    `;
+  }
+
+  // 2. DIA/PERÍODO DA RESERVA (HOJE / EM ANDAMENTO)
+  if (agora >= dtInicio && agora <= dtFim && r.status !== 'CONCLUIDA') {
+    // Verifica se o responsável abriu rota ativa
+    const rotaAberta = rotasDoVeiculo.find(rt => 
+      rt.status === 'Em Uso' && 
+      (rt.responsavel || '').toLowerCase().trim() === condutorReserva
+    );
+
+    if (rotaAberta) {
+      // Azul vivo com destaque
+      return `
+        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;">
+          <span style="background-color: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 3px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 4px;">
+            <i class="ph-bold ph-steering-wheel"></i> EM UTILIZAÇÃO DE ROTA
+          </span>
+          ${botaoCancelar}
+        </div>
+      `;
+    } else {
+      // Verde Esmeralda
+      return `
+        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;">
+          <span style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; display: inline-block;">
+            EM UTILIZAÇÃO
+          </span>
+          ${botaoCancelar}
+        </div>
+      `;
     }
+  }
 
-    function renderizarTabelaReservas() {
+  // 3. APÓS O PERÍODO -> KM Rodado limpo, sem fundo diferente
+  const rotasConcluidasNoPrazo = rotasDoVeiculo.filter(rt => {
+    if (rt.status !== 'Concluida') return false;
+    const tSaida = new Date(rt.data_saida || rt.created_at).getTime();
+    return tSaida >= dtInicio && tSaida <= (dtFim + (4 * 60 * 60 * 1000));
+  });
+
+  const kmTotal = rotasConcluidasNoPrazo.reduce((acc, rt) => acc + (Number(rt.km_total) || 0), 0);
+
+  if (kmTotal > 0) {
+    return `<span style="font-family: monospace; font-size: 12px; font-weight: 700; color: #334155;">${kmTotal.toLocaleString('pt-BR')} km rodados</span>`;
+  } else {
+    return `<span style="font-family: monospace; font-size: 12px; color: #94a3b8;">0 km rodados</span>`;
+  }
+}
+
+function renderizarTabelaReservas() {
   const tbody = document.getElementById('tabelaListaReservas');
   if (!tbody) return;
   tbody.innerHTML = '';
@@ -268,6 +378,7 @@
     );
 
     const nomeFrotaExibicao = veic?.nome_frota || r.veiculo_id || 'Veículo';
+    const acoesRenderizadas = obterStatusEAcaoReserva(r, veic, ehAdmin, ehDono);
 
     const tr = document.createElement('tr');
     tr.className = "hover:bg-slate-50";
@@ -282,11 +393,7 @@
         <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold">${r.finalidade}</span>
       </td>
       <td class="py-3 px-3 text-center">
-        ${(ehAdmin || ehDono) ? `
-          <button onclick="cancelarReserva(${r.id}, '${r.responsavel}')" class="text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 mx-auto" title="Cancelar Agendamento">
-            <i class="ph-bold ph-x-circle text-sm"></i> Cancelar
-          </button>
-        ` : '<span class="text-slate-300">-</span>'}
+        ${acoesRenderizadas}
       </td>
     `;
     tbody.appendChild(tr);
@@ -296,4 +403,4 @@
   if (badge) badge.innerText = `${reservas.length} reservas`;
 }
 
-    window.onload = init;
+window.onload = init;
