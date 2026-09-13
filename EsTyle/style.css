@@ -211,6 +211,260 @@ body {
   box-sizing: border-box;
 }
 
+/* ========================================================
+  TELA DE LOGIN
+  =======================================================*/
+/* =========================================================================
+   TELA DE LOGIN - CONTAINER, CARDS, CABEÇALHOS E FORMULÁRIOS
+   ========================================================================= */
+
+/* Fundo da tela inteira (Body da tela de login) */
+.login-body {
+  background-color: #F4F6F8;
+  color: #1e293b; /* slate-800 */
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.login-body::selection {
+  background-color: var(--brand-700, #15803d);
+  color: #ffffff;
+}
+
+/* Container centralizado da tela de login */
+.login-wrapper {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2rem 1rem;
+  max-width: 28rem; /* 448px */
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Card branco principal de login */
+.login-card {
+  background-color: #ffffff;
+  border-radius: 1.5rem; /* rounded-3xl */
+  padding: 1.5rem;
+  border: 1px solid rgba(226, 240, 228, 0.8); /* slate-200/80 */
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .login-card {
+    padding: 2rem;
+  }
+}
+
+/* Barra superior com gradiente verde */
+.login-top-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.5rem;
+  background: linear-gradient(to right, #16a34a, #15803d, #34d399);
+}
+
+/* Cabeçalho do Card (Logo, Título e Subtítulo) */
+.login-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  padding-top: 0.5rem;
+}
+
+.login-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.875rem;
+  background-color: #ecfdf527; /* emerald-50 */
+  border-radius: 1rem;
+  color: #15803d; /* brand-700 */
+  border: 1px solid #d1fae5; /* emerald-100 */
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+  margin-bottom: 0.5rem;
+}
+
+.login-logo-badge img {
+  height: 2.5rem;
+  width: auto;
+  display: block;
+}
+
+.login-logo-badge i {
+  font-size: 1.875rem; /* 30px */
+}
+
+.login-title {
+  font-size: 1.5rem; /* 24px */
+  font-weight: 900;
+  color: #0f172a; /* slate-900 */
+  letter-spacing: -0.025em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.login-subtitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #15803d; /* brand-700 */
+  margin: 0.25rem 0 0 0;
+}
+
+/* Mensagem de Erro / Alerta de Falha de Login */
+.login-error-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background-color: #fff1f2; /* rose-50 */
+  border: 1px solid #ffe4e6; /* rose-100 */
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  color: #be123c; /* rose-700 */
+  box-sizing: border-box;
+}
+
+.login-error-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+/* Estrutura do Formulário e Campos de Input */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.login-input-group {
+  display: flex;
+  flex-direction: column;
+  
+}
+
+.login-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #47694a; /* slate-600 */
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.375rem;
+}
+
+.login-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.login-input-icon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94b89a; /* slate-400 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-size: 1rem;
+}
+
+.login-input {
+  width: 100%;
+  background-color: rgba(249, 252, 248, 0.8); /* slate-50/80 */
+  border: 1px solid #cbe1cb; /* slate-300 */
+  color: #1e3b25;
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.875rem 0.625rem 2.5rem; /* recuo para o ícone esquerdo */
+  font-size: 0.75rem;
+  font-weight: 500;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease-in-out;
+}
+
+.login-input:focus {
+  background-color: #ffffff;
+  border-color: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
+}
+
+.login-input-password {
+  padding-right: 2.5rem; /* recuo para o botão de exibir senha */
+}
+
+.login-btn-toggle-pass {
+  position: absolute;
+  right: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #94b899;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: color 0.15s ease-in-out;
+}
+
+.login-btn-toggle-pass:hover {
+  color: #475569;
+}
+
+/* Botão de Envio (Entrar no Sistema) */
+.btn-login-submit {
+  width: 100%;
+  background-color: #15803d; /* brand-700 */
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-login-submit:hover {
+  background-color: #166534; /* brand-800 */
+}
+
+.btn-login-submit:active {
+  transform: scale(0.98);
+}
+
 
 /* ========================================================
   BARRA DE FERRAMENTAS / FILTROS DO HISTÓRICO

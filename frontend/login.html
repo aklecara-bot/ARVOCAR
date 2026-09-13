@@ -3,140 +3,134 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ARVO - Acesso ao Sistema de Rota</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ARVOCAR - Acesso ao Sistema</title>
+
+  <!-- PWA & Manifesto -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#15803d" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ARVO Rota" />
 
   <link rel="icon" type="image/png" sizes="192x192" href="/imagens/logo3d192.png" />
-''<link rel="apple-touch-icon" sizes="192x192" href="/imagens/logo3d192.png" />
-''<link rel="manifest" href="/manifest.json" />
-<link rel="stylesheet" href="/EsTyle/style.css">
+  <link rel="apple-touch-icon" sizes="192x192" href="/imagens/logo3d192.png" />
 
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Bibliotecas Base -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#f0fdf4',
-              100: '#dcfce7',
-              500: '#22c55e',
-              600: '#16a34a',
-              700: '#15803d',
-              800: '#166534',
-              900: '#14532d',
-            }
-          }
-        }
-      }
-    }
-  </script>
+  <!-- Seus arquivos CSS com as classes criadas -->
+  <link rel="stylesheet" href="../EsTyle/style.css" />
+  <link rel="stylesheet" href="../style.css" />
 </head>
 
-<body
-  class="bg-slate-900 min-h-screen flex items-center justify-center p-4 antialiased selection:bg-brand-500 selection:text-white">
+<body class="login-body">
 
-  <div
-    class="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 sm:p-10 border border-slate-100 relative overflow-hidden">
+  <div id="screen-login" class="login-wrapper">
+    <div class="login-card">
+      <div class="login-top-gradient"></div>
 
-    <div class="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-brand-500 via-brand-600 to-emerald-400"></div>
-
-    <div class="text-center mb-8">
-      <div
-        class="inline-flex items-center justify-center p-3.5 bg-brand-50 rounded-2xl text-brand-700 shadow-inner mb-3">
-        <img src="/imagens/arvocarblack150.png" alt="arvocar">
-      </div>
-      <h1 class="text-2xl font-black text-slate-900 tracking-tight">ARVOCAR</h1>
-      <p class="text-xs font-bold uppercase tracking-wider text-brand-700">Controle de Rota 2026</p>
-      <p class="text-xs text-slate-400 mt-1">Insira as suas credenciais para acessar</p>
-    </div>
-
-    <div id="erro-login"
-      class="hidden mb-5 p-3.5 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-700 flex items-start gap-2.5">
-      <i class="ph-bold ph-warning-circle text-base shrink-0 mt-0.5"></i>
-      <span id="erro-login-msg">E-mail ou senha inválidos.</span>
-    </div>
-
-    <form id="formLogin" onsubmit="handleLogin(event)" class="space-y-4">
-      <div>
-        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">E-mail</label>
-        <div class="relative">
-          <span class="absolute left-3.5 top-3 text-slate-400"><i
-              class="ph-bold ph-envelope-simple text-base"></i></span>
-          <input type="email" id="login-email" required placeholder="usuario@arvo.tec.br"
-            class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white outline-none transition" />
+      <div class="login-header">
+        <div class="login-logo-badge">
+          <img src="/imagens/arvocarblack150.png" alt="ARVOCAR"
+          <i id="login-fallback-icon" class="ph-bold ph-steering-wheel hidden"></i>
         </div>
+        <h1 class="login-title">ARVOCAR Mobile</h1>
+        <p class="login-subtitle">Controle de Rotas</p>
       </div>
 
-      <div>
-        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Senha</label>
-        <div class="relative">
-          <span class="absolute left-3.5 top-3 text-slate-400"><i class="ph-bold ph-lock-key text-base"></i></span>
-          <input type="password" id="login-senha" required placeholder="••••••••"
-            class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white outline-none transition" />
-          <button type="button" onclick="toggleVerSenha()"
-            class="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none">
-            <i id="icone-senha" class="ph-bold ph-eye text-base"></i>
-          </button>
+      <div id="erro-login-box" class="login-error-box" style="display: none;">
+        <i class="ph-bold ph-warning-circle login-error-icon"></i>
+        <span id="erro-login-msg">E-mail ou senha inválidos.</span>
+      </div>
+
+      <form id="formMobileLogin" onsubmit="executarLogin(event)" class="login-form">
+        <div class="login-input-group">
+          <label class="login-label">E-mail</label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">
+              <i class="ph-bold ph-envelope-simple"></i>
+            </span>
+            <input type="email" id="login-email" required autocomplete="email" autocapitalize="none"
+              placeholder="motorista@arvo.tec.br" class="login-input" />
+          </div>
         </div>
-      </div>
 
-      <div class="pt-2">
-  <button type="submit" id="btn-login" class="btn-primary">
-    <span>Entrar</span>
-    <i class="ph-bold ph-arrow-right text-base"></i>
-  </button>
-</div>
-    </form>
+        <div class="login-input-group">
+          <label class="login-label">Senha</label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">
+              <i class="ph-bold ph-lock-key"></i>
+            </span>
+            <input type="password" id="login-senha" required placeholder="••••••••"
+              class="login-input login-input-password" />
+            <button type="button" onclick="toggleSenhaVisivel()" class="login-btn-toggle-pass" title="Ver senha">
+              <i id="icone-olho-senha" class="ph-bold ph-eye"></i>
+            </button>
+          </div>
+        </div>
 
-    <div class="mt-8 pt-5 border-t border-slate-100 text-center">
-      <span class="text-[11px] text-slate-400 block font-medium">Gestão e Operação de Veículos • ARVO</span>
+        <button type="submit" id="btn-login" class="btn-login-submit">
+          <span>Entrar no Sistema</span>
+          <i class="ph-bold ph-arrow-right"></i>
+        </button>
+      </form>
     </div>
-
   </div>
 
   <script>
+    // Inicialização do Supabase
     const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
+    const ADMIN_EMAIL = "admin@arvo.tec.br";
+    const FIN_ADMIN_EMAIL = "admfin@arvo.tec.br";
 
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: false }
     });
 
-    function toggleVerSenha() {
+    const validarNumeroCNH = (cnh) => /^\d{11}$/.test(String(cnh).replace(/\D/g, '')) && !/^(\d)\1{10}$/.test(String(cnh).replace(/\D/g, ''));
+
+    function toggleSenhaVisivel() {
       const input = document.getElementById('login-senha');
-      const icone = document.getElementById('icone-senha');
+      const icone = document.getElementById('icone-olho-senha');
       if (!input) return;
       if (input.type === 'password') {
         input.type = 'text';
-        if(icone) {
-        icone.classList.remove('ph-eye');
-        icone.classList.add('ph-eye-slash');
-        }
+        if (icone) icone.className = 'ph-bold ph-eye-slash';
       } else {
         input.type = 'password';
-        if(icone) {
-        icone.classList.remove('ph-eye-slash');
-        icone.classList.add('ph-eye');
-        }
+        if (icone) icone.className = 'ph-bold ph-eye';
       }
     }
 
-    async function handleLogin(e) {
-      e.preventDefault();
-      const btn = document.getElementById('btn-login');
-      const erroBox = document.getElementById('erro-login');
+    async function executarLogin(e) {
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+
+      // Busca pelos campos por múltiplos IDs para garantir compatibilidade
+      const emailInput = document.getElementById('login-email') || document.getElementById('m-email');
+      const senhaInput = document.getElementById('login-senha') || document.getElementById('m-senha');
+      const btn = document.getElementById('btn-login') || document.getElementById('btn-m-login');
+      const erroBox = document.getElementById('erro-login-box') || document.getElementById('erro-login');
       const erroMsg = document.getElementById('erro-login-msg');
 
-      const email = document.getElementById('login-email').value.trim().toLowerCase();
-      const senha = document.getElementById('login-senha').value.trim();
+      const email = (emailInput?.value || '').trim().toLowerCase();
+      const senha = (senhaInput?.value || '').trim();
 
-      erroBox.classList.add('hidden');
-      btn.disabled = true;
-      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> A autenticar...`;
+      if (erroBox) erroBox.style.display = 'none';
+
+      if (!email || !senha) {
+        if (erroMsg) erroMsg.innerText = "Preencha o e-mail e a senha.";
+        if (erroBox) erroBox.style.display = 'flex';
+        return;
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span>Autenticando...</span>`;
+      }
 
       try {
         const { data, error } = await db
@@ -145,20 +139,16 @@
           .eq('email', email)
           .maybeSingle();
 
-        if (error) {
-          throw new Error("Erro de conexão com o banco de dados.");
-        }
-
-        if (!data) {
-          throw new Error("E-mail não cadastrado no sistema.");
-        }
-
-        if (String(data.senha).trim() !== senha) {
-          throw new Error("Senha incorreta.");
-        }
-
+        if (error) throw new Error("Erro de conexão com o banco de dados.");
+        if (!data) throw new Error("E-mail não cadastrado.");
+        if (String(data.senha).trim() !== senha) throw new Error("Senha incorreta.");
         if (data.status && data.status.toLowerCase() === 'inativo') {
-          throw new Error("Este usuário está inativo no momento.");
+          throw new Error("Usuário inativo no sistema.");
+        }
+
+        const ehAdmin = email === ADMIN_EMAIL.toLowerCase() || email === FIN_ADMIN_EMAIL.toLowerCase();
+        if (!ehAdmin && !validarNumeroCNH(data.cnh)) {
+          throw new Error("⛔ Acesso bloqueado: CNH não cadastrada ou inválida.");
         }
 
         const sessaoUsuario = {
@@ -169,22 +159,28 @@
           perfil: data.perfil || 'motorista'
         };
 
-        // Salva nas duas chaves para manter compatibilidade com mobile e desktop
         localStorage.setItem('arvo_usuario_logado', JSON.stringify(sessaoUsuario));
         localStorage.setItem('arvo_mobile_user', JSON.stringify(sessaoUsuario));
 
-        // Redireciona para o mobile.html
+        // Redireciona para a página principal
         window.location.href = "paginainicial.html";
 
       } catch (err) {
         console.error("Falha no login:", err);
-        erroMsg.innerText = err.message || "E-mail ou senha inválidos.";
-        erroBox.classList.remove('hidden');
+        if (erroMsg) erroMsg.innerText = err.message || "E-mail ou senha inválidos.";
+        if (erroBox) erroBox.style.display = 'flex';
       } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<span>Entrar no Sistema</span> <i class="ph-bold ph-arrow-right text-base"></i>`;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<span>Entrar no Sistema</span> <i class="ph-bold ph-arrow-right"></i>`;
+        }
       }
     }
+
+    // Vincula globalmente para funcionar tanto via form onsubmit quanto button onclick
+    window.handleMobileLogin = executarLogin;
+    window.handleLogin = executarLogin;
+    window.toggleSenhaMobile = toggleSenhaVisivel;
   </script>
 </body>
 
