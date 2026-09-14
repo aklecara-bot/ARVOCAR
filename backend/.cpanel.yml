@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home1/fabr7853/fronnil.com/
+    - /bin/cp -R * $DEPLOYPATH
