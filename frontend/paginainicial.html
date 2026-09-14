@@ -16,7 +16,7 @@
 
   <!-- Arquivo de Estilos Centralizado -->
   <link rel="stylesheet" href="../EsTyle/style.css" />
-  <link rel="stylesheet" href="../EStyle/style.css" />
+
 </head>
 
 <body class="app-body">
@@ -83,171 +83,217 @@
 
       <!-- Submenu / Abas de Rotas -->
       <div class="subtabs-bar">
-        <div class="subtabs-container">
-          <button id="subtab-saida" onclick="setSubTab('operacao', 'saida')" class="subtab-link subtab-active">
-            <i class="ph-bold ph-key"></i> Iniciar Rota
-          </button>
-          <button id="subtab-retorno" onclick="setSubTab('operacao', 'retorno')" class="subtab-link">
-            <i class="ph-bold ph-map-pin"></i> Finalizar Rota
-          </button>
-          <button id="subtab-minhas-rotas" onclick="setSubTab('operacao', 'minhas-rotas')" class="subtab-link">
-            <i class="ph-bold ph-clock-counter-clockwise"></i> Todas as Rotas
-          </button>
-        </div>
+        <!-- Submenu / Abas de Rotas (Estilo Pílula da Imagem) -->
+      <div class="flex items-center gap-3 mb-6">
+        <!-- 1. Iniciar Rota (Fundo Verde Escuro Ativo) -->
+        <button 
+          id="subtab-saida" 
+          onclick="setSubTab('operacao', 'saida')" 
+          class="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm bg-[#1E5E3A] text-white shadow-md transition-all active:scale-95"
+        >
+          <i class="ph-bold ph-key text-base text-yellow-300"></i>
+          <span>1. Iniciar Rota (Retirada)</span>
+        </button>
+
+        <!-- 2. Finalizar Rota (Fundo Amarelo Claro / Borda Âmbar) -->
+        <button 
+          id="subtab-retorno" 
+          onclick="setSubTab('operacao', 'retorno')" 
+          class="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm bg-[#FFFBEB] border-2 border-[#FDE68A] text-[#B45309] shadow-sm hover:bg-[#FEF3C7] transition-all active:scale-95"
+        >
+          <i class="ph-bold ph-map-pin text-base text-[#D97706]"></i>
+          <span>2. Finalizar Rota (Devolução)</span>
+        </button>
+
+        <!-- 3. Todas as Rotas (Mesmo Fundo Verde Escuro do Iniciar) -->
+        <button 
+          id="subtab-minhas-rotas" 
+          onclick="setSubTab('operacao', 'minhas-rotas')" 
+          class="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm bg-[#1E5E3A] text-white shadow-md hover:bg-[#164E2E] transition-all active:scale-95"
+        >
+          <i class="ph-bold ph-clock-counter-clockwise text-base text-emerald-200"></i>
+          <span>Todas as Rotas</span>
+        </button>
+      </div>
       </div>
 
-      <!-- 1. Iniciar Rota (Check-in) -->
-      <section id="view-saida" class="max-w-2xl mx-auto">
-        <div class="card-panel">
-          <div class="card-header-bar">
-            <div class="card-icon-box">
-              <i class="ph-bold ph-key text-xl"></i>
+      <!-- 1. Iniciar Rota (Check-in) com Card Lateral -->
+      <section id="view-saida" class="max-w-6xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          <!-- Formulário de Saída (Lado Esquerdo) -->
+          <div class="card-panel lg:col-span-7">
+            <div class="card-header-bar">
+              <div class="card-icon-box">
+                <i class="ph-bold ph-key text-xl"></i>
+              </div>
+              <div>
+                <h2 class="card-title">Iniciar Rota (Retirada)</h2>
+                <p class="card-subtitle">Rotas com limite operacional de 12 horas</p>
+              </div>
             </div>
-            <div>
-              <h2 class="card-title">Iniciar Rota (Retirada)</h2>
-              <p class="card-subtitle">Rotas com limite de 12 horas</p>
+
+            <form id="formInicioRota" onsubmit="handleInicioRota(event)" class="space-y-4">
+              <div>
+                <label class="form-label">Usuário</label>
+                <input type="text" id="form-inicio-Usuario" readonly class="form-control form-control-readonly" />
+              </div>
+
+              <div>
+                <label class="form-label">Veículo Disponível</label>
+                <select id="form-inicio-veiculo" onchange="atualizarKmInicialPreenchido(); if(typeof aoMudarVeiculoInicio === 'function') aoMudarVeiculoInicio();" required class="form-control font-bold">
+                  <option value="">Carregando veículos...</option>
+                </select>
+              </div>
+
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">KM Inicial (Bloqueado)</label>
+                  <div class="relative">
+                    <input type="number" id="form-inicio-km" readonly class="form-control form-control-readonly" placeholder="km" />
+                    <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">km</span>
+                  </div>
+                  <span class="form-sublabel">Carregado da última devolução.</span>
+                </div>
+
+                <div>
+                  <label class="form-label">Origem da Saída</label>
+                  <select id="form-inicio-origem" onchange="toggleOutroOrigem(this.value)" required class="form-control">
+                    <option value="Base Central Alegre">Base Central Alegre</option>
+                    <option value="ALEGRE">ALEGRE</option>
+                    <option value="GUAÇUÍ">GUAÇUÍ</option>
+                    <option value="CASTELO">CASTELO</option>
+                    <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
+                    <option value="LOCADORA CACHOEIRO">LOCADORA CACHOEIRO</option>
+                    <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
+                    <option value="OUTRO">OUTRO (Digitar...)</option>
+                  </select>
+                  <input type="text" id="form-inicio-origem-texto" placeholder="Digite o local de saída..." class="form-control hidden mt-2" />
+                </div>
+              </div>
+
+              <div>
+                <label class="form-label">Finalidade / Projeto</label>
+                <select id="form-inicio-finalidade" required class="form-control">
+                  <option value="Entrega de Material - Reflorestar">Entrega de Material - Reflorestar</option>
+                  <option value="DEMANDAS INTERNAS" selected>DEMANDAS INTERNAS</option>
+                  <option value="DEMANDAS EXTERNAS">DEMANDAS EXTERNAS</option>
+                  <option value="CO INVESTIMENTO WWF">CO INVESTIMENTO WWF</option>
+                  <option value="IMPLANTACAO DE AREAS">IMPLANTAÇÃO DE ÁREAS</option>
+                  <option value="REFLORESTAR">REFLORESTAR</option>
+                  <option value="RELACOES INSTITUCIONAIS">RELAÇÕES INSTITUCIONAIS</option>
+                  <option value="REMINERALIZADOR">REMINERALIZADOR</option>
+                  <option value="PSA GESTAGUA">PSA GESTÁGUA</option>
+                  <option value="PPC">PPC</option>
+                </select>
+              </div>
+
+              <button id="btn-submit-inicio" type="submit" class="btn-primary">
+                <i class="ph-bold ph-check-circle text-lg"></i>
+                <span>Confirmar e Liberar Saída</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Card do Veículo Selecionado (Lado Direito) -->
+          <div class="lg:col-span-5 sticky top-20">
+            <div id="preview-card-saida" class="min-h-[420px] flex items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-6 text-slate-400 text-xs font-semibold text-center w-full">
+              Selecione um veículo ao lado para visualizar a telemetria e o status operacional.
             </div>
           </div>
 
-          <form id="formInicioRota" onsubmit="handleInicioRota(event)" class="space-y-4">
-            <div>
-              <label class="form-label">Usuário</label>
-              <input type="text" id="form-inicio-Usuario" readonly class="form-control form-control-readonly" />
-            </div>
-
-            <div>
-              <label class="form-label">Selecione o Veículo Disponível</label>
-              <select id="form-inicio-veiculo" onchange="atualizarKmInicialPreenchido()" required class="form-control">
-                <option value="">Carregando veículos...</option>
-              </select>
-            </div>
-
-            <div class="form-grid-2">
-              <div>
-                <label class="form-label">KM Inicial (Bloqueado)</label>
-                <div class="relative">
-                  <input type="number" id="form-inicio-km" readonly class="form-control form-control-readonly" placeholder="km" />
-                  <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">km</span>
-                </div>
-                <span class="form-sublabel">Carregado da última devolução.</span>
-              </div>
-
-              <div>
-                <label class="form-label">Origem da Saída</label>
-                <select id="form-inicio-origem" onchange="toggleOutroOrigem(this.value)" required class="form-control">
-                  <option value="ALEGRE">ALEGRE</option>
-                  <option value="GUAÇUÍ">GUAÇUÍ</option>
-                  <option value="CASTELO">CASTELO</option>
-                  <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
-                  <option value="LOCADORA CACHOEIRO">LOCADORA CACHOEIRO</option>
-                  <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
-                  <option value="OUTRO">OUTRO (Digitar...)</option>
-                </select>
-                <input type="text" id="form-inicio-origem-texto" placeholder="Digite o local de saída..." class="form-control hidden mt-2" />
-              </div>
-            </div>
-
-            <div>
-              <label class="form-label">Finalidade / Projeto</label>
-              <select id="form-inicio-finalidade" required class="form-control">
-                <option value="">...</option>
-                <option value="CO INVESTIMENTO WWF">CO INVESTIMENTO WWF</option>
-                <option value="DEMANDAS INTERNAS" selected>DEMANDAS INTERNAS</option>
-                <option value="DEMANDAS EXTERNAS">DEMANDAS EXTERNAS</option>
-                <option value="IMPLANTACAO DE AREAS">IMPLANTAÇÃO DE ÁREAS</option>
-                <option value="REFLORESTAR">REFLORESTAR</option>
-                <option value="RELACOES INSTITUCIONAIS">RELAÇÕES INSTITUCIONAIS</option>
-                <option value="REMINERALIZADOR">REMINERALIZADOR</option>
-                <option value="PSA GESTAGUA">PSA GESTÁGUA</option>
-                <option value="PPC">PPC</option>
-              </select>
-            </div>
-
-            <button id="btn-submit-inicio" type="submit" class="btn-primary">
-              <i class="ph-bold ph-check-circle text-lg"></i>
-              <span>Iniciar Rota</span>
-            </button>
-          </form>
         </div>
       </section>
 
-      <!-- 2. Finalizar Rota (Check-out) -->
-      <section id="view-retorno" class="hidden max-w-2xl mx-auto">
-        <div class="card-panel">
-          <div class="card-header-bar">
-            <div class="card-icon-box" style="background-color: #fef3c7; color: #b45309;">
-              <i class="ph-bold ph-flag-checkered text-xl"></i>
+      <!-- 2. Finalizar Rota (Check-out) com Card Lateral e Cronômetro -->
+      <section id="view-retorno" class="hidden max-w-6xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+          <!-- Formulário de Devolução (Lado Esquerdo) -->
+          <div class="card-panel lg:col-span-7">
+            <div class="card-header-bar">
+              <div class="card-icon-box" style="background-color: #fef3c7; color: #b45309;">
+                <i class="ph-bold ph-flag-checkered text-xl"></i>
+              </div>
+              <div>
+                <h2 class="card-title">Finalizar Rota (Devolução)</h2>
+                <p class="card-subtitle">Apuração de KM percorrido e vistoria de entrega</p>
+              </div>
             </div>
-            <div>
-              <h2 class="card-title">Finalizar Rota (Devolução)</h2>
-              <p class="card-subtitle">Informe o local de entrega e odômetro final</p>
+
+            <form id="formFimRota" onsubmit="handleFimRota(event)" class="space-y-4">
+              <div>
+                <label class="form-label">Selecionar Rota Ativa</label>
+                <select id="form-fim-rota-select" onchange="selecionarRotaFim(); if(typeof aoMudarRotaFim === 'function') aoMudarRotaFim();" required class="form-control font-bold">
+                  <option value="">Selecione uma viagem em trânsito...</option>
+                </select>
+              </div>
+
+              <!-- Resumo da rota ativa mantido para retrocompatibilidade -->
+              <div id="fim-detalhes-viagem" class="info-summary-box hidden">
+                <div class="info-summary-row"><span>Veículo:</span> <b id="fim-info-veiculo">-</b></div>
+                <div class="info-summary-row"><span>Condutor:</span> <b id="fim-info-Usuario">-</b></div>
+                <div class="info-summary-row"><span>KM Saída:</span> <b id="fim-info-kmsaida" class="font-mono">-</b></div>
+                <div class="info-summary-row"><span>Consumo Estimado:</span> <b id="fim-info-consumo-est" class="font-mono">-</b></div>
+              </div>
+
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">KM Final no Hodômetro</label>
+                  <div class="relative">
+                    <input type="number" id="form-fim-km" oninput="calcularKmPercorrido()" required class="form-control font-mono font-bold" placeholder="km" />
+                    <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">km</span>
+                  </div>
+                  <span id="km-calc-feedback" class="text-[11px] font-bold mt-1 block">Informa do painel</span>
+                </div>
+
+                <div>
+                  <label class="form-label">Local de Entrega</label>
+                  <select id="form-fim-destino" onchange="toggleOutroDestino(this.value)" required class="form-control">
+                    <option value="ALEGRE">ALEGRE</option>
+                    <option value="GUAÇUÍ">GUAÇUÍ</option>
+                    <option value="CASTELO">CASTELO</option>
+                    <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
+                    <option value="LOCADORA CACHOEIRO">LOCADORA CACHOEIRO</option>
+                    <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
+                    <option value="OUTRO">OUTRO (Digitar...)</option>
+                  </select>
+                  <input type="text" id="form-fim-destino-texto" placeholder="Digite o local de devolução..." class="form-control hidden mt-2" />
+                </div>
+              </div>
+
+              <!-- Situação de Avarias -->
+              <div class="pt-2 border-t border-slate-100">
+                <label class="form-label">Situação do Carro</label>
+                <div class="flex items-center gap-4 text-xs font-semibold mb-2">
+                  <label class="flex items-center gap-1.5 cursor-pointer">
+                    <input type="radio" name="situacao_carro" value="SEM" checked onchange="toggleAnomaliaInput(false)" />
+                    <span class="text-emerald-700">Sem Anomalias</span>
+                  </label>
+                  <label class="flex items-center gap-1.5 cursor-pointer">
+                    <input type="radio" name="situacao_carro" value="COM" onchange="toggleAnomaliaInput(true)" />
+                    <span class="text-rose-700">Com Avarias / Ruídos</span>
+                  </label>
+                </div>
+                <div id="box-anomalia" class="hidden">
+                  <textarea id="form-fim-anomalia" rows="2" placeholder="Descreva os danos ou problemas observados..." class="form-control form-textarea textarea-anomalia"></textarea>
+                </div>
+              </div>
+
+              <button id="btn-submit-fim" type="submit" class="btn-primary" style="background-color: #d97706;">
+                <i class="ph-bold ph-check text-lg"></i>
+                <span>Confirmar Devolução</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Card do Veículo em Devolução (Lado Direito) -->
+          <div class="lg:col-span-5 sticky top-20">
+            <div id="preview-card-retorno" class="min-h-[420px] flex items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-6 text-slate-400 text-xs font-semibold text-center w-full">
+              Selecione uma rota ativa ao lado para conferir os dados da viagem e o tempo de percurso.
             </div>
           </div>
 
-          <form id="formFimRota" onsubmit="handleFimRota(event)" class="space-y-4">
-            <div>
-              <label class="form-label">Selecione sua Rota Ativa</label>
-              <select id="form-fim-rota-select" onchange="selecionarRotaFim()" required class="form-control">
-                <option value="">Selecione uma viagem em trânsito...</option>
-              </select>
-            </div>
-
-            <!-- Resumo da rota ativa -->
-            <div id="fim-detalhes-viagem" class="info-summary-box hidden">
-              <div class="info-summary-row"><span>Veículo:</span> <b id="fim-info-veiculo">-</b></div>
-              <div class="info-summary-row"><span>Condutor:</span> <b id="fim-info-Usuario">-</b></div>
-              <div class="info-summary-row"><span>KM Saída:</span> <b id="fim-info-kmsaida" class="font-mono">-</b></div>
-              <div class="info-summary-row"><span>Consumo Estimado:</span> <b id="fim-info-consumo-est" class="font-mono">-</b></div>
-            </div>
-
-            <div class="form-grid-2">
-              <div>
-                <label class="form-label">KM Final</label>
-                <div class="relative">
-                  <input type="number" id="form-fim-km" oninput="calcularKmPercorrido()" required class="form-control" />
-                  <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">km</span>
-                </div>
-                <span id="km-calc-feedback" class="text-[11px] font-bold mt-1 block"></span>
-              </div>
-
-              <div>
-                <label class="form-label">Local de Devolução</label>
-                <select id="form-fim-destino" onchange="toggleOutroDestino(this.value)" required class="form-control">
-                  <option value="ALEGRE">ALEGRE</option>
-                  <option value="GUAÇUÍ">GUAÇUÍ</option>
-                  <option value="CASTELO">CASTELO</option>
-                  <option value="MUNIZ FREIRE">MUNIZ FREIRE</option>
-                  <option value="LOCADORA CACHOEIRO">LOCADORA CACHOEIRO</option>
-                  <option value="LOCADORA CASTELO">LOCADORA CASTELO</option>
-                  <option value="OUTRO">OUTRO (Digitar...)</option>
-                </select>
-                <input type="text" id="form-fim-destino-texto" placeholder="Digite o local de devolução..." class="form-control hidden mt-2" />
-              </div>
-            </div>
-
-            <!-- Situação de Avarias -->
-            <div class="pt-2 border-t border-slate-100">
-              <label class="form-label">Situação do Carro</label>
-              <div class="flex items-center gap-4 text-xs font-semibold mb-2">
-                <label class="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="situacao_carro" value="SEM" checked onchange="toggleAnomaliaInput(false)" />
-                  <span class="text-emerald-700">Sem Problemas</span>
-                </label>
-                <label class="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="situacao_carro" value="COM" onchange="toggleAnomaliaInput(true)" />
-                  <span class="text-rose-700">Com Avarias / Ruídos</span>
-                </label>
-              </div>
-              <div id="box-anomalia" class="hidden">
-                <textarea id="form-fim-anomalia" rows="2" placeholder="Descreva os danos ou problemas observados..." class="form-control form-textarea textarea-anomalia"></textarea>
-              </div>
-            </div>
-
-            <button id="btn-submit-fim" type="submit" class="btn-primary" style="background-color: #d97706;">
-              <i class="ph-bold ph-check text-lg"></i>
-              <span>Finalizar Rota</span>
-            </button>
-          </form>
         </div>
       </section>
 
@@ -298,36 +344,70 @@
          MÓDULO DE GESTÃO (ADMINISTRADOR)
          ========================================================================= -->
     <div id="module-gestao" class="hidden space-y-6">
+<!-- Sub-abas do Painel de Gestão (Linha Única sem Quebra) -->
+      <div class="flex items-center justify-between gap-2.5 mb-6 w-full overflow-x-auto pb-1 flex-nowrap">
+        
+        <!-- Grupo de Navegação das 4 Abas (Esquerda) -->
+        <div class="flex items-center gap-2 shrink-0 flex-nowrap">
+          <!-- 1. Visão Geral da Frota (Ativo) -->
+          <button 
+            type="button" 
+            onclick="setSubTab('gestao', 'dashboard')" 
+            id="subtab-dashboard" 
+            class="subtab-pill-btn subtab-pill-green whitespace-nowrap"
+          >
+            <i class="ph-bold ph-gauge text-base"></i>
+            <span>Visão Geral da Frota</span>
+          </button>
 
-      <!-- Sub-abas do Painel de Gestão -->
-      <div class="subtabs-bar">
-        <div class="subtabs-container" style="justify-content: space-between; align-items: center; width: 100%;">
-          <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
-            <button onclick="setSubTab('gestao', 'dashboard')" id="subtab-dashboard" class="subtab-link subtab-active">
-              <i class="ph-bold ph-gauge text-base"></i> Visão Geral da Frota
-            </button>
-            <button onclick="setSubTab('gestao', 'cad-veiculos')" id="subtab-cad-veiculos" class="subtab-link">
-              <i class="ph-bold ph-car text-base"></i> Gestão de Veículos
-            </button>
-            <button onclick="setSubTab('gestao', 'cad-usuarios')" id="subtab-cad-usuarios" class="subtab-link">
-              <i class="ph-bold ph-users-three text-base"></i> Gestão de Condutores / CNH
-            </button>
-            <button onclick="setSubTab('gestao', 'manutencao')" id="subtab-manutencao" class="subtab-link">
-              <i class="ph-bold ph-wrench text-base"></i> Gestão de Manutenções
-            </button>
-          </div>
-          <div style="display: flex; gap: 0.75rem; align-items: center;">
-            <a href="financeiro.html" class="btn-nav-action bg-emerald-800 text-white hover:bg-emerald-900">
-              <i class="ph-bold ph-chart-line-up text-base"></i>
-              <span>Financeiro</span>
-            </a>
-            <a href="relatorios.html" class="btn-header-action" style="padding: 0.4rem 0.75rem;">
-              <i class="ph-bold ph-chart-line-up text-base"></i>
-              <span>Relatórios e Gráficos</span>
-            </a>
-          </div>
+          <!-- 2. Gestão de Veículos -->
+          <button 
+            type="button" 
+            onclick="setSubTab('gestao', 'cad-veiculos')" 
+            id="subtab-cad-veiculos" 
+            class="subtab-pill-btn subtab-pill-inactive whitespace-nowrap"
+          >
+            <i class="ph-bold ph-car text-base"></i>
+            <span>Gestão de Veículos</span>
+          </button>
+
+          <!-- 3. Gestão de Condutores / CNH -->
+          <button 
+            type="button" 
+            onclick="setSubTab('gestao', 'cad-usuarios')" 
+            id="subtab-cad-usuarios" 
+            class="subtab-pill-btn subtab-pill-inactive whitespace-nowrap"
+          >
+            <i class="ph-bold ph-users-three text-base"></i>
+            <span>Gestão de Condutores / CNH</span>
+          </button>
+
+          <!-- 4. Gestão de Manutenções -->
+          <button 
+            type="button" 
+            onclick="setSubTab('gestao', 'manutencao')" 
+            id="subtab-manutencao" 
+            class="subtab-pill-btn subtab-pill-inactive whitespace-nowrap"
+          >
+            <i class="ph-bold ph-wrench text-base"></i>
+            <span>Gestão de Manutenções</span>
+          </button>
+        </div>
+        <!-- Grupo Fixo de Links (Direita) -->
+        <div class="flex items-center gap-2.5 shrink-0 flex-nowrap">
+        <!-- Botão Financeiro -->
+        <a href="financeiro.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 1rem; background-color: #1E5E3A; color: #ffffff; font-weight: 900; font-size: 0.8125rem; line-height: 1; text-decoration: none; white-space: nowrap; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); cursor: pointer;">
+          <i class="ph-bold ph-currency-circle-dollar" style="background-color: #15803d; color: #fde047; font-size: 1rem;"></i>
+            <span>Financeiro</span>
+        </a>      
+        <!-- Botão Relatórios e Gráficos -->
+        <a href="relatorios.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 1rem; background-color: #e08c0d; border: 2px solid #FDE68A; color: #f8f7f6; font-weight: 900; font-size: 0.8125rem; line-height: 1; text-decoration: none; white-space: nowrap; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); cursor: pointer;">
+          <i class="ph-bold ph-chart-line-up" style="background-color: #d97706; color: #f8f5f1; font-size: 1rem;"></i>
+            <span>Relatórios</span>
+        </a>
         </div>
       </div>
+    </div>
 
       <!-- 1. Aba: Visão Geral da Frota -->
       <section id="view-dashboard" class="space-y-6">
@@ -378,9 +458,12 @@
         </div>
 
         <div>
-          <h2 class="card-title mb-4 flex items-center gap-2">
-            <i class="ph-bold ph-car-profile text-brand-600"></i> Frotas e Status Operacional
-          </h2>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="card-title flex items-center gap-2">
+              <i class="ph-bold ph-car-profile text-brand-600"></i> Frotas e Status Operacional
+            </h2>
+            <span class="text-xs text-slate-400">Veículos ativos com telemetria e cronômetro em tempo real</span>
+          </div>
           <div id="fleetGrid" class="fleet-grid"></div>
         </div>
       </section>
@@ -579,116 +662,116 @@
         </div>
       </section>
 
-      <!-- 4. Aba Adjacente: Gestão de Manutenções Preventivas -->
-  <section id="view-manutencao" class="hidden space-y-6">
-    <div class="card-panel">
-      <div class="card-header-bar">
-        <div class="card-icon-box" style="background-color: #dcfce7; color: #15803d;">
-          <i class="ph-bold ph-wrench text-xl"></i>
-        </div>
-        <div>
-          <h3 class="card-title">Confirmação de Manutenção & Troca de Fluidos</h3>
-          <p class="card-subtitle">Registre manutenções, peças e anexe a nota fiscal correspondente</p>
-        </div>
-      </div>
-
-      <form id="form-registro-manutencao-aba" onsubmit="salvarConfirmacaoManutencaoAba(event)" class="space-y-4">
-        <div class="form-grid-2">
-          <div>
-            <label class="form-label">Veículo *</label>
-            <select id="manut-aba-veiculo" required onchange="atualizarKmManutencaoAba()" class="form-control font-bold bg-white">
-              <option value="">Selecione o veículo...</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="form-label">Serviço Realizado *</label>
-            <select id="manut-aba-item" required class="form-control font-bold bg-white">
-              <option value="Óleo & Filtros">Óleo & Filtros (Ciclo 10.000 km)</option>
-              <option value="Pastilhas de Freio">Pastilhas de Freio (Ciclo 25.000 km)</option>
-              <option value="Pneus">Troca de Pneus / Rodízio (Ciclo 45.000 km)</option>
-              <option value="Correia Dentada">Correia Dentada (Ciclo 50.000 km)</option>
-              <option value="Fluidos Gerais">Fluidos Gerais / Radiador</option>
-              <option value="Outros">Outras Intervenções Mecânicas</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="form-label">KM no Momento da Troca *</label>
-            <input type="number" id="manut-aba-km" required min="0" placeholder="Ex: 50200" class="form-control font-mono font-bold" />
-          </div>
-
-          <div>
-            <label class="form-label">Valor Total (R$) *</label>
-            <input type="number" step="0.01" id="manut-aba-valor" required placeholder="0,00" class="form-control font-mono" />
-          </div>
-
-          <div>
-            <label class="form-label">Oficina / Estabelecimento</label>
-            <input type="text" id="manut-aba-oficina" placeholder="Ex: Mecânica Silva..." class="form-control uppercase" />
-          </div>
-        </div>
-
-      <!-- Upload do Cupom Fiscal / Ordem de Serviço -->
-        <div>
-          <label class="form-label">Comprovante Fiscal / Ordem de Serviço (Foto ou Arquivo)</label>
-          <div class="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 text-center transition bg-slate-50 relative cursor-pointer">
-            <input type="file" id="manut-aba-foto" accept="image/*" capture="environment" onchange="previewImagemManutencao(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-            <div id="box-preview-placeholder-manut" class="space-y-1.5 pointer-events-none">
-              <i class="ph-bold ph-camera text-2xl text-slate-400"></i>
-              <p class="text-xs font-bold text-slate-600">Tirar foto do cupom ou carregar documento</p>
-              <p class="text-[10px] text-slate-400">Formatos aceitos: JPG, PNG, WEBP</p>
+      <!-- 4. Aba: Gestão de Manutenções Preventivas -->
+      <section id="view-manutencao" class="hidden space-y-6">
+        <div class="card-panel">
+          <div class="card-header-bar">
+            <div class="card-icon-box" style="background-color: #dcfce7; color: #15803d;">
+              <i class="ph-bold ph-wrench text-xl"></i>
             </div>
-            <img id="img-preview-manut" class="hidden mx-auto max-h-44 rounded-xl object-contain shadow-sm border border-slate-200 mt-2" />
+            <div>
+              <h3 class="card-title">Confirmação de Manutenção & Troca de Fluidos</h3>
+              <p class="card-subtitle">Registre manutenções, peças e anexe a nota fiscal correspondente</p>
+            </div>
+          </div>
+
+          <form id="form-registro-manutencao-aba" onsubmit="salvarConfirmacaoManutencaoAba(event)" class="space-y-4">
+            <div class="form-grid-2">
+              <div>
+                <label class="form-label">Veículo *</label>
+                <select id="manut-aba-veiculo" required onchange="atualizarKmManutencaoAba()" class="form-control font-bold bg-white">
+                  <option value="">Selecione o veículo...</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="form-label">Serviço Realizado *</label>
+                <select id="manut-aba-item" required class="form-control font-bold bg-white">
+                  <option value="Óleo & Filtros">Óleo & Filtros (Ciclo 10.000 km)</option>
+                  <option value="Pastilhas de Freio">Pastilhas de Freio (Ciclo 25.000 km)</option>
+                  <option value="Pneus">Troca de Pneus / Rodízio (Ciclo 45.000 km)</option>
+                  <option value="Correia Dentada">Correia Dentada (Ciclo 50.000 km)</option>
+                  <option value="Fluidos Gerais">Fluidos Gerais / Radiador</option>
+                  <option value="Outros">Outras Intervenções Mecânicas</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label class="form-label">KM no Momento da Troca *</label>
+                <input type="number" id="manut-aba-km" required min="0" placeholder="Ex: 50200" class="form-control font-mono font-bold" />
+              </div>
+
+              <div>
+                <label class="form-label">Valor Total (R$) *</label>
+                <input type="number" step="0.01" id="manut-aba-valor" required placeholder="0,00" class="form-control font-mono" />
+              </div>
+
+              <div>
+                <label class="form-label">Oficina / Estabelecimento</label>
+                <input type="text" id="manut-aba-oficina" placeholder="Ex: Mecânica Silva..." class="form-control uppercase" />
+              </div>
+            </div>
+
+            <!-- Upload do Cupom Fiscal / Ordem de Serviço -->
+            <div>
+              <label class="form-label">Comprovante Fiscal / Ordem de Serviço (Foto ou Arquivo)</label>
+              <div class="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 text-center transition bg-slate-50 relative cursor-pointer">
+                <input type="file" id="manut-aba-foto" accept="image/*" capture="environment" onchange="previewImagemManutencao(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <div id="box-preview-placeholder-manut" class="space-y-1.5 pointer-events-none">
+                  <i class="ph-bold ph-camera text-2xl text-slate-400"></i>
+                  <p class="text-xs font-bold text-slate-600">Tirar foto do cupom ou carregar documento</p>
+                  <p class="text-[10px] text-slate-400">Formatos aceitos: JPG, PNG, WEBP</p>
+                </div>
+                <img id="img-preview-manut" class="hidden mx-auto max-h-44 rounded-xl object-contain shadow-sm border border-slate-200 mt-2" />
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label">Observações do Serviço</label>
+              <textarea id="manut-aba-obs" rows="2" placeholder="Especificações do óleo, marca de filtros, notas adicionais..." class="form-control form-textarea"></textarea>
+            </div>
+
+            <button type="submit" id="btn-submit-manut-aba" class="btn-primary">
+              <i class="ph-bold ph-check"></i> Registrar e Atualizar Contadores
+            </button>
+          </form>
+        </div>
+
+        <!-- Tabela Histórica de Manutenções -->
+        <div class="card-panel p-0 overflow-hidden flex flex-col">
+          <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div>
+              <h3 class="card-title text-sm">Histórico de Manutenções Confirmadas</h3>
+              <p class="card-subtitle">Registro histórico para cálculo de TCO e auditoria mecânica</p>
+            </div>
+            <button type="button" onclick="carregarHistoricoManutencoes()" class="btn-nav-action bg-slate-200 text-slate-700 hover:bg-slate-300 border-none text-xs">
+              <i class="ph-bold ph-arrows-clockwise text-sm"></i> Atualizar
+            </button>
+          </div>
+          <div class="table-wrapper flex-1">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Placa / Veículo</th>
+                  <th>Serviço</th>
+                  <th>KM Troca</th>
+                  <th>Valor</th>
+                  <th>Oficina</th>
+                  <th style="text-align: center;">Cupom</th>
+                </tr>
+              </thead>
+              <tbody id="grid-historico-manutencoes">
+                <tr>
+                  <td colspan="7" class="py-8 text-center text-slate-400 font-medium">Carregando manutenções...</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-
-        <div>
-          <label class="form-label">Observações do Serviço</label>
-          <textarea id="manut-aba-obs" rows="2" placeholder="Especificações do óleo, marca de filtros, notas adicionais..." class="form-control form-textarea"></textarea>
-        </div>
-
-        <button type="submit" id="btn-submit-manut-aba" class="btn-primary">
-          <i class="ph-bold ph-check"></i> Registrar e Atualizar Contadores
-        </button>
-      </form>
-    </div>
-
-    <!-- Tabela Histórica com Coluna de Cupom -->
-    <div class="card-panel p-0 overflow-hidden flex flex-col">
-      <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-        <div>
-          <h3 class="card-title text-sm">Histórico de Manutenções Confirmadas</h3>
-          <p class="card-subtitle">Registro histórico para cálculo de TCO e auditoria mecânica</p>
-        </div>
-        <button type="button" onclick="carregarHistoricoManutencoes()" class="btn-nav-action bg-slate-200 text-slate-700 hover:bg-slate-300 border-none text-xs">
-          <i class="ph-bold ph-arrows-clockwise text-sm"></i> Atualizar
-        </button>
-      </div>
-      <div class="table-wrapper flex-1">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Placa / Veículo</th>
-              <th>Serviço</th>
-              <th>KM Troca</th>
-              <th>Valor</th>
-              <th>Oficina</th>
-              <th style="text-align: center;">Cupom</th>
-            </tr>
-          </thead>
-          <tbody id="grid-historico-manutencoes">
-            <tr>
-              <td colspan="7" class="py-8 text-center text-slate-400 font-medium">Carregando manutenções...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
+      </section>
 
     </div>
   </main>

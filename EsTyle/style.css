@@ -537,7 +537,7 @@ body {
 .subtab-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 2px;
   padding: 0.75rem 0.25rem;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -560,6 +560,41 @@ body {
   color: var(--brand-600) !important;
   font-weight: 700;
 }
+
+/* Placa Padrão Mercosul */
+.placa-mercosul {
+  background: #ffffff;
+  border: 1.5px solid #0f172a;
+  border-radius: 4px;
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  width: fit-content;
+}
+
+.placa-mercosul-header {
+  background: #003399;
+  width: 100%;
+  height: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+}
+
+.placa-mercosul-txt {
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 900;
+  color: #000000;
+  letter-spacing: 1px;
+  line-height: 1;
+  padding: 2px 5px 1px 5px;
+}
+
 
 /* =========================================================================
    LAYOUT DA TELA DE RESERVAS
@@ -1179,4 +1214,200 @@ body {
 .upload-dropzone:hover {
   background-color: var(--slate-100, #f1f5f9);
   border-color: var(--brand-500, #22c55e);
+}
+
+/* =========================================================================
+   SUBTABS / NAVEGAÇÃO DE ROTAS (BOTÕES ESTILO PÍLULA)
+   ========================================================================= */
+
+/* Container de botões da barra de rotas */
+.subtabs-pill-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Base de botão estilo pílula */
+.subtab-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 1rem; /* rounded-2xl */
+  font-weight: 900;
+  font-size: 0.8125rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+}
+
+.subtab-pill-btn:active {
+  transform: scale(0.96);
+}
+
+/* 1 e 3. Variação Verde Sólida (Iniciar Rota / Todas as Rotas / Botão Ativo) */
+.subtab-pill-green {
+  background-color: #1E5E3A !important;
+  color: #ffffff !important;
+  border-color: #1E5E3A !important;
+  box-shadow: 0 4px 6px -1px rgba(30, 94, 58, 0.25), 0 2px 4px -2px rgba(30, 94, 58, 0.2);
+}
+.subtab-pill-green i {
+  color: #fde047 !important; /* Ícone amarelo destacado */
+  font-size: 1rem;
+}
+
+.subtab-pill-green:hover {
+  background-color: #164E2E !important;
+  border-color: #164E2E !important;
+}
+
+.subtab-pill-green i {
+  color: #fde047; /* Ícone amarelo/dourado em destaque */
+  font-size: 1rem;
+}
+
+/* 2. Variação Amarela / Âmbar (Finalizar Rota - Devolução) */
+.subtab-pill-amber {
+  background-color: #FFFBEB !important;
+  border: 2px solid #FDE68A !important;
+  color: #B45309 !important;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.1);
+}
+
+.subtab-pill-amber:hover {
+  background-color: #FEF3C7 !important;
+  border-color: #FCD34D !important;
+}
+
+.subtab-pill-amber i {
+  color: #D97706; /* Ícone âmbar */
+  font-size: 1rem;
+}
+
+/* Estado Inativo Padronizado (Caso alterne para aba neutra) */
+.subtab-pill-inactive {
+  background-color: #ffffff !important;
+  border: 1px solid var(--slate-200, #e2e8f0) !important;
+  color: var(--slate-600, #475569) !important;
+  box-shadow: none !important;
+}
+
+.subtab-pill-inactive:hover {
+  background-color: var(--slate-50, #f8fafc) !important;
+  color: var(--slate-800, #1e293b) !important;
+}
+
+.subtab-pill-inactive i {
+  color: var(--slate-400, #94a3b8);
+}
+
+/* Realce dos ícones nas pílulas inativas */
+.subtab-pill-inactive i {
+  font-size: 1rem;
+  color: #1E5E3A; /* Mantém o ícone verde elegante mesmo no estado neutro */
+  transition: transform 0.15s ease;
+}
+
+.subtab-pill-inactive:hover i {
+  transform: scale(1.1);
+}
+
+/* Realce dos ícones nas pílulas verdes ativas */
+.subtab-pill-green i {
+  color: #fde047 !important; /* Dourado / amarelo para contraste com verde escuro */
+  font-size: 1rem;
+}
+
+/* =========================================================================
+   BOTÕES E ÍCONES DAS AÇÕES RÁPIDAS (FINANCEIRO E RELATÓRIOS)
+   ========================================================================= */
+
+/* 1. Botão Verde Escuro (Financeiro) */
+.btn-action-financeiro {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important; /* gap-2 */
+  padding: 0.625rem 1rem !important; /* py-2.5 px-4 */
+  border-radius: 1rem !important; /* rounded-2xl */
+  font-weight: 900 !important; /* font-black */
+  font-size: 0.75rem !important; /* text-xs */
+  line-height: 1 !important;
+  background-color: #1E5E3A !important;
+  color: #ffffff !important;
+  border: 1px solid #1E5E3A !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important; /* shadow-md */
+  transition: all 0.2s ease-in-out !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  box-sizing: border-box !important;
+}
+
+@media (min-width: 640px) {
+  .btn-action-financeiro {
+    font-size: 0.875rem !important; /* sm:text-sm */
+  }
+}
+
+.btn-action-financeiro:hover {
+  background-color: #164E2E !important;
+  border-color: #164E2E !important;
+}
+
+.btn-action-financeiro:active {
+  transform: scale(0.95) !important; /* active:scale-95 */
+}
+
+/* 2. Botão Âmbar Suave (Relatórios e Gráficos) */
+.btn-action-relatorios {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important; /* gap-2 */
+  padding: 0.625rem 1rem !important; /* py-2.5 px-4 */
+  border-radius: 1rem !important; /* rounded-2xl */
+  font-weight: 900 !important; /* font-black */
+  font-size: 0.75rem !important; /* text-xs */
+  line-height: 1 !important;
+  background-color: #FFFBEB !important;
+  color: #B45309 !important;
+  border: 2px solid #FDE68A !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important; /* shadow-sm */
+  transition: all 0.2s ease-in-out !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  box-sizing: border-box !important;
+}
+
+@media (min-width: 640px) {
+  .btn-action-relatorios {
+    font-size: 0.875rem !important; /* sm:text-sm */
+  }
+}
+
+.btn-action-relatorios:hover {
+  background-color: #FEF3C7 !important;
+  border-color: #FCD34D !important;
+}
+
+.btn-action-relatorios:active {
+  transform: scale(0.95) !important; /* active:scale-95 */
+}
+
+/* 3. Ícone Dourado (Cifrão / Financeiro) */
+.icon-action-financeiro {
+  font-size: 1rem !important; /* text-base */
+  color: #fde047 !important; /* text-yellow-300 */
+}
+
+/* 4. Ícone Âmbar (Gráfico / Relatórios) */
+.icon-action-relatorios {
+  font-size: 1rem !important; /* text-base */
+  color: #D97706 !important;
 }
