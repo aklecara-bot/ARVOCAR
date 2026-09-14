@@ -1197,37 +1197,63 @@ async function handleCadVeiculo(e) {
 }
 
 function abrirModalEditVeiculo(veiculoId) {
-  if (!ehAdminMaster()) {
+  if (typeof ehAdminMaster === 'function' && !ehAdminMaster()) {
     alert("Permissão negada: Apenas o administrador geral pode editar veículos.");
     return;
   }
 
-  const v = veiculos.find(item =>
+  const v = (typeof veiculos !== 'undefined' ? veiculos : []).find(item =>
     String(item.id) === String(veiculoId) ||
     String(item.uuid_veiculos) === String(veiculoId) ||
     String(item.placa) === String(veiculoId)
   );
 
-  if (!v) return;
+  if (!v) {
+    console.error("Veículo não encontrado para edição:", veiculoId);
+    return;
+  }
 
-  document.getElementById('edit-v-id').value = v.uuid_veiculos || v.id;
-  document.getElementById('modal-edit-v-title').innerText = v.placa || v.nome_frota || v.id;
-  document.getElementById('edit-v-placa').value = v.placa || '';
-  document.getElementById('edit-v-marca').value = v.marca || '';
-  document.getElementById('edit-v-tanque').value = v.tanque || 0;
-  document.getElementById('edit-v-consumomin').value = v.consumo_min || 0;
-  document.getElementById('edit-v-consumomax').value = v.consumo_max || 0;
-  document.getElementById('edit-v-kmatual').value = v.km_atual || 0;
-  document.getElementById('edit-v-status').value = v.status || 'Disponivel';
+  // Helpers seguros que evitam quebra do script se algum campo faltar no HTML
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = (val !== undefined && val !== null) ? val : '';
+  };
+
+  const setText = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = txt || '';
+  };
+
+  // Preenchimento de todos os dados originais
+  setVal('edit-v-id', v.uuid_veiculos || v.id);
+  setText('modal-edit-v-title', v.placa || v.nome_frota || v.id);
+  setVal('edit-v-placa', v.placa || '');
+  setVal('edit-v-marca', v.marca || '');
+  setVal('edit-v-tanque', v.tanque || 0);
+  setVal('edit-v-consumomin', v.consumo_min || 0);
+  setVal('edit-v-consumomax', v.consumo_max || 0);
+  setVal('edit-v-kmatual', v.km_atual || 0);
+  setVal('edit-v-status', v.status || 'Disponivel');
+  setVal('edit-v-anomalias', v.anomalias || '');
   
+  // Tipo de frota e modelo de referência (se existirem na tela)
   const selectTipo = document.getElementById('edit-v-tipofrota');
   if (selectTipo) {
     selectTipo.value = (v.tipo_frota || 'PROPRIO').toUpperCase();
   }
+  setVal('edit-v-referencia', v.modelo_referencia_id || '');
 
-  document.getElementById('edit-v-anomalias').value = v.anomalias || '';
-  document.getElementById('modal-edit-veiculo').classList.remove('hidden');
+  // Exibição do modal
+  const modal = document.getElementById('modal-edit-veiculo');
+  if (modal) {
+    modal.classList.remove('hidden');
+  } else {
+    console.error("Elemento 'modal-edit-veiculo' não encontrado no DOM.");
+  }
 }
+
+// Garante disponibilidade global caso seja chamado diretamente por onclick=""
+window.abrirModalEditVeiculo = abrirModalEditVeiculo;
 
 function fecharModalEditVeiculo() {
   document.getElementById('modal-edit-veiculo').classList.add('hidden');
@@ -2177,6 +2203,22 @@ window.mapearImagemCarro = mapearImagemCarro;
 // INICIALIZAÇÃO
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
+  // Carrega os dados do sistema
+  if (typeof carregarTodosDadosDoBanco === 'function') {
+    await carregarTodosDadosDoBanco();
+  }
+
+  // Detecta se a página foi aberta com a intenção de ir direto para a Gestão
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('modulo') === 'gestao') {
+    if (typeof setModule === 'function') {
+      setModule('gestao'); // Exibe module-gestao e oculta module-operacao
+    }
+    if (typeof setSubTab === 'function') {
+      setSubTab('gestao', 'dashboard'); // Força a exibição de "Visão Geral da Frota" e renderiza os cards[cite: 7, 8]
+    }
+  }
+  
   await carregarTodosDadosDoBanco();
   await carregarModelosReferencia();
   solicitarPermissaoNotificacoes();
