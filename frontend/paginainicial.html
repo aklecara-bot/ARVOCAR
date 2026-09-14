@@ -84,43 +84,42 @@
       <!-- Submenu / Abas de Rotas -->
       <div class="subtabs-bar">
         <!-- Submenu / Abas de Rotas (Estilo Pílula da Imagem) -->
-      <div class="flex items-center gap-3 mb-6">
-        <!-- 1. Iniciar Rota (Fundo Verde Escuro Ativo) -->
-        <button 
-          id="subtab-saida" 
-          onclick="setSubTab('operacao', 'saida')" 
-          class="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm bg-[#1E5E3A] text-white shadow-md transition-all active:scale-95"
-        >
-          <i class="ph-bold ph-key text-base text-yellow-300"></i>
-          <span>1. Iniciar Rota (Retirada)</span>
-        </button>
+        <div class="flex items-center gap-3 mb-6">
+          <!-- 1. Iniciar Rota (Fundo Verde Escuro Ativo) -->
+          <button 
+            id="subtab-saida" 
+            onclick="setSubTab('operacao', 'saida')" 
+            class="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm bg-[#1E5E3A] text-white shadow-md transition-all active:scale-95"
+          >
+            <i class="ph-bold ph-key text-base text-yellow-300"></i>
+            <span>1. Iniciar Rota (Retirada)</span>
+          </button>
 
-        <!-- 2. Finalizar Rota (Fundo Amarelo Claro / Borda Âmbar) -->
-        <button 
-          id="subtab-retorno" 
-          onclick="setSubTab('operacao', 'retorno')" 
-          class="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm bg-[#FFFBEB] border-2 border-[#FDE68A] text-[#B45309] shadow-sm hover:bg-[#FEF3C7] transition-all active:scale-95"
-        >
-          <i class="ph-bold ph-map-pin text-base text-[#D97706]"></i>
-          <span>2. Finalizar Rota (Devolução)</span>
-        </button>
+          <!-- 2. Finalizar Rota (Fundo Amarelo Claro / Borda Âmbar) -->
+          <button 
+            id="subtab-retorno" 
+            onclick="setSubTab('operacao', 'retorno')" 
+            class="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm bg-[#FFFBEB] border-2 border-[#FDE68A] text-[#B45309] shadow-sm hover:bg-[#FEF3C7] transition-all active:scale-95"
+          >
+            <i class="ph-bold ph-map-pin text-base text-[#D97706]"></i>
+            <span>2. Finalizar Rota (Devolução)</span>
+          </button>
 
-        <!-- 3. Todas as Rotas (Mesmo Fundo Verde Escuro do Iniciar) -->
-        <button 
-          id="subtab-minhas-rotas" 
-          onclick="setSubTab('operacao', 'minhas-rotas')" 
-          class="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm bg-[#1E5E3A] text-white shadow-md hover:bg-[#164E2E] transition-all active:scale-95"
-        >
-          <i class="ph-bold ph-clock-counter-clockwise text-base text-emerald-200"></i>
-          <span>Todas as Rotas</span>
-        </button>
-      </div>
+          <!-- 3. Todas as Rotas (Mesmo Fundo Verde Escuro do Iniciar) -->
+          <button 
+            id="subtab-minhas-rotas" 
+            onclick="setSubTab('operacao', 'minhas-rotas')" 
+            class="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm bg-[#1E5E3A] text-white shadow-md hover:bg-[#164E2E] transition-all active:scale-95"
+          >
+            <i class="ph-bold ph-clock-counter-clockwise text-base text-emerald-200"></i>
+            <span>Todas as Rotas</span>
+          </button>
+        </div>
       </div>
 
       <!-- 1. Iniciar Rota (Check-in) com Card Lateral -->
       <section id="view-saida" class="max-w-6xl mx-auto">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">          
           <!-- Formulário de Saída (Lado Esquerdo) -->
           <div class="card-panel lg:col-span-7">
             <div class="card-header-bar">
@@ -132,13 +131,11 @@
                 <p class="card-subtitle">Rotas com limite operacional de 12 horas</p>
               </div>
             </div>
-
             <form id="formInicioRota" onsubmit="handleInicioRota(event)" class="space-y-4">
               <div>
                 <label class="form-label">Usuário</label>
                 <input type="text" id="form-inicio-Usuario" readonly class="form-control form-control-readonly" />
               </div>
-
               <div>
                 <label class="form-label">Veículo Disponível</label>
                 <select id="form-inicio-veiculo" onchange="atualizarKmInicialPreenchido(); if(typeof aoMudarVeiculoInicio === 'function') aoMudarVeiculoInicio();" required class="form-control font-bold">
@@ -187,28 +184,24 @@
                   <option value="PPC">PPC</option>
                 </select>
               </div>
-
               <button id="btn-submit-inicio" type="submit" class="btn-primary">
                 <i class="ph-bold ph-check-circle text-lg"></i>
                 <span>Confirmar e Liberar Saída</span>
               </button>
             </form>
           </div>
-
           <!-- Card do Veículo Selecionado (Lado Direito) -->
           <div class="lg:col-span-5 sticky top-20">
             <div id="preview-card-saida" class="min-h-[420px] flex items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-6 text-slate-400 text-xs font-semibold text-center w-full">
               Selecione um veículo ao lado para visualizar a telemetria e o status operacional.
             </div>
           </div>
-
         </div>
       </section>
 
       <!-- 2. Finalizar Rota (Check-out) com Card Lateral e Cronômetro -->
       <section id="view-retorno" class="hidden max-w-6xl mx-auto">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
           <!-- Formulário de Devolução (Lado Esquerdo) -->
           <div class="card-panel lg:col-span-7">
             <div class="card-header-bar">
@@ -220,7 +213,6 @@
                 <p class="card-subtitle">Apuração de KM percorrido e vistoria de entrega</p>
               </div>
             </div>
-
             <form id="formFimRota" onsubmit="handleFimRota(event)" class="space-y-4">
               <div>
                 <label class="form-label">Selecionar Rota Ativa</label>
@@ -228,7 +220,6 @@
                   <option value="">Selecione uma viagem em trânsito...</option>
                 </select>
               </div>
-
               <!-- Resumo da rota ativa mantido para retrocompatibilidade -->
               <div id="fim-detalhes-viagem" class="info-summary-box hidden">
                 <div class="info-summary-row"><span>Veículo:</span> <b id="fim-info-veiculo">-</b></div>
@@ -236,7 +227,6 @@
                 <div class="info-summary-row"><span>KM Saída:</span> <b id="fim-info-kmsaida" class="font-mono">-</b></div>
                 <div class="info-summary-row"><span>Consumo Estimado:</span> <b id="fim-info-consumo-est" class="font-mono">-</b></div>
               </div>
-
               <div class="form-grid-2">
                 <div>
                   <label class="form-label">KM Final no Hodômetro</label>
@@ -246,7 +236,6 @@
                   </div>
                   <span id="km-calc-feedback" class="text-[11px] font-bold mt-1 block">Informa do painel</span>
                 </div>
-
                 <div>
                   <label class="form-label">Local de Entrega</label>
                   <select id="form-fim-destino" onchange="toggleOutroDestino(this.value)" required class="form-control">
@@ -261,7 +250,6 @@
                   <input type="text" id="form-fim-destino-texto" placeholder="Digite o local de devolução..." class="form-control hidden mt-2" />
                 </div>
               </div>
-
               <!-- Situação de Avarias -->
               <div class="pt-2 border-t border-slate-100">
                 <label class="form-label">Situação do Carro</label>
@@ -279,21 +267,18 @@
                   <textarea id="form-fim-anomalia" rows="2" placeholder="Descreva os danos ou problemas observados..." class="form-control form-textarea textarea-anomalia"></textarea>
                 </div>
               </div>
-
               <button id="btn-submit-fim" type="submit" class="btn-primary" style="background-color: #d97706;">
                 <i class="ph-bold ph-check text-lg"></i>
                 <span>Confirmar Devolução</span>
               </button>
             </form>
           </div>
-
           <!-- Card do Veículo em Devolução (Lado Direito) -->
           <div class="lg:col-span-5 sticky top-20">
             <div id="preview-card-retorno" class="min-h-[420px] flex items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-6 text-slate-400 text-xs font-semibold text-center w-full">
               Selecione uma rota ativa ao lado para conferir os dados da viagem e o tempo de percurso.
             </div>
           </div>
-
         </div>
       </section>
 
@@ -340,11 +325,13 @@
 
     </div>
 
-    <!-- =========================================================================
-         MÓDULO DE GESTÃO (ADMINISTRADOR)
-         ========================================================================= -->
+    <!-- ========================================================= -->
+    <!-- MÓDULO 2: PAINEL DE GESTÃO (KPIs e Cards de Frota)        -->
+    <!-- ========================================================= -->
+
     <div id="module-gestao" class="hidden space-y-6">
-<!-- Sub-abas do Painel de Gestão (Linha Única sem Quebra) -->
+
+      <!-- Barra de Sub-abas do Painel de Gestão -->
       <div class="flex items-center justify-between gap-2.5 mb-6 w-full overflow-x-auto pb-1 flex-nowrap">
         
         <!-- Grupo de Navegação das 4 Abas (Esquerda) -->
@@ -393,21 +380,22 @@
             <span>Gestão de Manutenções</span>
           </button>
         </div>
+
         <!-- Grupo Fixo de Links (Direita) -->
         <div class="flex items-center gap-2.5 shrink-0 flex-nowrap">
-        <!-- Botão Financeiro -->
-        <a href="financeiro.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 1rem; background-color: #1E5E3A; color: #ffffff; font-weight: 900; font-size: 0.8125rem; line-height: 1; text-decoration: none; white-space: nowrap; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); cursor: pointer;">
-          <i class="ph-bold ph-currency-circle-dollar" style="background-color: #15803d; color: #fde047; font-size: 1rem;"></i>
+          <!-- Botão Financeiro -->
+          <a href="financeiro.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 1rem; background-color: #1E5E3A; color: #ffffff; font-weight: 900; font-size: 0.8125rem; line-height: 1; text-decoration: none; white-space: nowrap; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); cursor: pointer;">
+            <i class="ph-bold ph-currency-circle-dollar" style="background-color: #15803d; color: #fde047; font-size: 1rem;"></i>
             <span>Financeiro</span>
-        </a>      
-        <!-- Botão Relatórios e Gráficos -->
-        <a href="relatorios.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 1rem; background-color: #e08c0d; border: 2px solid #FDE68A; color: #f8f7f6; font-weight: 900; font-size: 0.8125rem; line-height: 1; text-decoration: none; white-space: nowrap; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); cursor: pointer;">
-          <i class="ph-bold ph-chart-line-up" style="background-color: #d97706; color: #f8f5f1; font-size: 1rem;"></i>
+          </a>      
+          <!-- Botão Relatórios e Gráficos -->
+          <a href="relatorios.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 1rem; background-color: #e08c0d; border: 2px solid #FDE68A; color: #f8f7f6; font-weight: 900; font-size: 0.8125rem; line-height: 1; text-decoration: none; white-space: nowrap; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); cursor: pointer;">
+            <i class="ph-bold ph-chart-line-up" style="background-color: #d97706; color: #f8f5f1; font-size: 1rem;"></i>
             <span>Relatórios</span>
-        </a>
+          </a>
         </div>
+
       </div>
-    </div>
 
       <!-- 1. Aba: Visão Geral da Frota -->
       <section id="view-dashboard" class="space-y-6">

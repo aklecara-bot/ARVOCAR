@@ -181,17 +181,144 @@ function processarTotaisGerais(abastecimentos, manutenções, rotas) {
   const custoPorKm = kmTotal > 0 ? (gastoTotal / kmTotal) : 0;
   const depreciacaoTotal = kmTotal * 0.30; // R$ 0,12 peças + R$ 0,18 desvalorização contábil por km
 
+  // 1. Atualização dos Cards de KPIs Centrais
   document.getElementById('kpi-custo-km').innerText = custoPorKm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km';
   document.getElementById('kpi-gasto-total').innerText = gastoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   document.getElementById('kpi-despesa-detalhe').innerText = `Combustível: ${gastoComb.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} | Manut: ${gastoManut.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
   document.getElementById('kpi-km-total').innerText = `${kmTotal.toLocaleString('pt-BR')} km`;
   document.getElementById('kpi-total-rotas').innerText = `${rotas.length} rotas concluídas`;
   document.getElementById('kpi-depreciacao-total').innerText = depreciacaoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  // 2. Atualização Dinâmica da Linha em Movimento (Ticker Tape)
+  const ticker = document.getElementById('ticker-financeiro-dinamico');
+  if (ticker) {
+    const totalDespesaFmt = gastoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const custoKmFmt = custoPorKm > 0 ? custoPorKm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km' : 'R$ 0,00/km';
+    const kmTotalFmt = kmTotal.toLocaleString('pt-BR');
+
+    // Total de litros apurados nos abastecimentos
+    const totalLitros = abastecimentos.reduce((acc, a) => acc + (Number(a.quantidade_litros) || 0), 0);
+    const litrosFmt = totalLitros.toFixed(1);
+
+    // Resgate do abastecimento mais recente
+    let textoUltimoAbast = 'Nenhum abastecimento recente apurado';
+    if (abastecimentos && abastecimentos.length > 0) {
+      // Ordena por data decrescente se necessário para pegar o último
+      const abastsOrdenados = [...abastecimentos].sort((a, b) => new Date(b.data_hora || 0) - new Date(a.data_hora || 0));
+      const ult = abastsOrdenados[0];
+      const veicNome = ult.nome_frota || ult.veiculo_id || ult.placa || 'ARVO';
+      const valorFmt = Number(ult.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      const posto = ult.local_posto || 'Posto Credenciado';
+      const litros = Number(ult.quantidade_litros || 0).toFixed(2);
+      const comb = ult.tipo_combustivel || 'Combustível';
+      textoUltimoAbast = `${veicNome} faturou ${valorFmt} no ${posto} (${litros} L ${comb})`;
+    }
+
+    const blocoTicker = `
+      <span class="mx-6 flex items-center gap-2"><strong class="text-emerald-400">DESPESA MENSAL:</strong> ${totalDespesaFmt} acumulados • ${litrosFmt} L faturados</span>
+      <span class="mx-6 text-slate-600">•</span>
+      <span class="mx-6 flex items-center gap-2"><strong class="text-cyan-400">CUSTO POR KM:</strong> Média da frota em ${custoKmFmt}</span>
+      <span class="mx-6 text-slate-600">•</span>
+      <span class="mx-6 flex items-center gap-2"><strong class="text-amber-400">ÚLTIMO REGISTRO:</strong> ${textoUltimoAbast}</span>
+      <span class="mx-6 text-slate-600">•</span>
+      <span class="mx-6 flex items-center gap-2"><strong class="text-purple-400">KM TOTAL RODADO:</strong> ${kmTotalFmt} km concluídos em ${rotas.length} rotas</span>
+      <span class="mx-6 text-slate-600">•</span>
+    `;
+
+    // Duplica o conteúdo para garantir o loop contínuo sem saltos visuais
+    ticker.innerHTML = blocoTicker + blocoTicker;
+  }
+}
+
+function atualizarTickerFinanceiro(gastoCombustivel, gastoManutencao, kmTotal, custoPorKm, ultimoAbast, melhorCarro) {
+  const ticker = document.getElementById('ticker-financeiro-dinamico');
+  if (!ticker) return;
+
+  const totalDespesaFmt = (gastoCombustivel + gastoManutencao).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const custoKmFmt = custoPorKm > 0 ? (custoPorKm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km') : 'R$ 0,00/km';
+  const kmTotalFmt = Number(kmTotal || 0).toLocaleString('pt-BR');
+
+  // Último abastecimento registrado
+  let textoUltimoAbast = 'Nenhum abastecimento recente';
+  if (ultimoAbast) {
+    const vNome = ultimoAbast.nome_frota || ultimoAbast.veiculo_id || 'ARVO';
+    const vValor = Number(ultimoAbast.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const vPosto = ultimoAbast.local_posto || 'Posto';
+    const vLitros = Number(ultimoAbast.quantidade_litros || 0).toFixed(2);
+    textoUltimoAbast = `${vNome} faturou ${vValor} no ${vPosto} (${vLitros} L)`;
+  }
+
+  // Eficiência ponderada do veículo destaque
+  let textoEficiencia = 'Média geral da frota calculada por rota';
+  if (melhorCarro && melhorCarro.media > 0) {
+    textoEficiencia = `${melhorCarro.nome} atingiu média de ${melhorCarro.media.toFixed(2)} km/L`;
+  }
+
+  const conteudoHTML = `
+    <span class="mx-6 flex items-center gap-2"><strong class="text-emerald-400">DESPESA CONSOLIDADA:</strong> ${totalDespesaFmt} acumulados</span>
+    <span class="mx-6 text-slate-600">•</span>
+    <span class="mx-6 flex items-center gap-2"><strong class="text-cyan-400">CUSTO POR KM:</strong> Média da frota em ${custoKmFmt}</span>
+    <span class="mx-6 text-slate-600">•</span>
+    <span class="mx-6 flex items-center gap-2"><strong class="text-amber-400">ÚLTIMO REGISTRO:</strong> ${textoUltimoAbast}</span>
+    <span class="mx-6 text-slate-600">•</span>
+    <span class="mx-6 flex items-center gap-2"><strong class="text-purple-400">EFICIÊNCIA:</strong> ${textoEficiencia}</span>
+    <span class="mx-6 text-slate-600">•</span>
+    <span class="mx-6 flex items-center gap-2"><strong class="text-emerald-400">QUILOMETRAGEM TOTAL:</strong> ${kmTotalFmt} km monitorados</span>
+    <span class="mx-6 text-slate-600">•</span>
+  `;
+
+  // Duplicamos o conteúdo para o efeito de rolagem contínua sem cortes
+  ticker.innerHTML = conteudoHTML + conteudoHTML;
 }
 
 // =========================================================================
 // TABELA 1: DESEMPENHO POR VEÍCULO
 // =========================================================================
+// Função auxiliar para gerar a Placa Padrão Mercosul idêntica ao painel
+function gerarPlacaMercosulHTML(placa) {
+  const placaLimpa = (placa || 'SEM-PLACA').toUpperCase().trim();
+  return `
+    <div class="placa-mercosul-cockpit">
+      <div class="placa-mercosul-cockpit-header">
+        <span style="font-size: 4px; color: #ffffff; font-weight: 900; letter-spacing: -0.2px;">BRASIL</span>
+        <span style="width: 5px; height: 3px; background-color: #facc15; border-radius: 1px;"></span>
+      </div>
+      <span class="placa-mercosul-cockpit-txt">${placaLimpa}</span>
+    </div>
+  `;
+}
+
+// Função auxiliar para renderizar os badges em forma de Placas de Trânsito
+function gerarBadgeStatusTransito(status) {
+  const s = (status || '').toLowerCase();
+  
+  if (s.includes('fora') || s.includes('desativado')) {
+    return `
+      <span class="placa-transito-foradeuso" title="Veículo Fora de Circulação">
+        <i class="ph-bold ph-prohibit text-xs"></i>
+        <span>FORA DE USO</span>
+      </span>
+    `;
+  }
+  
+  if (s.includes('uso') || s.includes('rota')) {
+    return `
+      <span class="placa-transito-emuso" title="Veículo em Trânsito Operacional">
+        <i class="ph-bold ph-warning text-xs"></i>
+        <span>EM USO</span>
+      </span>
+    `;
+  }
+  
+  // Padrão: Disponível
+  return `
+    <span class="placa-transito-disponivel" title="Veículo Liberado / Prisioneiro Livre">
+      <i class="ph-bold ph-check text-xs"></i>
+      <span>DISPONÍVEL</span>
+    </span>
+  `;
+}
+
 function processarAnalisePorVeiculo(veiculos, abastecimentos, manutenções, rotas) {
   const grid = document.getElementById('grid-financeiro-veiculos');
   if (!grid) return;
@@ -205,6 +332,53 @@ function processarAnalisePorVeiculo(veiculos, abastecimentos, manutenções, rot
 
   // Função auxiliar para padronizar placas (remove traços, espaços e sufixos)
   const limparPlaca = (p) => (p || '').toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+
+  // Helper 1: Gera a Placa Mercosul idêntica aos cards do Painel de Gestão
+  const gerarPlacaMercosulHTML = (placa) => {
+    const p = (placa || 'SEM-PLACA').toUpperCase().trim();
+    return `
+      <div class="placa-mercosul inline-flex flex-col items-center bg-white border border-slate-900 rounded-[3px] shadow-sm select-none leading-none pb-[1px]">
+        <div class="placa-mercosul-header bg-[#003399] w-full h-[5px] flex items-center justify-between px-[2px] rounded-t-[2px]">
+          <span class="text-[4px] text-white font-black tracking-tighter leading-none">BRASIL</span>
+          <span class="w-[5px] h-[3px] bg-yellow-400 rounded-[0.5px]"></span>
+        </div>
+        <span class="placa-mercosul-txt font-mono font-black text-black text-[11px] px-1.5 py-[1px] tracking-wider leading-none">
+          ${p}
+        </span>
+      </div>
+    `;
+  };
+
+  // Helper 2: Gera os Badges de Status com formato de Placas de Trânsito
+  const gerarPlacaTransitoStatus = (status) => {
+    const s = (status || '').toLowerCase();
+
+    if (s.includes('fora') || s.includes('desativado')) {
+      return `
+        <span class="inline-flex items-center gap-1.5 bg-[#991b1b] text-white border-2 border-white outline outline-1 outline-[#7f1d1d] rounded-md px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-md">
+          <i class="ph-bold ph-prohibit text-xs"></i>
+          <span>FORA DE USO</span>
+        </span>
+      `;
+    }
+
+    if (s.includes('uso') || s.includes('rota')) {
+      return `
+        <span class="inline-flex items-center gap-1.5 bg-[#d97706] text-slate-950 border-2 border-slate-950 outline outline-1 outline-amber-700 rounded-md px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-md">
+          <i class="ph-bold ph-warning text-xs"></i>
+          <span>EM USO</span>
+        </span>
+      `;
+    }
+
+    // Padrão: Disponível
+    return `
+      <span class="inline-flex items-center gap-1.5 bg-[#065f46] text-emerald-100 border-2 border-[#34d399] outline outline-1 outline-[#064e3b] rounded-md px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-md">
+        <i class="ph-bold ph-check text-xs"></i>
+        <span>DISPONÍVEL</span>
+      </span>
+    `;
+  };
 
   veiculos.forEach(v => {
     const vPlacaRaw = (v.placa || '').trim().toUpperCase();
@@ -265,31 +439,27 @@ function processarAnalisePorVeiculo(veiculos, abastecimentos, manutenções, rot
     const gastoTotal = gastoCombustivel + gastoManutencao;
     const custoPorKm = kmRodado > 0 ? (gastoTotal / kmRodado) : 0;
 
-    // 6. Montagem da Linha da Tabela
+    // 6. Montagem da Linha da Tabela com Placa Mercosul e Placas de Trânsito
     const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50 transition";
+    tr.className = "hover:bg-slate-800/40 transition border-b border-slate-800/60";
     tr.innerHTML = `
-      <td class="py-3 px-3 font-bold text-slate-800">
-        <div class="flex items-center gap-2">
-          <span class="font-mono bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs text-slate-900 font-black">${v.placa || 'Sem Placa'}</span>
-          <span class="text-xs text-slate-500">(${v.nome_frota || v.id})</span>
+      <td class="py-3 px-3.5">
+        <div class="flex items-center gap-2.5">
+          ${gerarPlacaMercosulHTML(v.placa)}
+          <span class="text-xs font-bold text-slate-300">
+            (${v.nome_frota || v.id})
+          </span>
         </div>
       </td>
-      <td class="py-3 px-3 font-mono font-bold">${kmRodado.toLocaleString('pt-BR')} km</td>
-      <td class="py-3 px-3 font-mono text-slate-700">${gastoCombustivel.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-      <td class="py-3 px-3 font-mono text-amber-700 font-semibold">${gastoManutencao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-      <td class="py-3 px-3 font-mono font-bold text-slate-900">${gastoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-      <td class="py-3 px-3 font-mono font-black ${custoPorKm > 2.0 ? 'text-rose-600' : 'text-emerald-700'}">
+      <td class="py-3 px-3.5 font-mono text-slate-300 font-bold">${kmRodado.toLocaleString('pt-BR')} km</td>
+      <td class="py-3 px-3.5 font-mono text-amber-300 font-bold">${gastoCombustivel.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      <td class="py-3 px-3.5 font-mono text-slate-400 font-medium">${gastoManutencao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      <td class="py-3 px-3.5 font-mono font-black text-white">${gastoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      <td class="py-3 px-3.5 font-mono font-black ${custoPorKm > 2.0 ? 'text-rose-400' : 'text-emerald-400'}">
         ${custoPorKm > 0 ? custoPorKm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km' : 'R$ 0,00'}
       </td>
-      <td class="py-3 px-3 text-center">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
-          v.status === 'Disponivel' 
-            ? 'bg-emerald-100 text-emerald-800' 
-            : (v.status === 'Fora de Uso' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800')
-        }">
-          ${v.status || 'Ativo'}
-        </span>
+      <td class="py-3 px-3.5 text-right whitespace-nowrap">
+        ${gerarPlacaTransitoStatus(v.status)}
       </td>
     `;
     grid.appendChild(tr);
