@@ -399,50 +399,56 @@
 
       <!-- 1. Aba: Visão Geral da Frota -->
       <section id="view-dashboard" class="space-y-6">
-        <div class="kpi-grid">
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-title">Frota Total</span>
-              <div style="padding: 0.5rem; background-color: #f1f5f9; border-radius: 0.5rem; color: #475569;">
-                <i class="ph-bold ph-truck text-lg"></i>
-              </div>
+        <!-- CARDS DE KPIS DO PAINEL DE GESTÃO (TEMA PADRONIZADO COCKPIT EMERALD) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+        
+        <!-- 1. Frota Total -->
+        <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-5 border border-emerald-500/30 shadow-[0_0_25px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
+          <div class="flex justify-between items-start">
+            <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Frota Total</span>
+            <div class="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <i class="ph-bold ph-truck text-base"></i>
             </div>
-            <p id="kpi-total-veiculos" class="kpi-value">0</p>
-            <span class="kpi-subtext">Veículos cadastrados</span>
           </div>
+          <div class="text-3xl font-black font-mono text-white mt-2" id="kpi-total-veiculos">0</div>
+          <p class="text-[11px] text-emerald-400/80 mt-1 font-medium">Veículos cadastrados</p>
+        </div>
 
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-title">Em Rota Ativa</span>
-              <div style="padding: 0.5rem; background-color: #fef3c7; border-radius: 0.5rem; color: #d97706;">
-                <i class="ph-bold ph-road-horizon text-lg"></i>
-              </div>
+        <!-- 2. Em Rota Ativa -->
+        <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-5 border border-emerald-500/30 shadow-[0_0_25px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
+          <div class="flex justify-between items-start">
+            <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Em Rota Ativa</span>
+            <div class="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <i class="ph-bold ph-road-horizon text-base"></i>
             </div>
-            <p id="kpi-em-rota" class="kpi-value" style="color: #d97706;">0</p>
-            <span class="kpi-subtext">Veículos em trânsito</span>
           </div>
+          <div class="text-3xl font-black font-mono text-white mt-2" id="kpi-em-rota">0</div>
+          <p class="text-[11px] text-emerald-400/80 mt-1 font-medium">Veículos em trânsito</p>
+        </div>
 
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-title">Disponíveis</span>
-              <div style="padding: 0.5rem; background-color: #dcfce7; border-radius: 0.5rem; color: #15803d;">
-                <i class="ph-bold ph-check-circle text-lg"></i>
-              </div>
+        <!-- 3. Disponíveis -->
+        <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-5 border border-emerald-500/30 shadow-[0_0_25px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
+          <div class="flex justify-between items-start">
+            <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Disponíveis</span>
+            <div class="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <i class="ph-bold ph-check-circle text-base"></i>
             </div>
-            <p id="kpi-disponiveis" class="kpi-value" style="color: #15803d;">0</p>
-            <span class="kpi-subtext">Prontos na base</span>
           </div>
+          <div class="text-3xl font-black font-mono text-white mt-2" id="kpi-disponiveis">0</div>
+          <p class="text-[11px] text-emerald-400/80 mt-1 font-medium">Prontos na base</p>
+        </div>
 
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-title">Alertas de Avaria</span>
-              <div style="padding: 0.5rem; background-color: #ffe4e6; border-radius: 0.5rem; color: #be123c;">
-                <i class="ph-bold ph-warning text-lg"></i>
-              </div>
+        <!-- 4. Alertas de Avaria -->
+        <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-5 border border-emerald-500/30 shadow-[0_0_25px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
+          <div class="flex justify-between items-start">
+            <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Alertas de Avaria</span>
+            <div class="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <i class="ph-bold ph-warning text-base"></i>
             </div>
-            <p id="kpi-anomalias" class="kpi-value" style="color: #be123c;">0</p>
-            <span class="kpi-subtext">Pendências mecânicas</span>
           </div>
+          <div class="text-3xl font-black font-mono text-white mt-2" id="kpi-anomalias">0</div>
+          <p class="text-[11px] text-emerald-400/80 mt-1 font-medium">Pendências mecânicas</p>
+        </div>
         </div>
 
         <div>
