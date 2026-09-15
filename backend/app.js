@@ -422,6 +422,7 @@ async function handleInicioRota(e) {
   const nomeCarro = veiculo.nome_frota || veiculo.id;
   const placaCarro = veiculo.placa;
 
+  // 1. Verificação de Reserva Ativa
   try {
     const { data: reservasCarro, error: errRes } = await db
       .from('reservas')
@@ -481,7 +482,6 @@ async function handleInicioRota(e) {
   if (isExterno) {
     if (!condutorAutorizado) {
       alert("⚠️ Este veículo externo não possui condutor autorizado configurado. Contate o Administrador.");
-      if (btn) { btn.disabled = false; btn.innerHTML = `Iniciar Rota`; }
       return;
     }
 
@@ -492,7 +492,6 @@ async function handleInicioRota(e) {
         `👤 ${veiculo.motorista_autorizado}\n\n` +
         `Por favor, utilize um veículo da frota regular.`
       );
-      if (btn) { btn.disabled = false; btn.innerHTML = `Iniciar Rota`; }
       return;
     }
   }
@@ -506,6 +505,7 @@ async function handleInicioRota(e) {
 
   const dataHoraSaidaAtual = new Date().toISOString();
 
+  // Payload com as colunas reais da tabela 'rotas'
   const novaRota = {
     veiculo_id: nomeCarro,
     placa: placaCarro,
@@ -525,31 +525,43 @@ async function handleInicioRota(e) {
   };
 
   try {
-    const { data: rotaCriada, error: erroRota } = await db
+    // 1. Inserção resiliente no Supabase (não depende de permissão de retorno SELECT sob RLS)
+    const { data: inserido, error: erroRota } = await db
       .from('rotas')
       .insert([novaRota])
-      .select()
-      .single();
+      .select('id');
 
-    if (erroRota) throw erroRota;
+    if (erroRota) {
+      console.error("Erro detalhado no insert de rotas:", erroRota);
+      throw erroRota;
+    }
 
+    const rotaIdCriada = (inserido && inserido[0]) ? inserido[0].id : '';
+
+    // 2. Atualiza o status do veículo para 'Em Uso'
     const payloadUpdateVeiculo = { status: 'Em Uso' };
     if (isExterno && kmSaidaFinal > kmBanco) {
       payloadUpdateVeiculo.km_atual = kmSaidaFinal;
     }
 
-    await db.from('veiculos')
-      .update(payloadUpdateVeiculo)
-      .eq('placa', placaCarro);
+    let qVeic = db.from('veiculos').update(payloadUpdateVeiculo);
+    if (placaCarro) {
+      qVeic = qVeic.eq('placa', placaCarro);
+    } else {
+      qVeic = qVeic.eq('id', veiculo.id);
+    }
+    const { error: erroVeic } = await qVeic;
+    if (erroVeic) console.warn("Aviso ao atualizar veículo:", erroVeic.message);
 
     e.target.reset();
     if (typeof toggleOutroOrigem === 'function') toggleOutroOrigem('');
-    alert(`Rota #${rotaCriada.id} iniciada com sucesso!`);
+    
+    alert(`✅ Rota ${rotaIdCriada ? '#' + rotaIdCriada : ''} iniciada com sucesso!`);
     await carregarTodosDadosDoBanco();
-    setSubTab('operacao', 'minhas-rotas');
+    setSubTab('operacao', 'retorno'); // Redireciona diretamente para a tela de devolução/fechamento
   } catch (err) {
-    console.error("Erro ao iniciar rota:", err);
-    alert("Erro ao gravar rota: " + err.message);
+    console.error("Erro ao iniciar rota no banco:", err);
+    alert("Erro ao gravar rota no Supabase: " + (err.message || JSON.stringify(err)));
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -557,7 +569,6 @@ async function handleInicioRota(e) {
     }
   }
 }
-
 function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos = []) {
   const placa = veiculo?.placa;
   const vId = veiculo?.id;
@@ -1924,42 +1935,60 @@ function renderHistorico() {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  rotas.forEach(r => {
-    const veic = veiculos.find(v => 
-      String(v.id) === String(r.veiculo_id) || 
-      String(v.uuid_veiculos) === String(r.veiculo_id) || 
-      String(v.placa) === String(r.veiculo_id) || 
-      String(v.nome_frota) === String(r.veiculo_id)
-    );
+  const listaRotas = Array.isArray(rotas) ? rotas : [];
 
-    let nomeExibicao = r.nome_frota;
-    if (!nomeExibicao && veic) {
-      nomeExibicao = veic.nome_frota || veic.identificador || veic.id;
-    }
-    if (!nomeExibicao) {
-      nomeExibicao = (r.veiculo_id && r.veiculo_id.length > 20) ? 'ARVO' : (r.veiculo_id || '-');
-    }
+  // Função auxiliar para identificar status "Em Uso" de forma tolerante
+  const rotaEstaAberta = (r) => {
+    const s = String(r.status || '').toUpperCase().trim();
+    return s === 'EM USO' || s.includes('USO') || s.includes('ROTA') || !r.data_retorno;
+  };
 
+  // 1. Todas as rotas abertas no topo (ordenadas da mais recente para a mais antiga)
+  const rotasAbertas = listaRotas
+    .filter(rotaEstaAberta)
+    .sort((a, b) => new Date(b.data_saida || b.created_at) - new Date(a.data_saida || a.created_at));
+
+  // 2. Apenas as 10 últimas rotas concluídas
+  const ultimas10Concluidas = listaRotas
+    .filter(r => !rotaEstaAberta(r))
+    .sort((a, b) => new Date(b.data_retorno || b.data_saida || b.created_at) - new Date(a.data_retorno || a.data_saida || a.created_at))
+    .slice(0, 10);
+
+  // 3. Combina as listas mantendo as abertas no topo
+  const rotasExibicao = [...rotasAbertas, ...ultimas10Concluidas];
+
+  if (rotasExibicao.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="11" class="py-8 text-center text-slate-400 font-medium">Nenhuma rota registrada no momento.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  rotasExibicao.forEach(r => {
+    const isEmUso = rotaEstaAberta(r);
     const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50 transition";
+    tr.className = `hover:bg-slate-50 transition ${isEmUso ? 'bg-amber-50/50 font-semibold' : ''}`;
+
     tr.innerHTML = `
       <td class="py-3 px-3 font-mono font-bold text-slate-800">${r.id}</td>
       <td class="py-3 px-3 font-extrabold text-slate-900 text-sm">
-        ${nomeExibicao}
+        ${r.nome_frota || r.veiculo_id || '-'}
       </td>
       <td class="py-3 px-3 text-slate-600">${r.responsavel}</td>
-      <td class="py-3 px-3 font-medium">${r.origem} &rarr; ${r.destino || 'Em Trânsito'}</td>
+      <td class="py-3 px-3 font-medium">${r.origem} &rarr; ${r.destino || '<span class="text-amber-600 font-bold">Em trânsito</span>'}</td>
       <td class="py-3 px-3 font-semibold text-slate-800">
         <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] border border-slate-200">${r.finalidade || '-'}</span>
       </td>
       <td class="py-3 px-3 font-mono text-[11px] text-slate-600">${formatarDataHora(r.data_saida)}</td>
       <td class="py-3 px-3 font-mono text-[11px] text-slate-600">${r.data_retorno ? formatarDataHora(r.data_retorno) : '<span class="text-amber-600 font-bold">Em trânsito</span>'}</td>
-      <td class="py-3 px-3 text-center font-mono font-bold">${r.km_total ? `${r.km_total} km` : '-'}</td>
+      <td class="py-3 px-3 text-center font-mono font-bold">${r.km_total ? `${r.km_total} km` : (isEmUso ? `<span class="text-slate-400 text-xs font-normal">Saída: ${r.km_saida}</span>` : '-')}</td>
       <td class="py-3 px-3 text-center font-mono text-slate-600 text-[11px]">${r.consumo_litros ? `${r.consumo_litros} L` : '-'}</td>
       <td class="py-3 px-3 max-w-xs">${r.anomalia ? `<span class="text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded text-[11px] font-medium">${r.anomalia}</span>` : '<span class="text-slate-400">-</span>'}</td>
       <td class="py-3 px-3 text-center">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Concluida' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}">
-          ${r.status}
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isEmUso ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-slate-100 text-slate-700'}">
+          ${isEmUso ? 'Em Uso' : (r.status || 'Concluída')}
         </span>
       </td>
     `;

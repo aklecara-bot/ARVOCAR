@@ -776,6 +776,9 @@ function salvarCachesLocais() {
   localStorage.setItem('arvo_cache_rotas', JSON.stringify(rotas));
 }
 
+// =========================================================================
+// SINCRONIZAÇÃO EM SEGUNDO PLANO SEGURA (FILA OFFLINE -> SUPABASE)
+// =========================================================================
 async function sincronizarFilaRotas() {
   if (!navigator.onLine) return;
   const fila = JSON.parse(localStorage.getItem('arvo_sync_rotas_queue') || '[]');
@@ -784,31 +787,85 @@ async function sincronizarFilaRotas() {
   console.log(`-> Sincronizando ${fila.length} itens de rotas pendentes...`);
   const itensRestantes = [];
 
-  for (const item of fila) {
+  for (let i = 0; i < fila.length; i++) {
+    const item = fila[i];
     try {
       if (item.tipo === 'INICIO') {
         const payload = { ...item.payload };
+        const tempId = payload.id;
         delete payload.id;
         delete payload.offline_sync;
-        await db.from('rotas').insert([payload]);
-        await db.from('veiculos').update({ status: 'Em Uso' }).eq('nome_frota', payload.veiculo_id);
+
+        // 1. Inserção sem .single() para contornar bloqueios de RLS
+        const { data: inserido, error: errInsert } = await db
+          .from('rotas')
+          .insert([payload])
+          .select('id');
+
+        if (errInsert) throw errInsert;
+
+        const idRealCriado = (inserido && inserido[0]) ? inserido[0].id : null;
+
+        // 2. Atualiza o status do veículo por Placa ou Nome de Frota
+        const identificador = payload.placa || payload.veiculo_id;
+        let qVeic = db.from('veiculos').update({ status: 'Em Uso' });
+        if (payload.placa) {
+          qVeic = qVeic.eq('placa', payload.placa);
+        } else {
+          qVeic = qVeic.or(`nome_frota.eq.${payload.veiculo_id},id.eq.${payload.veiculo_id}`);
+        }
+        await qVeic;
+
+        // 3. Atualiza os itens seguintes da fila que dependiam do tempId
+        if (idRealCriado && tempId) {
+          fila.forEach(outroItem => {
+            if (outroItem.tipo === 'FIM' && String(outroItem.payload?.rota_id) === String(tempId)) {
+              outroItem.payload.rota_id = idRealCriado;
+            }
+          });
+        }
+
       } else if (item.tipo === 'FIM') {
         const { rota_id, ...dadosFim } = item.payload;
-        if (!String(rota_id).startsWith('temp_')) {
-          await db.from('rotas').update(dadosFim).eq('id', rota_id);
 
-          const payloadV = {
-            km_atual: dadosFim.km_retorno,
-            status: 'Disponivel',
-            tanque_virtual: item.tanque_virtual
-          };
-          if (item.anomalia) payloadV.anomalias = item.anomalia;
+        // Se ainda for um ID temporário não resolvido, aguarda próximo ciclo
+        if (String(rota_id).startsWith('temp_')) {
+          itensRestantes.push(item);
+          continue;
+        }
 
-          if (item.uuid_veiculos) {
-            await db.from('veiculos').update(payloadV).eq('uuid_veiculos', item.uuid_veiculos);
-          } else {
-            await db.from('veiculos').update(payloadV).eq('nome_frota', item.veiculo_id);
-          }
+        // 1. Atualiza o fechamento da rota no banco
+        const { error: errFim } = await db
+          .from('rotas')
+          .update(dadosFim)
+          .eq('id', rota_id);
+
+        if (errFim) throw errFim;
+
+        // 2. Atualiza o veículo para 'Disponivel'
+        const placaAlvo = item.placa || item.payload?.placa;
+        const veicAlvo = item.veiculo_id || item.payload?.veiculo_id;
+        const payloadUpdateVeic = {
+          status: 'Disponivel'
+        };
+        if (dadosFim.km_retorno) payloadUpdateVeic.km_atual = dadosFim.km_retorno;
+        if (item.tanque_virtual !== undefined) payloadUpdateVeic.tanque_virtual = item.tanque_virtual;
+
+        let qVeicFim = db.from('veiculos').update(payloadUpdateVeic);
+        if (placaAlvo) {
+          qVeicFim = qVeicFim.eq('placa', placaAlvo);
+        } else if (veicAlvo) {
+          qVeicFim = qVeicFim.or(`nome_frota.eq.${veicAlvo},id.eq.${veicAlvo}`);
+        }
+        await qVeicFim;
+
+        // 3. Conclui eventuais reservas vinculadas
+        try {
+          await db.from('reservas').update({ status: 'CONCLUIDA' })
+            .eq('veiculo_id', veicAlvo)
+            .eq('status', 'CONFIRMADA');
+        } catch (resErr) {
+          console.warn("Aviso ao liberar reserva sincronizada:", resErr);
         }
       }
     } catch (e) {
@@ -817,9 +874,11 @@ async function sincronizarFilaRotas() {
     }
   }
 
+  // Atualiza a fila apenas com o que realmente falhou
   localStorage.setItem('arvo_sync_rotas_queue', JSON.stringify(itensRestantes));
+
   if (itensRestantes.length === 0) {
-    console.log("-> Sincronização concluída com sucesso!");
+    console.log("-> Sincronização offline concluída com sucesso!");
     await carregarDadosMobile();
   }
 }

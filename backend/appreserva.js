@@ -182,22 +182,46 @@ function ajustarCamposModalidade(tipo) {
 }
 
 async function handleSalvarReserva(e) {
-  e.preventDefault();
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
   const btn = document.getElementById('btn-salvar-reserva');
-  const veiculoId = document.getElementById('res-veiculo').value;
-  const tipo = document.getElementById('res-tipo').value;
-  const dtInicioStr = document.getElementById('res-data-inicio').value;
-  let dtFimStr = document.getElementById('res-data-fim').value;
+  const selVeiculo = document.getElementById('res-veiculo');
+  const veiculoId = selVeiculo ? selVeiculo.value : '';
+  const tipo = document.getElementById('res-tipo')?.value || 'DIAS';
+  const dtInicioStr = document.getElementById('res-data-inicio')?.value;
+  let dtFimStr = document.getElementById('res-data-fim')?.value || dtInicioStr;
 
+  if (!veiculoId) {
+    alert("⚠️ Por favor, selecione um veículo disponível.");
+    return;
+  }
+
+  if (!dtInicioStr) {
+    alert("⚠️ Por favor, informe a data de início.");
+    return;
+  }
+
+  // Identifica o veículo no array global para cruzar placa, UUID e nome_frota
+  const veiculoObj = (typeof veiculos !== 'undefined' ? veiculos : []).find(v =>
+    String(v.nome_frota) === String(veiculoId) ||
+    String(v.placa) === String(veiculoId) ||
+    String(v.id) === String(veiculoId) ||
+    String(v.uuid_veiculos) === String(veiculoId)
+  );
+
+  const nomeFrota = veiculoObj?.nome_frota || veiculoId;
+  const placaVeiculo = veiculoObj?.placa || null;
+  const uuidVeiculo = veiculoObj?.uuid_veiculos || null;
+
+  // 1. Montagem das datas de início e fim no fuso local
   let dInicio, dFim;
 
   if (tipo === 'HORAS') {
-    const hIni = document.getElementById('res-hora-inicio').value;
-    const hFim = document.getElementById('res-hora-fim').value;
+    const hIni = document.getElementById('res-hora-inicio')?.value || '08:00';
+    const hFim = document.getElementById('res-hora-fim')?.value || '12:00';
     dInicio = new Date(`${dtInicioStr}T${hIni}:00`);
     dFim = new Date(`${dtInicioStr}T${hFim}:00`);
   } else if (tipo === 'TURNO') {
-    const turno = document.getElementById('res-turno-sel').value;
+    const turno = document.getElementById('res-turno-sel')?.value || 'MANHA';
     if (turno === 'MANHA') {
       dInicio = new Date(`${dtInicioStr}T07:00:00`);
       dFim = new Date(`${dtInicioStr}T12:00:00`);
@@ -206,60 +230,132 @@ async function handleSalvarReserva(e) {
       dFim = new Date(`${dtInicioStr}T18:00:00`);
     } else {
       dInicio = new Date(`${dtInicioStr}T18:00:00`);
-      const dSeguinte = new Date(dtInicioStr);
-      dSeguinte.setDate(dSeguinte.getDate() + 1);
-      dFim = new Date(`${dSeguinte.toISOString().split('T')[0]}T06:00:00`);
+      const dProx = new Date(`${dtInicioStr}T06:00:00`);
+      dProx.setDate(dProx.getDate() + 1);
+      dFim = dProx;
     }
+  } else if (tipo === 'SEMANAS') {
+    dInicio = new Date(`${dtInicioStr}T00:00:00`);
+    const dFimSem = new Date(`${dtInicioStr}T23:59:59`);
+    dFimSem.setDate(dFimSem.getDate() + 6);
+    dFim = dFimSem;
+  } else if (tipo === 'MES') {
+    const base = new Date(`${dtInicioStr}T00:00:00`);
+    const primDia = new Date(base.getFullYear(), base.getMonth(), 1);
+    const ultDia = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59);
+    dInicio = primDia;
+    dFim = ultDia;
   } else {
+    // DIAS
     dInicio = new Date(`${dtInicioStr}T00:00:00`);
     dFim = new Date(`${dtFimStr}T23:59:59`);
   }
 
   if (dFim <= dInicio) {
-    alert("Erro: A data/hora final deve ser posterior ao início.");
+    alert("⚠️ A data/hora de término deve ser posterior ao início da reserva.");
     return;
   }
 
-  // Verificação de conflito de agenda no banco
-  const conflito = reservas.some(r => {
-    if (r.veiculo_id !== veiculoId || r.status === 'CANCELADA') return false;
-    const rIni = new Date(r.data_inicio);
-    const rFim = new Date(r.data_fim);
-    return (dInicio < rFim && dFim > rIni);
-  });
+  const novoInicioTs = dInicio.getTime();
+  const novoFimTs = dFim.getTime();
 
-  if (conflito) {
-    alert(`❌ Conflito: O veículo ${veiculoId} já possui agendamento confirmado neste período! Escolha outro horário ou outro carro.`);
-    return;
+  // 2. Trava anti-sobreposição: consulta direto no Supabase em tempo real
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Verificando agenda...`;
   }
-
-  btn.disabled = true;
-  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
-
-  const novaReserva = {
-    veiculo_id: veiculoId,
-    responsavel: usuarioLogado.email,
-    tipo_reserva: tipo,
-    data_inicio: dInicio.toISOString(),
-    data_fim: dFim.toISOString(),
-    finalidade: document.getElementById('res-finalidade').value,
-    observacao: document.getElementById('res-obs') ? document.getElementById('res-obs').value.trim() : '',
-    status: 'CONFIRMADA'
-  };
 
   try {
-    const { error } = await db.from('reservas').insert([novaReserva]);
-    if (error) throw error;
+    const { data: reservasAtivas, error: errCheck } = await db
+      .from('reservas')
+      .select('*')
+      .eq('status', 'CONFIRMADA');
 
-    alert(`✅ Veículo ${veiculoId} reservado com sucesso!`);
+    if (errCheck) throw errCheck;
+
+    // Localiza se existe conflito cruzando Placa, Nome de Frota ou ID do Carro
+    const reservaConflitante = (reservasAtivas || []).find(r => {
+      // Ignora agendamentos cancelados ou concluídos
+      if (r.status === 'CANCELADA' || r.status === 'CONCLUIDA') return false;
+
+      // Confere se a reserva é do mesmo veículo
+      const mesmoCarro = 
+        (placaVeiculo && String(r.placa) === String(placaVeiculo)) ||
+        (placaVeiculo && String(r.veiculo_id) === String(placaVeiculo)) ||
+        String(r.veiculo_id) === String(nomeFrota) ||
+        (uuidVeiculo && String(r.uuid_veiculos) === String(uuidVeiculo));
+
+      if (!mesmoCarro) return false;
+
+      // Verifica intersecção de período
+      const rIni = new Date(r.data_inicio).getTime();
+      const rFim = new Date(r.data_fim).getTime();
+
+      return (novoInicioTs < rFim && novoFimTs > rIni);
+    });
+
+    if (reservaConflitante) {
+      const dataIniFmt = new Date(reservaConflitante.data_inicio).toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+      });
+      const dataFimFmt = new Date(reservaConflitante.data_fim).toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+      });
+
+      alert(
+        `⛔ CONFLITO DE AGENDAMENTO!\n\n` +
+        `O veículo ${nomeFrota} já está reservado neste período.\n\n` +
+        `👤 Reservado por: ${reservaConflitante.responsavel}\n` +
+        `🎯 Finalidade: ${reservaConflitante.finalidade}\n` +
+        `📅 Período: ${dataIniFmt} até ${dataFimFmt}\n\n` +
+        `Por favor, escolha outro horário ou selecione outro veículo.`
+      );
+
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="ph-bold ph-check text-base"></i> Confirmar Agendamento`;
+      }
+      return;
+    }
+
+    // 3. Gravação da nova reserva caso não haja choque de datas
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
+
+    const sessaoStr = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+    let emailUser = 'admin@arvo.tec.br';
+    if (sessaoStr) {
+      try { emailUser = JSON.parse(sessaoStr)?.email || sessaoStr; } catch { emailUser = sessaoStr; }
+    }
+
+    const novaReserva = {
+      veiculo_id: nomeFrota,
+      placa: placaVeiculo,
+      uuid_veiculos: uuidVeiculo,
+      responsavel: (usuarioLogado?.email || emailUser).toLowerCase().trim(),
+      tipo_reserva: tipo,
+      data_inicio: dInicio.toISOString(),
+      data_fim: dFim.toISOString(),
+      finalidade: document.getElementById('res-finalidade')?.value || 'DEMANDAS INTERNAS',
+      observacao: (document.getElementById('res-obs')?.value || '').trim(),
+      status: 'CONFIRMADA'
+    };
+
+    const { error: insErr } = await db.from('reservas').insert([novaReserva]);
+    if (insErr) throw insErr;
+
+    alert(`✅ Veículo ${nomeFrota} reservado com sucesso!`);
     e.target.reset();
     ajustarCamposModalidade('DIAS');
     await carregarReservas();
+
   } catch (err) {
-    alert("Erro ao gravar reserva: " + err.message);
+    console.error("Erro ao processar reserva:", err);
+    alert("Erro ao validar ou gravar reserva: " + err.message);
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="ph-bold ph-check"></i> Confirmar Agendamento`;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check text-base"></i> Confirmar Agendamento`;
+    }
   }
 }
 
