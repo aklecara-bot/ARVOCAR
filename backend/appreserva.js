@@ -75,30 +75,40 @@ async function carregarVeiculos() {
 }
 
 async function carregarReservas() {
-  try {
-    // Carrega reservas ativas e concluídas recentes
-    const { data: dadosReservas } = await db
-      .from('reservas')
-      .select('*')
-      .neq('status', 'CANCELADA')
-      .order('data_inicio', { ascending: true });
+  const { data, error } = await db
+    .from('reservas')
+    .select('*')
+    .eq('status', 'CONFIRMADA')
+    .order('data_inicio', { ascending: true });
 
-    reservas = dadosReservas || [];
+  const rawReservas = data || [];
+  const agora = new Date().getTime();
 
-    // Carrega rotas para checagem em tempo real e cálculo de km
-    const { data: dadosRotas } = await db
-      .from('rotas')
-      .select('*')
-      .order('data_saida', { ascending: false });
+  // 1. Divide em Ativas/Futuras vs Passadas/Encerradas
+  const presentesEFuturas = [];
+  const passadas = [];
 
-    rotas = dadosRotas || [];
-
-    renderizarTabelaReservas();
-    if (calendar) {
-      calendar.refetchEvents();
+  rawReservas.forEach(r => {
+    const tFim = new Date(r.data_fim).getTime();
+    // Considera ativa/futura se o término for maior ou igual ao momento atual
+    if (tFim >= agora && r.status !== 'CONCLUIDA' && r.status !== 'CANCELADA') {
+      presentesEFuturas.push(r);
+    } else {
+      passadas.push(r);
     }
-  } catch (err) {
-    console.error("Erro ao carregar dados de reservas e rotas:", err);
+  });
+
+  // Presentes/Futuras: ordenadas das mais próximas para as mais distantes
+  presentesEFuturas.sort((a, b) => new Date(a.data_inicio) - new Date(b.data_inicio));
+  // Encerradas: ordenadas das mais recentemente concluídas para as mais antigas
+  passadas.sort((a, b) => new Date(b.data_fim) - new Date(a.data_fim));
+
+  // Junta colocando presentes e futuras no topo
+  reservas = [...presentesEFuturas, ...passadas];
+
+  renderizarTabelaReservas();
+  if (calendar) {
+    calendar.refetchEvents();
   }
 }
 
@@ -273,7 +283,7 @@ async function cancelarReserva(reservaId, responsavel) {
   }
 }
 
-// LÓGICA DINÂMICA PARA AS AÇÕES E STATUS DAS RESERVAS
+
 // LÓGICA DINÂMICA COM CORES GARANTIDAS (CSS INLINE)
 function obterStatusEAcaoReserva(r, veic, ehAdmin, ehDono) {
   const agora = new Date().getTime();
@@ -284,58 +294,64 @@ function obterStatusEAcaoReserva(r, veic, ehAdmin, ehDono) {
   const veicNome = String(veic?.nome_frota || r.veiculo_id || '').toUpperCase().trim();
   const veicPlaca = String(veic?.placa || r.placa || '').toUpperCase().trim();
 
-  // Filtra rotas do carro correspondente
-  const rotasDoVeiculo = (rotas || []).filter(rt => {
+  // Filtra rotas associadas a este veículo
+  const rotasDoVeiculo = (typeof rotas !== 'undefined' ? rotas : []).filter(rt => {
     const vRota = String(rt.veiculo_id || '').toUpperCase().trim();
     const pRota = String(rt.placa || '').toUpperCase().trim();
     return (veicNome && (vRota === veicNome || pRota === veicNome)) ||
            (veicPlaca && (vRota === veicPlaca || pRota === veicPlaca));
   });
 
+  // Botão Cancelar inspirado na pílula vermelha da referência
   const botaoCancelar = (ehAdmin || ehDono) ? `
     <button onclick="cancelarReserva(${r.id}, '${r.responsavel}')" 
-      style="color: #e11d48; background: none; border: none; cursor: pointer; font-size: 11px; font-weight: 700; padding: 2px 6px; display: inline-flex; align-items: center; gap: 4px;"
+      style="display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #881337; color: #ffffff; border: 2px solid #fda4af; outline: 1px solid #4c0519; border-radius: 9999px; padding: 4px 10px; font-weight: 900; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.15); transition: all 0.2s;"
+      onmouseover="this.style.background='#9f1239'; this.style.borderColor='#ffffff';"
+      onmouseout="this.style.background='#881337'; this.style.borderColor='#fda4af';"
       title="Cancelar Agendamento">
-      <i class="ph-bold ph-x-circle"></i> Cancelar
+      <i class="ph-bold ph-prohibit" style="font-size: 12px;"></i>
+      <span>Cancelar</span>
     </button>
   ` : '';
 
-  // 1. ANTES DA DATA MARCADA (FUTURO) -> Âmbar / Laranja
+  // 1. AGENDAMENTO FUTURO -> Âmbar / Dourado Refinado
   if (agora < dtInicio && r.status !== 'CONCLUIDA') {
     return `
-      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;">
-        <span style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 3px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; display: inline-block;">
-          AGENDADO
+      <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: nowrap;">
+        <span style="display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #b45309; color: #ffffff; border: 2px solid #fde68a; outline: 1px solid #78350f; border-radius: 9999px; padding: 4px 11px; font-weight: 900; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+          <i class="ph-bold ph-clock" style="font-size: 12px; color: #fef3c7;"></i>
+          <span>Agendado</span>
         </span>
         ${botaoCancelar}
       </div>
     `;
   }
 
-  // 2. DIA/PERÍODO DA RESERVA (HOJE / EM ANDAMENTO)
+  // 2. DIA DA RESERVA / EM ANDAMENTO
   if (agora >= dtInicio && agora <= dtFim && r.status !== 'CONCLUIDA') {
-    // Verifica se o responsável abriu rota ativa
     const rotaAberta = rotasDoVeiculo.find(rt => 
       rt.status === 'Em Uso' && 
       (rt.responsavel || '').toLowerCase().trim() === condutorReserva
     );
 
     if (rotaAberta) {
-      // Azul vivo com destaque
+      // Em Rota -> Azul Elétrico / Safira
       return `
-        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;">
-          <span style="background-color: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 3px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 4px;">
-            <i class="ph-bold ph-steering-wheel"></i> EM UTILIZAÇÃO DE ROTA
+        <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: nowrap;">
+          <span style="display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #1d4ed8; color: #ffffff; border: 2px solid #93c5fd; outline: 1px solid #1e3a8a; border-radius: 9999px; padding: 4px 11px; font-weight: 900; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+            <i class="ph-bold ph-steering-wheel" style="font-size: 12px; color: #bfdbfe;"></i>
+            <span>Em Rota</span>
           </span>
           ${botaoCancelar}
         </div>
       `;
     } else {
-      // Verde Esmeralda
+      // Em Utilização (Dia da reserva) -> Verde Institucional
       return `
-        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;">
-          <span style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; display: inline-block;">
-            EM UTILIZAÇÃO
+        <div style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: nowrap;">
+          <span style="display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #065f46; color: #ffffff; border: 2px solid #6ee7b7; outline: 1px solid #064e3b; border-radius: 9999px; padding: 4px 11px; font-weight: 900; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+            <i class="ph-bold ph-check" style="font-size: 12px; color: #a7f3d0;"></i>
+            <span>Em Utilização</span>
           </span>
           ${botaoCancelar}
         </div>
@@ -343,7 +359,7 @@ function obterStatusEAcaoReserva(r, veic, ehAdmin, ehDono) {
     }
   }
 
-  // 3. APÓS O PERÍODO -> KM Rodado limpo, sem fundo diferente
+  // 3. APÓS O PERÍODO -> KM rodados em texto limpo
   const rotasConcluidasNoPrazo = rotasDoVeiculo.filter(rt => {
     if (rt.status !== 'Concluida') return false;
     const tSaida = new Date(rt.data_saida || rt.created_at).getTime();

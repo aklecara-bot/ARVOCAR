@@ -25,14 +25,45 @@
     }
 
     async function carregarVeiculos() {
-      const { data } = await db.from('veiculos').select('*').order('id');
-      veiculos = data || [];
-      const sel = document.getElementById('abast-veiculo');
-      sel.innerHTML = '<option value="">Selecione o carro...</option>';
-      veiculos.forEach(v => {
-      sel.innerHTML += `<option value="${v.placa}" data-uuid="${v.nome_frota || ''}" data-placa="${v.placa}">${v.placa} - ${v.nome_frota}</option>`;
+  const sel = document.getElementById('abast-veiculo') || document.getElementById('abs-veiculo');
+  if (!sel) return;
+
+  sel.innerHTML = '<option value="">Carregando veículos...</option>';
+
+  try {
+    // 1. Filtra direto no Supabase excluindo 'Fora de Uso'
+    const { data, error } = await db
+      .from('veiculos')
+      .select('*')
+      .neq('status', 'Fora de Uso')
+      .order('nome_frota');
+
+    if (error) throw error;
+    veiculos = data || [];
+
+    // 2. Filtro de segurança local (garante apenas veículos ativos)
+    const veiculosAtivos = veiculos.filter(v => {
+      const status = (v.status || '').toUpperCase().trim();
+      return status !== 'FORA DE USO';
     });
+
+    if (veiculosAtivos.length === 0) {
+      sel.innerHTML = '<option value="">Nenhum carro ativo disponível</option>';
+      return;
     }
+
+    sel.innerHTML = '<option value="">Selecione o carro...</option>';
+    veiculosAtivos.forEach(v => {
+      const nomeFrota = v.nome_frota || v.id || 'Veículo';
+      const placa = v.placa ? ` [${v.placa}]` : '';
+      sel.innerHTML += `<option value="${v.placa}" data-uuid="${v.uuid_veiculos || ''}" data-placa="${v.placa}">${nomeFrota}${placa}</option>`;
+    });
+
+  } catch (err) {
+    console.error("Erro ao carregar veículos:", err);
+    sel.innerHTML = '<option value="">Erro ao carregar veículos</option>';
+  }
+}
 
     async function carregarAbastecimentos() {
       const { data } = await db.from('abastecimentos').select('*').order('data_hora', { ascending: false }).limit(20);
