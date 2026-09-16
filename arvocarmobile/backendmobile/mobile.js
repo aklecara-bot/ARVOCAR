@@ -1201,7 +1201,7 @@ function renderizarHistoricoMobile() {
           <!-- Trip Computer -->
           <div class="trip-computer" title="Distância Percorrida">
             <div class="trip-header">
-              <span class="trip-tag">TRIP</span>
+              <span class="trip-tag">VIAGEM</span>
               <i class="ph-bold ph-gauge text-[9px] text-slate-400"></i>
             </div>
             <div class="trip-digits">
