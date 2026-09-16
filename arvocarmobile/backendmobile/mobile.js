@@ -885,68 +885,367 @@ async function sincronizarFilaRotas() {
 
 window.addEventListener('online', sincronizarFilaRotas);
 
-// =========================================================================
-// HISTÓRICO DE ROTAS
-// =========================================================================
-function renderizarHistoricoMobile() {
-  const container = document.getElementById('m-lista-historico');
-  const badge = document.getElementById('m-total-rotas-badge');
-  if (!container || !usuarioLogado) return;
+/**
+ * Trata a mudança do select de veículos no mobile, atualizando
+ * o campo de KM e renderizando o card de telemetria escuro.
+ */
+function aoMudarVeiculoMobile(valor) {
+  atualizarKmVeiculoMobile();
+  renderPreviewCardCarroMobile(valor);
+}
 
-  const minhasRotas = rotas.filter(r => r.responsavel === usuarioLogado.email || usuarioLogado.email === 'admin@arvo.tec.br');
-  if (badge) badge.innerText = `${minhasRotas.length} rotas`;
-  container.innerHTML = '';
+/**
+ * Monta o card escuro com telemetria, tanque e imagem do carro selecionado
+ */
+function renderPreviewCardCarroMobile(veiculoId) {
+  const container = document.getElementById('m-preview-card-carro');
+  if (!container) return;
 
-  if (minhasRotas.length === 0) {
-    container.innerHTML = `<div class="p-6 bg-white rounded-2xl text-center text-xs text-slate-400">Nenhuma rota registrada até o momento.</div>`;
+  const selectElem = document.getElementById('m-inicio-veiculo');
+  const optSelecionada = selectElem ? selectElem.options[selectElem.selectedIndex] : null;
+  const uuidVeiculo = optSelecionada?.dataset?.uuid || null;
+  const placaVeiculo = optSelecionada?.dataset?.placa || null;
+
+  const veiculo = (veiculos || []).find(v =>
+    (uuidVeiculo && String(v.uuid_veiculos) === String(uuidVeiculo)) ||
+    (placaVeiculo && String(v.placa) === String(placaVeiculo)) ||
+    String(v.nome_frota) === String(veiculoId) ||
+    String(v.id) === String(veiculoId)
+  );
+
+  if (!veiculo) {
+    container.innerHTML = `
+      <div class="border-2 border-dashed border-slate-700/60 rounded-3xl p-5 text-center text-slate-400 text-xs font-medium bg-[#111827]/40">
+        Selecione um veículo acima para visualizar telemetria, tanque e status operacional.
+      </div>
+    `;
     return;
   }
 
-  minhasRotas.forEach(r => {
-    const card = document.createElement('div');
-    card.className = "bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5 transition";
+  const isEmUso = veiculo.status === 'Em Uso';
+  const isExterno = (veiculo.tipo_frota || '').toUpperCase() === 'EXTERNO';
+  const nomeVeiculo = veiculo.nome_frota || veiculo.id || 'Veículo';
+  const capTanque = Number(veiculo.tanque || 47);
+  const litrosAtuais = Number(veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined ? veiculo.tanque_virtual : capTanque);
 
+  // Segmentos do medidor de tanque
+  let segmentosHTML = '';
+  if (!isExterno) {
+    const totalSegmentos = 16;
+    const proporcao = Math.max(0, Math.min(1, capTanque > 0 ? (litrosAtuais / capTanque) : 1));
+    const segmentosCheios = Math.round(proporcao * totalSegmentos);
+
+    for (let i = totalSegmentos; i >= 1; i--) {
+      const estaCheio = i <= segmentosCheios;
+      let cor = 'bg-slate-800';
+      if (estaCheio) {
+        if (i <= 2) cor = 'bg-rose-600 shadow-sm';
+        else if (i <= 6) cor = 'bg-amber-500';
+        else cor = 'bg-emerald-400';
+      }
+      segmentosHTML += `<div class="h-1 rounded-xs ${cor}"></div>`;
+    }
+  }
+
+  // Fundo Laranja 70% de transparência quando Em Uso, ou azul escuro quando Disponível
+  const estiloCardMobile = isEmUso
+    ? "background: rgba(234, 88, 12, 0.70); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1.5px solid rgba(254, 215, 170, 0.6); box-shadow: 0 10px 25px rgba(234, 88, 12, 0.35);"
+    : "background: linear-gradient(180deg, #182230 0%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.1);";
+
+  // Imagem do veículo
+  const ref = `${veiculo.nome_frota || ''} ${veiculo.marca || ''}`.toUpperCase();
+  let imgUrl = '/imagens/mobi.png';
+  if (ref.includes('COMPASS') || ref.includes('JEEP')) imgUrl = '/imagens/jeepcomp.png';
+  else if (ref.includes('GOL')) imgUrl = '/imagens/gol.png';
+  else if (ref.includes('COROLLA')) imgUrl = '/imagens/corolla.png';
+
+  container.innerHTML = `
+    <div class="relative rounded-3xl p-5 shadow-2xl text-white overflow-hidden w-full transition-all duration-300"
+         style="${estiloCardMobile}">
+      
+      <div class="flex justify-between items-start mb-2">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+              isEmUso 
+                ? 'bg-amber-900/60 text-amber-200 border border-amber-300/50 animate-pulse' 
+                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+            }">
+              ● ${isEmUso ? 'Em Rota' : 'Disponível'}
+            </span>
+            <span class="text-[10px] font-bold ${isExterno ? 'bg-indigo-600 text-white' : 'bg-slate-900/80 text-slate-300 border border-white/10'} px-1.5 py-0.5 rounded">
+              ${isExterno ? 'EXTERNO' : 'FROTA'}
+            </span>
+          </div>
+          <h3 class="text-lg font-black text-white leading-tight">${nomeVeiculo}</h3>
+          <p class="text-[11px] text-slate-200">${veiculo.marca || '-'}</p>
+          <span class="inline-block font-mono text-xs bg-black/40 border border-white/20 px-2 py-0.5 rounded font-bold text-slate-100">
+            ${veiculo.placa || 'S/ PLACA'}
+          </span>
+        </div>
+
+        <div class="w-20 h-14 flex items-center justify-end">
+          <img src="${imgUrl}" alt="${nomeVeiculo}" class="max-h-12 max-w-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]" onerror="this.src='/imagens/mobi.png';" />
+        </div>
+      </div>
+
+      <div class="bg-[#141211]/80 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 my-2">
+        <div class="flex justify-between items-baseline">
+          <span class="text-[10px] text-slate-300 uppercase font-bold tracking-wider">Hodômetro Registrado:</span>
+          <span class="font-mono font-black text-white text-base">${Number(veiculo.km_atual || 0).toLocaleString('pt-BR')} km</span>
+        </div>
+        <div class="flex justify-between items-baseline mt-1 pt-1 border-t border-white/10 text-xs text-slate-300">
+          <span>Nível do Tanque:</span>
+          <span class="font-mono font-bold ${isEmUso ? 'text-amber-200' : 'text-emerald-400'}">${Math.round(litrosAtuais)}/${capTanque} L</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// =========================================================================
+// HISTÓRICO DE ROTAS
+// =========================================================================
+let categoriaFiltroMobile = 'todas';
+
+function setFiltroCategoriaMobile(categoria) {
+  categoriaFiltroMobile = categoria;
+
+  const botoes = {
+    'todas': document.getElementById('btn-cat-todas'),
+    'avarias': document.getElementById('btn-cat-avarias'),
+    'concluidas': document.getElementById('btn-cat-concluidas')
+  };
+
+  Object.keys(botoes).forEach(k => {
+    if (botoes[k]) {
+      if (k === categoria) {
+        botoes[k].className = "bg-[#1E5E3A] text-white font-bold px-3 py-1.5 rounded-xl whitespace-nowrap shadow-xs";
+      } else {
+        botoes[k].className = "bg-slate-800 text-slate-300 hover:text-white border border-slate-700 font-semibold px-3 py-1.5 rounded-xl whitespace-nowrap";
+      }
+    }
+  });
+
+  renderizarHistoricoMobile();
+}
+
+function filtrarHistoricoMobile() {
+  renderizarHistoricoMobile();
+}
+
+function renderizarHistoricoMobile() {
+  const container = document.getElementById('m-lista-historico');
+  if (!container) return;
+
+  const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+  let emailUsuario = '';
+  try {
+    emailUsuario = (JSON.parse(rawSessao)?.email || rawSessao || '').toLowerCase().trim();
+  } catch (e) {
+    emailUsuario = String(rawSessao || '').toLowerCase().trim();
+  }
+
+  // Permissão: admin e admfin visualizam todas as rotas; motorista comum vê apenas as suas
+  const ehAdmin = emailUsuario === 'admin@arvo.tec.br' || emailUsuario === 'admfin@arvo.tec.br';
+
+  const todasRotas = Array.isArray(rotas) ? rotas : [];
+
+  // 1. Filtro de visibilidade por condutor
+  const rotasPermitidas = todasRotas.filter(r => {
+    if (ehAdmin) return true;
+    return (r.responsavel || '').toLowerCase().trim() === emailUsuario;
+  });
+
+  // Atualiza contadores
+  const totalRotas = rotasPermitidas.length;
+  const totalComAvarias = rotasPermitidas.filter(r => r.anomalia && r.anomalia.trim() !== '').length;
+
+  const countTodasEl = document.getElementById('m-count-todas');
+  const countAvariasEl = document.getElementById('m-count-avarias');
+  if (countTodasEl) countTodasEl.innerText = totalRotas;
+  if (countAvariasEl) countAvariasEl.innerText = totalComAvarias;
+
+  // 2. Filtro de busca textual e de abas/categorias
+  const termoBusca = (document.getElementById('filtro-busca-historico')?.value || '').toLowerCase().trim();
+
+  const rotasFiltradas = rotasPermitidas.filter(r => {
+    const isConcluida = r.status !== 'Em Uso' && (r.status === 'Concluida' || r.status === 'CONCLUIDA' || r.data_retorno);
+    const temAvaria = Boolean(r.anomalia && r.anomalia.trim() !== '');
+
+    // Categoria
+    if (typeof categoriaFiltroMobile !== 'undefined') {
+      if (categoriaFiltroMobile === 'avarias' && !temAvaria) return false;
+      if (categoriaFiltroMobile === 'concluidas' && !isConcluida) return false;
+    }
+
+    // Busca textual
+    if (termoBusca) {
+      const textoParaBusca = `${r.veiculo_id || ''} ${r.nome_frota || ''} ${r.placa || ''} ${r.responsavel || ''} ${r.origem || ''} ${r.destino || ''} ${r.finalidade || ''}`.toLowerCase();
+      if (!textoParaBusca.includes(termoBusca)) return false;
+    }
+
+    return true;
+  });
+
+  if (rotasFiltradas.length === 0) {
+    container.innerHTML = `
+      <div class="bg-[#FAF7F2] rounded-3xl p-6 text-center text-slate-500 text-xs font-semibold border border-[#EFE9DF]">
+        Nenhuma rota encontrada para os filtros selecionados.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = '';
+
+  rotasFiltradas.forEach(r => {
     const isEmUso = r.status === 'Em Uso';
-    const dtSaidaFmt = new Date(r.data_saida).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    const dtRetornoFmt = r.data_retorno ? new Date(r.data_retorno).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
+    const temAvaria = Boolean(r.anomalia && r.anomalia.trim() !== '');
+    
+    // Nome do condutor amigável
+    let condutorNome = r.responsavel || 'Condutor';
+    if (typeof usuarios !== 'undefined' && Array.isArray(usuarios)) {
+      const u = usuarios.find(user => (user.email || '').toLowerCase().trim() === (r.responsavel || '').toLowerCase().trim());
+      if (u?.nome) condutorNome = u.nome;
+    }
 
-    const consumoTxt = r.consumo_litros ? `${Number(r.consumo_litros).toFixed(2)} L` : '-';
+    // Quilometragem percorrida (Trip Computer)
+    const kmTotalNum = Number(r.km_total || 0);
+    const kmPartes = kmTotalNum.toFixed(1).split('.');
+    const tripMain = kmPartes[0];
+    const tripDec = '.' + kmPartes[1];
+
+    // Cálculo do tempo de percurso
+    let tempoFormatado = '--h --m';
+    if (r.data_saida && r.data_retorno) {
+      const diffMs = Math.max(0, new Date(r.data_retorno).getTime() - new Date(r.data_saida).getTime());
+      const horas = Math.floor(diffMs / (1000 * 60 * 60));
+      const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      tempoFormatado = `${String(horas).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+    } else if (r.data_saida) {
+      const diffMs = Math.max(0, new Date().getTime() - new Date(r.data_saida).getTime());
+      const horas = Math.floor(diffMs / (1000 * 60 * 60));
+      const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      tempoFormatado = `${String(horas).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+    }
+
+    // Datas (Ex: 03/03 - 04/03)
+    const formatarDiaMes = (iso) => {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    };
+
+    const dInicio = formatarDiaMes(r.data_saida);
+    const dFim = formatarDiaMes(r.data_retorno);
+    const periodoDatas = dFim ? `${dInicio} - ${dFim}` : `${dInicio} (Em trânsito)`;
+
+    // Estilização dinâmica condicional: Laranja 70% translúcido para "Em Uso" e Bege para Concluídas
+    const estiloCard = isEmUso 
+      ? 'background: rgba(234, 88, 12, 0.70); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1.5px solid rgba(254, 215, 170, 0.6); box-shadow: 0 10px 25px rgba(234, 88, 12, 0.35);'
+      : '';
+    const classeCard = isEmUso
+      ? 'card-item rounded-3xl p-4 shadow-xl text-white space-y-3'
+      : 'card-item bg-[#FAF7F2] rounded-3xl p-4 shadow-xl border border-[#EFE9DF] text-slate-800 space-y-3';
+
+    const card = document.createElement('div');
+    card.className = classeCard;
+    if (estiloCard) card.setAttribute('style', estiloCard);
 
     card.innerHTML = `
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-black text-slate-800 flex items-center gap-1.5">
-          <i class="ph-bold ph-car text-brand-600"></i> ${r.veiculo_id}
-          <span class="text-[10px] text-slate-500 font-mono">(${r.placa || 'Sem placa'})</span>
-        </span>
-        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isEmUso ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}">
-          ${r.status} ${String(r.id).startsWith('temp_') ? '(Pendente 📶)' : ''}
-        </span>
-      </div>
-
-      <div class="text-xs text-slate-700 font-medium flex items-center gap-1">
-        <span>${r.origem}</span> &rarr; <span>${r.destino || '<em class="text-amber-600">Em trânsito</em>'}</span>
-      </div>
-
-      <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-1.5 border-t border-slate-100">
-        <span>Saída: ${dtSaidaFmt}</span>
-        <span>${r.km_total ? `${r.km_total} km rodados` : `KM Inicial: ${r.km_saida}`}</span>
-      </div>
-
-      ${!isEmUso ? `
-        <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-          <span>Retorno: ${dtRetornoFmt}</span>
-          <span class="text-brand-700 font-bold">Consumo: ${consumoTxt}</span>
+      <!-- Topo do Card -->
+      <div class="flex items-start justify-between pb-2 border-b ${isEmUso ? 'border-white/20' : 'border-[#EAE3D6]'}">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl ${isEmUso ? 'bg-black/30 border border-white/30 text-white' : 'bg-emerald-50 border border-emerald-200/80 text-[#1E5E3A]'} flex items-center justify-center shadow-inner font-bold">
+            <i class="ph-bold ph-car-profile text-lg"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="font-black text-sm ${isEmUso ? 'text-white' : 'text-slate-900'} leading-tight">${r.nome_frota || r.veiculo_id || 'ARVO'}</span>
+              <span class="text-[10px] font-mono font-bold ${isEmUso ? 'bg-black/40 text-amber-200 border border-white/10' : 'bg-[#EDE7DC] text-slate-500'} px-1.5 py-0.5 rounded">#${r.id}</span>
+            </div>
+            <span class="text-[11px] ${isEmUso ? 'text-orange-100' : 'text-slate-500'} font-medium block leading-tight">${condutorNome}</span>
+          </div>
         </div>
-      ` : ''}
 
-      ${isEmUso ? `
-        <div class="pt-1">
-          <button onclick="abrirFinalizacaoDiretaMobile('${r.id}')" class="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
-            <i class="ph-bold ph-flag-checkered"></i> Encerrar Esta Rota
-          </button>
+        <div class="flex flex-col items-end gap-1">
+          <div class="placa-mercosul-sm">
+            <div class="placa-mercosul-sm-header"></div>
+            <span class="placa-mercosul-sm-txt">${r.placa || 'ARVO-CAR'}</span>
+          </div>
+          <span class="text-[9px] font-bold uppercase tracking-wider font-mono ${isEmUso ? 'text-amber-200 animate-pulse' : 'text-emerald-800'}">
+            ● ${isEmUso ? 'EM USO' : 'CONCLUÍDA'}
+          </span>
         </div>
-      ` : ''}
+      </div>
+
+      <!-- Seção Telemetria: Trajeto + Trip Computer + Cronômetro -->
+      <div class="${isEmUso ? 'bg-black/30 border-white/20' : 'bg-white/90 border-[#E5DFD3]'} rounded-2xl p-3 border shadow-xs space-y-2.5">
+        <div class="flex items-center justify-between gap-3">
+          
+          <div class="flex items-center gap-2.5 flex-1 min-w-0">
+            <div class="flex flex-col items-center shrink-0">
+              <span class="w-2.5 h-2.5 rounded-full border-2 ${isEmUso ? 'border-amber-300 bg-black/40' : 'border-[#1E5E3A] bg-white'}"></span>
+              <span class="w-0.5 h-3 ${isEmUso ? 'bg-white/40' : 'bg-slate-300'}"></span>
+              <span class="w-2.5 h-2.5 rounded-full ${isEmUso ? 'bg-amber-300' : 'bg-[#1E5E3A]'}"></span>
+            </div>
+            
+            <div class="flex flex-col text-xs leading-tight font-semibold ${isEmUso ? 'text-white' : 'text-slate-800'} truncate">
+              <span class="truncate">${r.origem || 'Base'}</span>
+              <span class="text-[9px] ${isEmUso ? 'text-orange-200' : 'text-slate-400'} font-normal">Destino</span>
+              <span class="font-bold ${isEmUso ? 'text-white' : 'text-slate-900'} truncate">${r.destino || 'Em trânsito...'}</span>
+            </div>
+          </div>
+
+          <!-- Trip Computer -->
+          <div class="trip-computer" title="Distância Percorrida">
+            <div class="trip-header">
+              <span class="trip-tag">TRIP</span>
+              <i class="ph-bold ph-gauge text-[9px] text-slate-400"></i>
+            </div>
+            <div class="trip-digits">
+              <span class="trip-main">${tripMain}</span>
+              <span class="trip-dec">${tripDec}</span>
+              <span class="trip-unit">km</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2 border-t ${isEmUso ? 'border-white/15' : 'border-slate-100'} text-[11px] gap-2">
+          <span class="${isEmUso ? 'bg-black/40 text-orange-100 border border-white/10' : 'bg-[#F1ECE1] text-slate-700'} font-semibold px-2 py-0.5 rounded-md truncate max-w-[130px]">
+            ${r.finalidade || 'Demandas Internas'}
+          </span>
+
+          <div class="flex flex-col items-end shrink-0">
+            <div class="visor-digital" title="Duração da Rota">
+              <i class="ph-bold ph-timer text-emerald-400 text-xs"></i>
+              <span class="visor-digital-txt">${tempoFormatado}</span>
+            </div>
+            <span class="font-mono ${isEmUso ? 'text-orange-200' : 'text-slate-500'} font-medium text-[10px] mt-1">
+              ${periodoDatas}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Anomalia ou Status OK -->
+      ${temAvaria ? `
+        <div class="${isEmUso ? 'bg-rose-950/70 border-rose-400/50 text-rose-100' : 'bg-rose-50 border-rose-200 text-xs'} border rounded-xl p-2.5 flex items-start gap-2">
+          <i class="ph-bold ph-warning-circle ${isEmUso ? 'text-rose-300' : 'text-rose-600'} text-base shrink-0 mt-0.5"></i>
+          <div>
+            <span class="font-bold ${isEmUso ? 'text-rose-200' : 'text-rose-800'} block text-[11px]">Anomalia Registrada:</span>
+            <p class="${isEmUso ? 'text-rose-100' : 'text-rose-700'} font-medium text-[11px] leading-tight mt-0.5">${r.anomalia}</p>
+          </div>
+        </div>
+      ` : `
+        <div class="flex items-center gap-1.5 text-[11px] ${isEmUso ? 'text-emerald-300' : 'text-emerald-700'} font-bold px-1">
+          <i class="ph-bold ph-check-circle ${isEmUso ? 'text-emerald-300' : 'text-emerald-600'}"></i>
+          <span>Sem anomalias registradas</span>
+        </div>
+      `}
     `;
+
     container.appendChild(card);
   });
 }

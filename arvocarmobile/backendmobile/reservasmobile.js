@@ -487,9 +487,32 @@ function renderHistoricoCards() {
   const badge = document.getElementById('badge-total-reservas') || document.getElementById('m-badge-reservas');
   if (!container) return;
 
-  if (badge) badge.innerText = `${listaReservas.length} reservas`;
+  const agora = new Date().getTime();
 
-  if (listaReservas.length === 0) {
+  // 1. Divide em reservas ativas/futuras e passadas/encerradas
+  const ativasEFuturas = [];
+  const passadas = [];
+
+  (listaReservas || []).forEach(r => {
+    const tFim = new Date(r.data_fim).getTime();
+    if (tFim >= agora && r.status !== 'CANCELADA') {
+      ativasEFuturas.push(r);
+    } else {
+      passadas.push(r);
+    }
+  });
+
+  // Ativas/Futuras: das mais próximas para as mais distantes
+  ativasEFuturas.sort((a, b) => new Date(a.data_inicio) - new Date(b.data_inicio));
+  // Encerradas: das finalizadas mais recentemente para as mais antigas
+  passadas.sort((a, b) => new Date(b.data_fim) - new Date(a.data_fim));
+
+  // 2. Coloca ativas/futuras no topo e limita a exibição a no máximo 10 agendamentos
+  const reservasExibicao = [...ativasEFuturas, ...passadas].slice(0, 10);
+
+  if (badge) badge.innerText = `${reservasExibicao.length} reservas`;
+
+  if (reservasExibicao.length === 0) {
     container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Nenhum agendamento ativo no momento.</div>`;
     if (calendar) calendar.refetchEvents();
     return;
@@ -498,7 +521,7 @@ function renderHistoricoCards() {
   const ehAdmin = (usuarioLogado?.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
   container.innerHTML = '';
 
-  listaReservas.forEach(r => {
+  reservasExibicao.forEach(r => {
     const ehDono = (usuarioLogado?.email || '').toLowerCase() === (r.responsavel || '').toLowerCase();
     const dataIni = formatarDataHora(r.data_inicio);
     const dataFim = formatarDataHora(r.data_fim);
@@ -511,35 +534,41 @@ function renderHistoricoCards() {
     );
 
     const nomeExibicao = veic?.nome_frota || r.nome_frota || r.veiculo_id || 'Veículo';
-    const placaExibicao = (veic?.placa && veic.placa !== nomeExibicao) ? ` [${veic.placa}]` : '';
+    const placaExibicao = veic?.placa ? `(${veic.placa})` : (r.placa ? `(${r.placa})` : '');
+    const condutorNome = (r.responsavel || '').split('@')[0];
+    const isPendenteOffline = String(r.id).startsWith('temp_');
 
     const card = document.createElement('div');
-    card.className = "bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2";
+    card.className = "bg-[#1E293B] border border-slate-700/70 rounded-2xl p-3 flex items-center justify-between shadow-xs transition hover:border-slate-600";
+    
     card.innerHTML = `
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-          <i class="ph-bold ph-car text-brand-600"></i> ${nomeExibicao}${placaExibicao}
-        </span>
-        <span class="text-[10px] bg-brand-50 text-brand-700 font-bold px-2 py-0.5 rounded-full border border-brand-200">
-          ${r.tipo_reserva || 'DIAS'} ${String(r.id).startsWith('temp_') ? '(Pendente 📶)' : ''}
-        </span>
-      </div>
-      <div class="text-xs text-slate-600">
-        Condutor: <b class="text-slate-800">${r.responsavel}</b>
-      </div>
-      <div class="text-[11px] text-slate-500">
-        Finalidade: <span class="font-semibold text-slate-700">${r.finalidade}</span>
-      </div>
-      <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-1.5 border-t border-slate-100">
-        <span>📅 ${dataIni} até ${dataFim}</span>
-      </div>
-      ${(ehAdmin || ehDono) ? `
-        <div class="pt-1.5 border-t border-slate-100 flex justify-end">
-          <button onclick="cancelarReservaMobile('${r.id}', '${r.responsavel}')" class="text-rose-600 text-xs font-bold flex items-center gap-1 hover:underline">
-            <i class="ph-bold ph-x-circle text-sm"></i> Cancelar Agendamento
-          </button>
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+          <i class="ph-bold ph-car text-lg"></i>
         </div>
-      ` : ''}
+        <div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="font-extrabold text-xs text-white">${nomeExibicao}</span>
+            <span class="text-[10px] text-slate-400 font-mono">${placaExibicao}</span>
+            ${isPendenteOffline ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1 rounded font-mono">📶 Pendente</span>' : ''}
+          </div>
+          <p class="text-[11px] text-slate-300">Condutor: <b class="text-emerald-400">${condutorNome}</b></p>
+        </div>
+      </div>
+
+      <div class="text-right shrink-0">
+        <span class="text-[10px] font-mono font-bold text-slate-300 block" title="${dataIni} até ${dataFim}">
+          ${dataIni.split(',')[0]} → ${dataFim.split(',')[0]}
+        </span>
+        <span class="text-[9px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-semibold border border-slate-700 inline-block mt-0.5 max-w-[120px] truncate" title="${r.finalidade || 'Demandas'}">
+          ${r.finalidade || 'Demandas'}
+        </span>
+        ${(ehAdmin || ehDono) ? `
+          <button onclick="cancelarReservaMobile('${r.id}', '${r.responsavel}')" class="block text-rose-400 hover:text-rose-300 text-[10px] font-bold mt-1 ml-auto">
+            Cancelar
+          </button>
+        ` : ''}
+      </div>
     `;
     container.appendChild(card);
   });

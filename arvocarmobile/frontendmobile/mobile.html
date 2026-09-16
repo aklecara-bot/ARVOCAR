@@ -4,115 +4,208 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ARVOCAR - Mobile Rotas</title>
+  <title>ARVOCAR Mobile - Iniciar Rota</title>
 
-  <!-- PWA & Manifesto (Caminhos absolutos a partir da raiz) -->
+  <!-- PWA & Tags Mobile -->
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#14532d" />
+  <meta name="theme-color" content="#111827" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="ARVO Rota" />
-  
+
   <link rel="icon" type="image/png" sizes="192x192" href="/imagens/logo3d192.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="/imagens/logo3d192.png" />
 
-  <!-- Registro do Service Worker pela raiz -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
-        .then((reg) => console.log('PWA Service Worker Ativo:', reg.scope))
-        .catch((err) => console.warn('Falha ao registrar SW:', err));
-    }
-  </script>
-
+  <!-- Bibliotecas Base -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#f0fdf4',
-              100: '#dcfce7',
-              500: '#22c55e',
-              600: '#16a34a',
-              700: '#15803d',
-              800: '#166534',
-              900: '#14532d',
-            }
-          }
-        }
-      }
-    }
-  </script>
 
   <style>
     body {
       -webkit-tap-highlight-color: transparent;
     }
-
     .pb-safe {
       padding-bottom: env(safe-area-inset-bottom, 1rem);
     }
+    select {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.75rem center;
+      background-repeat: no-repeat;
+      background-size: 1.25em 1.25em;
+      padding-right: 2.5rem;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+    /* PLACA MERCOSUL REDUZIDA */
+  .placa-mercosul-sm {
+    background: #ffffff;
+    border: 1px solid #0f172a;
+    border-radius: 4px;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+    padding-bottom: 2px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .placa-mercosul-sm-header {
+    background: #003399;
+    width: 100%;
+    height: 4px;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+  }
+  .placa-mercosul-sm-txt {
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 900;
+    color: #000000;
+    font-size: 10px;
+    padding: 1px 4px;
+    letter-spacing: 0.6px;
+  }
+
+  /* DISPLAY DE HODÔMETRO PARCIAL (TRIP COMPUTER) */
+  .trip-computer {
+    background: linear-gradient(180deg, #090e17 0%, #172033 100%);
+    border: 1.5px solid #334155;
+    border-radius: 8px;
+    padding: 3px 6px 4px 6px;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), 0 2px 5px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+    min-width: 68px;
+  }
+  .trip-header {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+    margin-bottom: 1px;
+  }
+  .trip-tag {
+    font-family: system-ui, sans-serif;
+    font-size: 7px;
+    font-weight: 900;
+    color: #38bdf8;
+    letter-spacing: 0.8px;
+    line-height: 1;
+  }
+  .trip-digits {
+    display: inline-flex;
+    align-items: baseline;
+    font-family: ui-monospace, monospace;
+    line-height: 1;
+  }
+  .trip-main {
+    font-size: 14px;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+  }
+  .trip-dec {
+    font-size: 11px;
+    font-weight: 800;
+    color: #94a3b8;
+    margin-left: 1px;
+  }
+  .trip-unit {
+    font-size: 8px;
+    font-weight: 800;
+    color: #38bdf8;
+    margin-left: 2px;
+    text-transform: lowercase;
+  }
+
+  /* VISOR DIGITAL LED/LCD (TEMPO TOTAL DE ROTA) */
+  .visor-digital {
+    background: #050b07;
+    border: 1.5px solid #1e3a29;
+    border-radius: 8px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.1);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 7px;
+  }
+  .visor-digital-txt {
+    font-family: ui-monospace, monospace;
+    font-weight: 900;
+    font-size: 11px;
+    color: #22c55e;
+    text-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    letter-spacing: 0.5px;
+    line-height: 1;
+  }
+
+  /* Card de veículo em uso/em rota com fundo Laranja 70% de transparência */
+.card-em-rota {
+  background: rgba(234, 88, 12, 0.70) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(254, 215, 170, 0.6) !important;
+  box-shadow: 0 10px 25px rgba(234, 88, 12, 0.35) !important;
+}
+
+.card-em-rota * {
+  color: #ffffff !important;
+}
+
+.card-em-rota .visor-digital {
+  background: #050b07 !important;
+  border-color: #1e3a29 !important;
+}
+
+.card-em-rota .trip-computer {
+  background: linear-gradient(180deg, #090e17 0%, #172033 100%) !important;
+}
+ 
   </style>
 </head>
 
-<body
-  class="bg-slate-900 text-slate-800 font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-brand-500 selection:text-white">
+<body class="bg-[#1E293B] text-slate-100 font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-[#1E5E3A] selection:text-white pb-safe">
 
-  <!-- Tela de Login -->
+  <!-- ==================== 1. TELA DE LOGIN MOBILE ==================== -->
   <div id="screen-login" class="flex-1 flex flex-col justify-center px-4 py-8 max-w-md mx-auto w-full">
-    <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 relative overflow-hidden">
-      <div class="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-brand-500 via-brand-600 to-emerald-400"></div>
-
+    <div class="bg-[#FAF7F2] rounded-3xl p-6 shadow-2xl border border-[#EFE9DF] text-slate-800">
+      
       <div class="text-center mb-6">
-        <div
-          class="inline-flex items-center justify-center p-3 bg-brand-50 rounded-2xl text-brand-700 shadow-inner mb-2">
-          <img src="/imagens/arvocarblack150.png" alt="ARVOCAR" class="h-10 w-auto"
-            onerror="this.style.display='none'; document.getElementById('login-fallback-icon').classList.remove('hidden');" />
-          <i id="login-fallback-icon" class="ph-bold ph-steering-wheel text-3xl text-brand-700 hidden"></i>
+        <div class="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-[#1E5E3A] mx-auto mb-2 shadow-inner">
+          <i class="ph-bold ph-steering-wheel text-3xl"></i>
         </div>
-        <h1 class="text-2xl font-black text-slate-900 tracking-tight">ARVOCAR Mobile</h1>
-        <p class="text-xs font-bold uppercase tracking-wider text-brand-700">Controle de Rotas</p>
+        <h1 class="text-xl font-black text-slate-900">ARVOCAR Mobile</h1>
+        <p class="text-xs font-bold uppercase tracking-wider text-[#1E5E3A]">Controle de Rotas</p>
       </div>
 
-      <div id="erro-login-box"
-        class="hidden mb-4 p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-700 flex items-start gap-2">
+      <div id="erro-login-box" class="hidden mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
         <i class="ph-bold ph-warning-circle text-base shrink-0 mt-0.5"></i>
         <span id="erro-login-msg">E-mail ou senha inválidos.</span>
       </div>
 
       <form id="formMobileLogin" onsubmit="handleMobileLogin(event)" class="space-y-4">
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">E-mail</label>
-          <div class="relative">
-            <span class="absolute left-3.5 top-3.5 text-slate-400"><i
-                class="ph-bold ph-envelope-simple text-base"></i></span>
-            <input type="email" id="m-email" required autocomplete="email" autocapitalize="none"
-              placeholder="motorista@arvo.tec.br"
-              class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-3.5 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition" />
-          </div>
+          <label class="block text-xs font-black uppercase text-slate-600 mb-1">E-mail</label>
+          <input type="email" id="m-email" required autocomplete="email" autocapitalize="none"
+            placeholder="motorista@arvo.tec.br" 
+            class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] font-semibold outline-none" />
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Senha</label>
+          <label class="block text-xs font-black uppercase text-slate-600 mb-1">Senha</label>
           <div class="relative">
-            <span class="absolute left-3.5 top-3.5 text-slate-400"><i class="ph-bold ph-lock-key text-base"></i></span>
-            <input type="password" id="m-senha" required placeholder="••••••••"
-              class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-10 py-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition" />
-            <button type="button" onclick="toggleSenhaMobile()"
-              class="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-none">
+            <input type="password" id="m-senha" required placeholder="••••••••" 
+              class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] font-semibold outline-none pr-10" />
+            <button type="button" onclick="toggleSenhaMobile()" class="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600">
               <i id="m-icone-senha" class="ph-bold ph-eye text-base"></i>
             </button>
           </div>
         </div>
 
-        <button type="submit" id="btn-m-login"
-          class="w-full bg-brand-700 hover:bg-brand-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-brand-900/10 transition-all flex items-center justify-center gap-2 text-sm mt-2 active:scale-98">
+        <button type="submit" id="btn-m-login" 
+          class="w-full bg-[#1E5E3A] hover:bg-[#164E2E] text-white font-black text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 active:scale-95">
           <span>Entrar no Sistema</span>
           <i class="ph-bold ph-arrow-right text-base"></i>
         </button>
@@ -120,66 +213,80 @@
     </div>
   </div>
 
-  <!-- Tela Principal do App -->
-  <div id="screen-app" class="hidden flex-1 flex flex-col bg-slate-100 min-h-screen">
+  <!-- ==================== 2. APLICAÇÃO OPERACIONAL PRINCIPAL ==================== -->
+  <div id="screen-app" class="hidden flex-1 flex flex-col min-h-screen">
 
-    <header class="bg-brand-900 text-white sticky top-0 z-40 shadow-md">
+    <!-- Header Mobile em Grafite Profundo -->
+    <header class="bg-[#111827]/95 backdrop-blur-md text-white sticky top-0 z-40 border-b border-slate-700/60 shadow-lg">
       <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
         <div class="flex items-center space-x-2.5">
-          <div
-            class="w-8 h-8 rounded-lg bg-brand-800 flex items-center justify-center text-brand-100 border border-brand-700 shadow-inner">
-            <i class="ph-bold ph-steering-wheel text-lg"></i>
+          <div class="w-8 h-8 rounded-full border border-slate-600 bg-slate-800/90 flex items-center justify-center text-emerald-400 shadow-inner">
+            <i class="ph-bold ph-steering-wheel text-base"></i>
           </div>
           <div>
             <h1 class="text-sm font-black tracking-tight leading-none text-white">ARVOCAR</h1>
-            <span id="m-top-username"
-              class="text-[10px] text-brand-100 font-semibold block leading-tight truncate max-w-[170px]">Condutor</span>
+            <span id="m-top-username" class="text-[11px] text-slate-300 font-medium block leading-tight truncate max-w-[190px]">
+              Condutor
+            </span>
           </div>
         </div>
 
-        <button onclick="handleMobileLogout()" title="Sair"
-          class="text-xs bg-brand-800/80 hover:bg-rose-700 text-brand-100 px-3 py-1.5 rounded-xl border border-brand-700 transition flex items-center gap-1 active:scale-95">
+        <button onclick="handleMobileLogout()" title="Sair" class="text-xs bg-rose-600/80 hover:bg-rose-600 text-white px-2.5 py-1.5 rounded-lg border border-rose-500/30 transition flex items-center gap-1 shadow-sm active:scale-95">
           <i class="ph-bold ph-sign-out text-sm"></i>
           <span class="font-bold">Sair</span>
         </button>
       </div>
     </header>
 
+    <!-- Conteúdo Principal -->
     <main class="flex-1 p-4 pb-24 max-w-md mx-auto w-full space-y-4">
-
-      <!-- Aba 1: Iniciar Rota -->
+      
+      <!-- ==================== ABA 1: INICIAR ROTA ==================== -->
       <section id="tab-iniciar" class="space-y-4">
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-          <div class="flex items-center gap-3 pb-3 border-b border-slate-100 mb-4">
-            <div class="p-2.5 bg-brand-50 text-brand-700 rounded-xl border border-brand-100">
+        
+        <!-- CARD DO FORMULÁRIO (90% BRANCO COM 10% BEGE #FAF7F2) -->
+        <div class="bg-[#FAF7F2] rounded-3xl p-5 shadow-2xl border border-[#EFE9DF] text-slate-800">
+          
+          <div class="flex items-center gap-3 pb-3 border-b border-amber-900/10 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-[#1E5E3A] shadow-inner">
               <i class="ph-bold ph-key text-xl"></i>
             </div>
             <div>
-              <h2 class="text-base font-bold text-slate-900">Iniciar Rota (Retirada)</h2>
-              <p class="text-[11px] text-slate-400">Rotas com limite operacional de 12 horas</p>
+              <h2 class="text-base font-black text-slate-900 leading-tight">Iniciar Rota (Retirada)</h2>
+              <p class="text-xs text-slate-500 font-medium">Rotas com limite operacional de 12 horas</p>
             </div>
           </div>
 
           <form id="formMobileInicio" onsubmit="handleMobileInicioRota(event)" class="space-y-3.5">
+            
+            <!-- Seleção do Veículo -->
             <div>
-              <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Selecione o Veículo Disponível *</label>
-              <select id="m-inicio-veiculo" onchange="atualizarKmVeiculoMobile()" required
-                class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-brand-500 font-bold outline-none">
+              <label class="block text-xs font-black tracking-wide uppercase text-slate-600 mb-1.5">
+                SELECIONE O VEÍCULO DISPONÍVEL <span class="text-[#1E5E3A]">*</span>
+              </label>
+              <select id="m-inicio-veiculo" onchange="aoMudarVeiculoMobile(this.value)" required
+                class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] font-semibold outline-none transition cursor-pointer shadow-xs">
                 <option value="">Selecione o veículo...</option>
               </select>
             </div>
 
+            <!-- Grid Duplo: KM Inicial & Origem -->
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">KM Inicial</label>
+                <label class="block text-xs font-black tracking-wide uppercase text-slate-600 mb-1.5">
+                  KM INICIAL
+                </label>
                 <input type="number" id="m-inicio-km" readonly
-                  class="w-full bg-slate-100 border border-slate-200 text-slate-700 font-mono font-bold rounded-xl px-3 py-2 text-xs outline-none" />
+                  class="w-full bg-[#EFECE6] border border-[#DDD8CE] text-slate-700 font-mono font-bold rounded-xl px-3 py-2.5 text-xs outline-none cursor-not-allowed" />
               </div>
+
               <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Origem da Saída *</label>
+                <label class="block text-xs font-black tracking-wide uppercase text-slate-600 mb-1.5">
+                  ORIGEM DA SAÍDA <span class="text-[#1E5E3A]">*</span>
+                </label>
                 <select id="m-inicio-origem" onchange="toggleOutroOrigemMobile(this.value)" required
-                  class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
-                  <option value="ALEGRE">ALEGRE</option>
+                  class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] font-semibold outline-none transition cursor-pointer shadow-xs">
+                  <option value="ALEGRE" selected>ALEGRE</option>
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
                   <option value="CELINA">CELINA</option>
@@ -190,74 +297,88 @@
             </div>
 
             <input type="text" id="m-inicio-origem-outro" placeholder="Digite o local de saída..."
-              class="hidden w-full bg-white border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-medium outline-none" />
+              class="hidden w-full bg-white border border-[#E2DDD5] text-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-medium outline-none" />
 
+            <!-- Finalidade / Projeto -->
             <div>
-              <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Finalidade / Projeto *</label>
-              <select id="res-finalidade" required
-                class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
-                <option value="">...</option>          
-                <option value="CO INVESTIMENTO WWF">CO INVESTIMENTO WWF</option>
-                <option value="DEMANDAS INTERNAS">DEMANDAS INTERNAS</option>
-                <option value="DEMANDAS EXTERNAS">DEMANDAS EXTERNAS</option>
-                <option value="IMPLANTACAO DE AREAS">IMPLANTAÇÃO DE ÁREAS</option>
+              <label class="block text-xs font-black tracking-wide uppercase text-slate-600 mb-1.5">
+                FINALIDADE / PROJETO <span class="text-[#1E5E3A]">*</span>
+              </label>
+              <select id="m-inicio-finalidade" required
+                class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] font-semibold outline-none transition cursor-pointer shadow-xs">
+                <option value="DEMANDAS INTERNAS" selected>DEMANDAS INTERNAS</option>
                 <option value="REFLORESTAR">REFLORESTAR</option>
+                <option value="DEMANDAS EXTERNAS">DEMANDAS EXTERNAS</option>
+                <option value="SUPERVISÃO TÉCNICA">SUPERVISÃO TÉCNICA</option>
+                <option value="IMPLANTACAO DE AREAS">IMPLANTAÇÃO DE ÁREAS</option>
                 <option value="RELACOES INSTITUCIONAIS">RELAÇÕES INSTITUCIONAIS</option>
-                <option value="REMINERALIZADOR">REMINERALIZADOR</option>
                 <option value="PSA GESTAGUA">PSA GESTÁGUA</option>
-                <option value="PPC">PPC</option> 
+                <option value="CO INVESTIMENTO WWF">CO INVESTIMENTO WWF</option>
               </select>
             </div>
 
-            <button type="submit" id="btn-m-confirmar-inicio"
-              class="w-full bg-brand-700 hover:bg-brand-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition text-xs flex items-center justify-center gap-2 mt-2 active:scale-98">
-              <i class="ph-bold ph-check-circle text-base"></i> Confirmar Saída
-            </button>
+            <!-- Botão Confirmar Saída -->
+            <div class="pt-2">
+              <button type="submit" id="btn-m-confirmar-inicio"
+                class="w-full bg-[#1E5E3A] hover:bg-[#164E2E] active:scale-[0.99] text-white font-black text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-950/40 transition flex items-center justify-center gap-2 border border-emerald-600/30">
+                <i class="ph-bold ph-check-circle text-base"></i>
+                <span>Confirmar Saída</span>
+              </button>
+            </div>
+
           </form>
         </div>
+
+        <!-- ==================== CARD DO CARRO SELECIONADO ==================== -->
+        <div id="m-preview-card-carro" class="transition-all duration-300">
+          <div class="border-2 border-dashed border-slate-700/60 rounded-3xl p-5 text-center text-slate-400 text-xs font-medium bg-[#111827]/40">
+            Selecione um veículo acima para visualizar telemetria, tanque e status operacional.
+          </div>
+        </div>
+
       </section>
 
-      <!-- Aba 2: Finalizar Rota -->
+      <!-- ==================== ABA 2: FINALIZAR ROTA ==================== -->
       <section id="tab-finalizar" class="hidden space-y-4">
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-          <div class="flex items-center gap-3 pb-3 border-b border-slate-100 mb-4">
-            <div class="p-2.5 bg-amber-50 text-amber-700 rounded-xl border border-amber-100">
-              <i class="ph-bold ph-map-pin-line text-xl"></i>
+        <div class="bg-[#FAF7F2] rounded-3xl p-5 shadow-2xl border border-[#EFE9DF] text-slate-800">
+          
+          <div class="flex items-center gap-3 pb-3 border-b border-amber-900/10 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-[#D97706] shadow-inner">
+              <i class="ph-bold ph-flag-checkered text-xl"></i>
             </div>
             <div>
-              <h2 class="text-base font-bold text-slate-900">Finalizar Rota</h2>
-              <p class="text-[11px] text-slate-400">Devolução, apuração de KM e avarias</p>
+              <h2 class="text-base font-black text-slate-900 leading-tight">Finalizar Rota</h2>
+              <p class="text-xs text-slate-500 font-medium">Devolução, apuração de KM e avarias</p>
             </div>
           </div>
 
           <form id="formMobileFim" onsubmit="handleMobileFimRota(event)" class="space-y-3.5">
             <div>
-              <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Selecionar Rota Ativa *</label>
+              <label class="block text-xs font-black tracking-wide uppercase text-slate-600 mb-1.5">
+                Selecionar Rota Ativa <span class="text-[#D97706]">*</span>
+              </label>
               <select id="m-fim-rota-select" onchange="selecionarRotaFimMobile()" required
-                class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-amber-500 font-bold outline-none">
+                class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-[#D97706] font-bold outline-none cursor-pointer shadow-xs">
                 <option value="">Selecione sua rota ativa...</option>
               </select>
             </div>
 
-            <div id="m-detalhes-viagem"
-              class="hidden p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
-              <div class="flex justify-between text-slate-600"><span>Veículo:</span> <b id="m-info-veiculo"
-                  class="text-slate-800">-</b></div>
-              <div class="flex justify-between text-slate-600"><span>KM Saída:</span> <b id="m-info-kmsaida"
-                  class="text-slate-800 font-mono">-</b></div>
+            <div id="m-detalhes-viagem" class="hidden p-3.5 bg-[#EFECE6] border border-[#DDD8CE] rounded-xl text-xs space-y-1.5 font-medium">
+              <div class="flex justify-between text-slate-700"><span>Veículo:</span> <b id="m-info-veiculo" class="text-slate-900">-</b></div>
+              <div class="flex justify-between text-slate-700"><span>KM Saída:</span> <b id="m-info-kmsaida" class="text-slate-900 font-mono">-</b></div>
+              <div class="flex justify-between text-slate-700"><span>Distância Percorrida:</span> <b id="m-info-percorrido" class="text-[#1E5E3A] font-mono font-bold">-</b></div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">KM Final *</label>
-                <input type="number" id="m-fim-km" oninput="calcularKmPercorridoMobile()" required
-                  placeholder="Ex: 77250"
-                  class="w-full bg-white border border-slate-300 text-slate-800 font-mono font-bold rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none" />
+                <label class="block text-xs font-black tracking-wide uppercase text-slate-600 mb-1.5">KM Final *</label>
+                <input type="number" id="m-fim-km" oninput="calcularKmPercorridoMobile()" required placeholder="Ex: 77250"
+                  class="w-full bg-white border border-[#E2DDD5] text-slate-900 font-mono font-bold rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#D97706] outline-none" />
               </div>
               <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Local de Entrega *</label>
+                <label class="block text-xs font-black tracking-wide uppercase text-slate-600 mb-1.5">Local de Entrega *</label>
                 <select id="m-fim-destino" onchange="toggleOutroDestinoMobile(this.value)" required
-                  class="w-full bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+                  class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#D97706] font-semibold outline-none cursor-pointer">
                   <option value="ALEGRE">ALEGRE</option>
                   <option value="GUAÇUÍ">GUAÇUÍ</option>
                   <option value="CASTELO">CASTELO</option>
@@ -269,86 +390,120 @@
             </div>
 
             <input type="text" id="m-fim-destino-outro" placeholder="Digite o local de devolução..."
-              class="hidden w-full bg-white border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-medium outline-none" />
+              class="hidden w-full bg-white border border-[#E2DDD5] text-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-medium outline-none" />
 
-            <div id="m-km-feedback" class="text-[11px] font-medium"></div>
-
-            <div class="pt-2 border-t border-slate-100">
-              <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Situação do Carro</label>
+            <div class="pt-2 border-t border-[#E2DDD5]">
+              <label class="block text-xs font-black tracking-wide uppercase text-slate-700 mb-1.5">Situação do Carro</label>
               <div class="flex items-center gap-4 text-xs font-semibold mb-2">
                 <label class="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="m_situacao_carro" value="SEM" checked onchange="toggleAnomaliaMobile(false)"
-                    class="text-brand-600 focus:ring-0" />
-                  <span class="text-emerald-700">Sem Problemas</span>
+                  <input type="radio" name="m_situacao_carro" value="SEM" checked onchange="toggleAnomaliaMobile(false)" class="text-[#1E5E3A] focus:ring-0" />
+                  <span class="text-emerald-800 font-bold">Sem Problemas</span>
                 </label>
                 <label class="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="m_situacao_carro" value="COM" onchange="toggleAnomaliaMobile(true)"
-                    class="text-rose-600 focus:ring-0" />
-                  <span class="text-rose-700">Com Avarias / Ruídos</span>
+                  <input type="radio" name="m_situacao_carro" value="COM" onchange="toggleAnomaliaMobile(true)" class="text-rose-600 focus:ring-0" />
+                  <span class="text-rose-800 font-bold">Com Avarias / Ruídos</span>
                 </label>
               </div>
               <textarea id="m-fim-anomalia" rows="2" placeholder="Descreva o problema observado..."
-                class="hidden w-full bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-xl p-2.5 outline-none"></textarea>
+                class="hidden w-full bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-xl p-2.5 outline-none resize-none"></textarea>
             </div>
 
             <button type="submit" id="btn-m-confirmar-fim"
-              class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition text-xs flex items-center justify-center gap-2 mt-2 active:scale-98">
-              <i class="ph-bold ph-check text-base"></i> Finalizar Rota
+              class="w-full bg-[#D97706] hover:bg-[#B45309] text-white font-black text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 active:scale-95">
+              <i class="ph-bold ph-check text-base"></i>
+              <span>Finalizar Rota</span>
             </button>
           </form>
         </div>
       </section>
 
-      <!-- Aba 3: Histórico -->
-      <section id="tab-historico" class="hidden space-y-3">
-        <div class="flex items-center justify-between px-1">
-          <h2 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Meu Histórico de Rotas</h2>
-          <span id="m-total-rotas-badge"
-            class="text-[11px] bg-brand-100 text-brand-800 font-bold px-2 py-0.5 rounded-full">0 rotas</span>
-        </div>
+      <!-- ==================== ABA 3: HISTÓRICO ==================== -->
+      <!-- SUBSTITUA A <section id="tab-historico"> POR ESTA ESTRUTURA NO mobile.html -->
+<section id="tab-historico" class="hidden space-y-4">
+  
+  <!-- Título da Seção -->
+  <div class="flex items-center justify-between px-1 pt-1">
+    <div class="flex items-center gap-2">
+      <i class="ph-bold ph-clock-counter-clockwise text-emerald-400 text-lg"></i>
+      <h2 class="text-base font-black tracking-tight text-white">Minhas Rotas</h2>
+    </div>
+    <span class="text-[10px] font-mono font-bold bg-slate-800/90 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-full">
+      Histórico
+    </span>
+  </div>
 
-        <div id="m-lista-historico" class="space-y-2.5">
-        </div>
-      </section>
+  <!-- Barra de Pesquisa & Filtros -->
+  <div class="space-y-2.5">
+    <div class="relative">
+      <span class="absolute left-3.5 top-2.5 text-slate-400 text-sm">
+        <i class="ph-bold ph-magnifying-glass"></i>
+      </span>
+      <input type="text" id="filtro-busca-historico" oninput="filtrarHistoricoMobile()" placeholder="Buscar por carro, condutor ou destino..."
+             class="w-full bg-[#111827]/90 border border-slate-700/80 text-white placeholder:text-slate-400 rounded-xl pl-9 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#1E5E3A] transition shadow-inner" />
+    </div>
+
+    <!-- Filtros em Pílulas -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+      <button type="button" onclick="setFiltroCategoriaMobile('todas')" id="btn-cat-todas"
+              class="bg-[#1E5E3A] text-white font-bold px-3 py-1.5 rounded-xl whitespace-nowrap shadow-xs">
+        Todas (<span id="m-count-todas">0</span>)
+      </button>
+      <button type="button" onclick="setFiltroCategoriaMobile('avarias')" id="btn-cat-avarias"
+              class="bg-slate-800 text-slate-300 hover:text-rose-400 border border-slate-700 font-semibold px-3 py-1.5 rounded-xl whitespace-nowrap flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+        Com Avarias (<span id="m-count-avarias">0</span>)
+      </button>
+      <button type="button" onclick="setFiltroCategoriaMobile('concluidas')" id="btn-cat-concluidas"
+              class="bg-slate-800 text-slate-300 hover:text-emerald-400 border border-slate-700 font-semibold px-3 py-1.5 rounded-xl whitespace-nowrap">
+        Concluídas
+      </button>
+    </div>
+  </div>
+
+  <!-- Contêiner Dinâmico de Cards -->
+  <div id="m-lista-historico" class="space-y-3.5">
+    <div class="text-center py-8 text-slate-400 text-xs font-medium">
+      <i class="ph-bold ph-spinner animate-spin text-lg"></i>
+      <p class="mt-1">Carregando histórico...</p>
+    </div>
+  </div>
+
+</section>
 
     </main>
 
-    <!-- Barra de Navegação Inferior -->
-    <nav
-      class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2 flex justify-around items-center z-40 shadow-lg pb-safe max-w-md mx-auto">
-      <button onclick="switchMobileTab('iniciar')" id="nav-btn-iniciar"
-        class="flex flex-col items-center gap-1 text-brand-700 font-bold transition">
-        <i class="ph-bold ph-key text-xl"></i>
+    <!-- ==================== 3. BARRA DE NAVEGAÇÃO INFERIOR ==================== -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-[#111827]/95 backdrop-blur-md border-t border-slate-700/60 px-4 py-2 flex justify-around items-center z-40 shadow-2xl pb-safe max-w-md mx-auto">
+      
+      <button onclick="switchMobileTab('iniciar')" id="nav-btn-iniciar" class="flex flex-col items-center gap-0.5 text-emerald-400 font-bold">
+        <i class="ph-bold ph-key text-lg"></i>
         <span class="text-[10px]">Iniciar</span>
       </button>
 
-      <button onclick="switchMobileTab('finalizar')" id="nav-btn-finalizar"
-        class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-        <i class="ph-bold ph-map-pin-line text-xl"></i>
+      <button onclick="switchMobileTab('finalizar')" id="nav-btn-finalizar" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+        <i class="ph-bold ph-map-pin text-lg"></i>
         <span class="text-[10px]">Finalizar</span>
       </button>
 
-      <button onclick="switchMobileTab('historico')" id="nav-btn-historico"
-        class="flex flex-col items-center gap-1 text-slate-400 font-semibold transition">
-        <i class="ph-bold ph-clock-counter-clockwise text-xl"></i>
+      <button onclick="switchMobileTab('historico')" id="nav-btn-historico" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+        <i class="ph-bold ph-clock-counter-clockwise text-lg"></i>
         <span class="text-[10px]">Rotas</span>
       </button>
 
-      <a href="reservasmobile.html" id="nav-btn-reservas"
-        class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
-        <i class="ph-bold ph-calendar-check text-xl"></i>
+      <a href="reservasmobile.html" id="nav-btn-reservas" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+        <i class="ph-bold ph-calendar text-lg"></i>
         <span class="text-[10px]">Reservas</span>
       </a>
 
-      <a href="abastecimentomobile.html" id="nav-btn-abastecimento"
-        class="flex flex-col items-center gap-1 text-slate-400 font-semibold hover:text-brand-700 transition">
-        <i class="ph-bold ph-gas-pump text-xl"></i>
+      <a href="abastecimentomobile.html" id="nav-btn-abastecimento" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+        <i class="ph-bold ph-gas-pump text-lg"></i>
         <span class="text-[10px]">Abastecer</span>
       </a>
+
     </nav>
   </div>
 
+  <!-- SCRIPT DE REGRAS MOBILE -->
   <script src="/arvocarmobile/backendmobile/mobile.js"></script>
 </body>
-
 </html>

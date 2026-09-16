@@ -340,55 +340,82 @@ async function carregarHistoricoAbastecimento() {
 
 function renderCardsHistorico(container) {
   if (!listaAbastecimentosCache || listaAbastecimentosCache.length === 0) {
-    container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Nenhum abastecimento encontrado.</div>`;
+    container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs font-semibold">Nenhum abastecimento encontrado.</div>`;
     return;
   }
 
   container.innerHTML = '';
   listaAbastecimentosCache.forEach((a, index) => {
-    const veic = (veiculosAbast || []).find(v =>
+    // 1. Cruza com a lista de veículos para resgatar os dados do veículo
+    const veic = (typeof veiculosAbast !== 'undefined' ? veiculosAbast : []).find(v =>
       String(v.id) === String(a.veiculo_id) ||
       String(v.uuid_veiculos) === String(a.uuid_veiculos || a.veiculo_id) ||
       String(v.placa) === String(a.placa || a.veiculo_id) ||
       String(v.nome_frota) === String(a.veiculo_id)
     );
 
+    // 2. Define o Nome do Veículo e Placa Real
     const nomeExibicao = a.nome_frota || veic?.nome_frota || a.veiculo_id || 'ARVO';
     const placaReal = a.placa || veic?.placa || '';
     const badgePlaca = placaReal ? ` [${placaReal}]` : '';
 
+    // 3. Formatação dos campos e valores
     const combustivelFormatado = a.tipo_combustivel || 'Gasolina Comum';
     const postoFormatado = a.local_posto || 'Posto de Combustível';
     const valorFormatado = Number(a.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const dataFormatada = a.data_hora ? new Date(a.data_hora).toLocaleDateString('pt-BR') : '-';
+    const condutorFormatado = (a.responsavel || '').split('@')[0];
 
+    // 4. Criação do Card com o layout da imagem (Bege Claro / Marfim)
     const card = document.createElement('div');
-    card.className = "bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5 transition hover:border-slate-300";
+    card.className = "bg-[#FAF7F2] rounded-3xl p-4 shadow-xl border border-[#EFE9DF] text-slate-800 space-y-3 transition hover:shadow-2xl";
 
     card.innerHTML = `
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-black text-slate-800 font-mono flex items-center gap-1.5">
-          <i class="ph-bold ph-gas-pump text-amber-500"></i> ${nomeExibicao}${badgePlaca}
-        </span>
-        <span class="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+      <!-- Topo: Ícone, Nome do Carro, Placa e Valor -->
+      <div class="flex items-start justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-[#D97706] shrink-0">
+            <i class="ph-bold ph-gas-pump text-sm"></i>
+          </span>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="font-black text-sm text-slate-900 leading-tight">${nomeExibicao}</span>
+              <span class="text-[10px] font-mono text-slate-600 font-bold bg-[#E8E1D5] px-1.5 py-0.5 rounded">${badgePlaca || '[S/ PLACA]'}</span>
+            </div>
+          </div>
+        </div>
+        <!-- Badge de Valor Total -->
+        <span class="text-sm font-black font-mono text-[#1E5E3A] bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-xl">
           ${valorFormatado}
         </span>
       </div>
-      <div class="text-xs text-slate-600 font-medium">
-        ${postoFormatado} • <span class="text-slate-500">${combustivelFormatado}</span>
+
+      <!-- Posto e Tipo de Combustível -->
+      <div class="text-xs font-bold text-slate-700 leading-tight">
+        ${postoFormatado} <span class="text-slate-400 font-normal">•</span> <span class="text-slate-600 font-medium">${combustivelFormatado}</span>
       </div>
-      <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono border-t pt-1.5 border-slate-100">
-        <span>${a.quantidade_litros || 0} L (R$ ${Number(a.preco_litro || 0).toFixed(2)}/L)</span>
-        <span>${new Date(a.data_hora).toLocaleDateString('pt-BR')}</span>
-      </div>
-      <div class="pt-1 flex items-center justify-between border-t border-slate-100">
-        <span class="text-[10px] text-slate-400 truncate max-w-[150px]">
-          <i class="ph-bold ph-user"></i> ${(a.responsavel || '').split('@')[0]}
+
+      <!-- Box com Litros, Preço/Litro e Data -->
+      <div class="bg-white/90 rounded-xl p-2.5 border border-[#E5DFD3] flex justify-between items-center text-[11px] font-mono">
+        <span class="font-bold text-slate-800">
+          ${a.quantidade_litros || 0} L <span class="text-slate-400 font-normal">(R$ ${Number(a.preco_litro || 0).toFixed(2)}/L)</span>
         </span>
-        <button type="button" onclick="abrirModalAbastecimento(${index})" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 transition">
-          <i class="ph-bold ph-eye"></i> Ver Detalhes
+        <span class="text-slate-500">${dataFormatada}</span>
+      </div>
+
+      <!-- Rodapé: Condutor e Botão Ver Detalhes -->
+      <div class="flex justify-between items-center pt-1 border-t border-[#EAE3D6]">
+        <span class="text-[11px] text-slate-500 flex items-center gap-1 font-medium truncate max-w-[150px]">
+          <i class="ph-bold ph-user text-slate-400"></i> ${condutorFormatado}
+        </span>
+        <button type="button" onclick="abrirModalAbastecimento(${index})"
+                class="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 border border-amber-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-xs active:scale-95">
+          <i class="ph-bold ph-eye"></i>
+          <span>Ver Detalhes</span>
         </button>
       </div>
     `;
+
     container.appendChild(card);
   });
 }
