@@ -1271,50 +1271,118 @@ function fecharModalEditVeiculo() {
 }
 
 async function handleSalvarEditVeiculo(e) {
-  e.preventDefault();
-  if (!ehAdminMaster()) {
+  if (e && typeof e.preventDefault === 'function') {
+    e.preventDefault();
+  }
+
+  // Verificação de permissão de administrador
+  if (typeof ehAdminMaster === 'function' && !ehAdminMaster()) {
     alert("Permissão negada: Apenas o administrador geral pode alterar veículos.");
     return;
   }
 
-  const idChave = document.getElementById('edit-v-id').value;
-  const placaVal = document.getElementById('edit-v-placa').value.toUpperCase().trim();
-  const tipoFrotaVal = document.getElementById('edit-v-tipofrota')?.value || 'PROPRIO';
+  // Helpers seguros contra elementos ausentes e tolerantes a decimais com vírgula
+  const getVal = (id) => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  };
+
+  const getNum = (id, fallback = 0) => {
+    const el = document.getElementById(id);
+    if (!el || !el.value) return fallback;
+    const limpo = String(el.value).replace(',', '.');
+    const n = parseFloat(limpo);
+    return isNaN(n) ? fallback : n;
+  };
+
+  const idChave = getVal('edit-v-id');
+  const placaVal = getVal('edit-v-placa').toUpperCase();
+  const tipoFrotaVal = getVal('edit-v-tipofrota') || 'PROPRIO';
+
+  if (!idChave && !placaVal) {
+    alert("Erro: Identificador do veículo não encontrado no formulário.");
+    return;
+  }
 
   const dadosAtualizados = {
     placa: placaVal,
-    marca: document.getElementById('edit-v-marca').value.trim(),
-    tanque: parseFloat(document.getElementById('edit-v-tanque').value) || 0,
-    consumo_min: parseFloat(document.getElementById('edit-v-consumomin').value) || 0,
-    consumo_max: parseFloat(document.getElementById('edit-v-consumomax').value) || 0,
-    km_atual: parseFloat(document.getElementById('edit-v-kmatual').value) || 0,
-    status: document.getElementById('edit-v-status').value,
+    marca: getVal('edit-v-marca'),
+    tanque: getNum('edit-v-tanque', 0),
+    consumo_min: getNum('edit-v-consumomin', 0),
+    consumo_max: getNum('edit-v-consumomax', 0),
+    km_atual: getNum('edit-v-kmatual', 0),
+    status: getVal('edit-v-status') || 'Disponivel',
     tipo_frota: tipoFrotaVal,
-    anomalias: document.getElementById('edit-v-anomalias').value.trim()
+    anomalias: getVal('edit-v-anomalias')
   };
 
-  try {
-    const { error } = await db
-      .from('veiculos')
-      .update(dadosAtualizados)
-      .or(`uuid_veiculos.eq.${idChave},id.eq.${idChave},placa.eq.${idChave}`);
+  // Feedback visual no botão de salvar
+  const btnSalvar = document.querySelector('#modal-edit-veiculo button[type="submit"]') || 
+                    document.querySelector('#formEditVeiculo button[type="submit"]');
+  if (btnSalvar) {
+    btnSalvar.disabled = true;
+    btnSalvar.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Salvando...`;
+  }
 
-    if (error) {
-      const { error: errPlaca } = await db
+  try {
+    // 1. Tenta atualizar pelo identificador (ID numérico ou UUID)
+    let atualizado = false;
+
+    if (idChave) {
+      // Tenta por uuid_veiculos ou id
+      const { data: dataUuid, error: errUuid } = await db
         .from('veiculos')
         .update(dadosAtualizados)
-        .eq('placa', placaVal);
+        .or(`uuid_veiculos.eq.${idChave},id.eq.${idChave}`)
+        .select();
 
-      if (errPlaca) throw errPlaca;
+      if (!errUuid && dataUuid && dataUuid.length > 0) {
+        atualizado = true;
+      }
     }
 
-    fecharModalEditVeiculo();
-    alert(`✅ Veículo ${dadosAtualizados.placa} atualizado com sucesso!`);
-    await carregarTodosDadosDoBanco();
+    // 2. Fallback direto pela placa se o primeiro não tiver afetado linhas
+    if (!atualizado && placaVal) {
+      const { data: dataPlaca, error: errPlaca } = await db
+        .from('veiculos')
+        .update(dadosAtualizados)
+        .eq('placa', placaVal)
+        .select();
+
+      if (errPlaca) throw errPlaca;
+      if (dataPlaca && dataPlaca.length > 0) {
+        atualizado = true;
+      }
+    }
+
+    if (!atualizado) {
+      throw new Error("Nenhum registro correspondente foi localizado para atualização.");
+    }
+
+    if (typeof fecharModalEditVeiculo === 'function') {
+      fecharModalEditVeiculo();
+    }
+
+    alert(`✅ Veículo [${dadosAtualizados.placa}] atualizado com sucesso!`);
+
+    if (typeof carregarTodosDadosDoBanco === 'function') {
+      await carregarTodosDadosDoBanco();
+    } else if (typeof carregarVeiculos === 'function') {
+      await carregarVeiculos();
+    }
   } catch (err) {
+    console.error("Erro ao atualizar veículo:", err);
     alert("Erro ao atualizar veículo: " + (err.message || 'Verifique sua conexão.'));
+  } finally {
+    if (btnSalvar) {
+      btnSalvar.disabled = false;
+      btnSalvar.innerHTML = `<i class="ph-bold ph-check"></i> Salvar Alterações`;
+    }
   }
 }
+
+// Exposição no escopo global para garantir a execução via HTML
+window.handleSalvarEditVeiculo = handleSalvarEditVeiculo;
 
 async function handleApagarVeiculo(veiculoId) {
   if (!ehAdminMaster()) {
