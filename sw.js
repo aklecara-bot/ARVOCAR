@@ -1,10 +1,10 @@
 // =========================================================================
 // SERVICE WORKER - PWA OFFLINE CACHE
 // =========================================================================
-const CACHE_NAME = 'arvo-mobile-v7';
+const CACHE_NAME = 'arvo-mobile-v8';
 
 const ASSETS_TO_CACHE = [
- '/arvocarmobile/frontendmobile/mobile.html',
+  '/arvocarmobile/frontendmobile/mobile.html',
   '/arvocarmobile/frontendmobile/instalar.html',
   '/arvocarmobile/frontendmobile/abastecimentomobile.html',
   '/arvocarmobile/frontendmobile/reservasmobile.html',
@@ -37,12 +37,21 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Não intercepta chamadas de API do Supabase no Cache Storage comum
+  // Ignora requisições de API para o Supabase
   if (event.request.url.includes('supabase.co')) return;
 
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request).catch(() => caches.match(event.request));
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        // Retorna imediatamente do cache local para resposta offline instantânea
+        return cachedResponse;
+      }
+      return fetch(event.request).catch(() => {
+        // Fallback caso falhe e seja navegação de página
+        if (event.request.mode === 'navigate') {
+          return caches.match('/arvocarmobile/frontendmobile/mobile.html');
+        }
+      });
     })
   );
 });

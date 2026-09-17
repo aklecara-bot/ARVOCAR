@@ -106,6 +106,127 @@ async function initReservasMobile() {
   sincronizarFilaReservas();
 }
 
+/**
+ * Popup Universal Centralizado (Web & Mobile)
+ */
+function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
+  const modalId = `app-popup-${Date.now()}`;
+
+  const temas = {
+    sucesso: { icon: 'ph-check-circle', bg: '#dcfce7', text: '#15803d', btn: '#15803d' },
+    erro:    { icon: 'ph-x-circle',     bg: '#ffe4e6', text: '#e11d48', btn: '#e11d48' },
+    aviso:   { icon: 'ph-warning',      bg: '#fef3c7', text: '#d97706', btn: '#d97706' },
+    info:    { icon: 'ph-info',         bg: '#e0f2fe', text: '#0284c7', btn: '#0284c7' }
+  };
+
+  const config = temas[tipo] || temas.aviso;
+
+  const backdrop = document.createElement('div');
+  backdrop.id = modalId;
+  backdrop.style.cssText = `
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background-color: rgba(15, 23, 42, 0.75) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    z-index: 999999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1rem !important;
+    box-sizing: border-box !important;
+  `;
+
+  backdrop.innerHTML = `
+    <div style="
+      background-color: #ffffff !important;
+      border-radius: 1.5rem !important;
+      width: 100% !important;
+      max-width: 24rem !important;
+      padding: 1.5rem !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
+      border: 1px solid #f1f5f9 !important;
+      text-align: center !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      gap: 1rem !important;
+      box-sizing: border-box !important;
+      font-family: inherit !important;
+    ">
+      <div style="
+        width: 3.5rem !important;
+        height: 3.5rem !important;
+        border-radius: 1rem !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 1.75rem !important;
+        background-color: ${config.bg} !important;
+        color: ${config.text} !important;
+      ">
+        <i class="ph-bold ${config.icon}"></i>
+      </div>
+
+      <div style="width: 100% !important;">
+        <h3 style="font-size: 1.05rem !important; font-weight: 900 !important; color: #0f172a !important; margin: 0 0 0.5rem 0 !important;">
+          ${titulo}
+        </h3>
+        <p style="font-size: 0.8125rem !important; color: #475569 !important; margin: 0 !important; line-height: 1.45 !important; word-break: break-word !important;">
+          ${mensagem}
+        </p>
+      </div>
+
+      <button type="button" id="${modalId}-btn" style="
+        width: 100% !important;
+        padding: 0.75rem 1rem !important;
+        border-radius: 0.75rem !important;
+        font-weight: 700 !important;
+        font-size: 0.8125rem !important;
+        border: none !important;
+        cursor: pointer !important;
+        color: #ffffff !important;
+        background-color: ${config.btn} !important;
+      ">
+        Entendido
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(backdrop);
+
+  const fechar = () => {
+    backdrop.remove();
+    if (typeof onClose === 'function') onClose();
+  };
+
+  document.getElementById(`${modalId}-btn`).onclick = fechar;
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) fechar();
+  };
+}
+
+// Converte chamadas automáticas de alert()
+window.alert = function (msg) {
+  const texto = String(msg || '');
+  let tipo = 'aviso';
+  let titulo = 'Atenção';
+
+  const t = texto.toLowerCase();
+  if (t.includes('sucesso') || t.includes('salvo') || t.includes('confirmad')) {
+    tipo = 'sucesso';
+    titulo = 'Sucesso!';
+  } else if (t.includes('erro') || t.includes('falha') || t.includes('inválid')) {
+    tipo = 'erro';
+    titulo = 'Erro!';
+  }
+
+  mostrarPopupCustom(tipo, titulo, texto);
+};
+
 // =========================================================================
 // 2. CONTROLE DE ABAS (NOVO / CALENDÁRIO)
 // =========================================================================

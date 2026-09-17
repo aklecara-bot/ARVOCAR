@@ -20,6 +20,23 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then((registration) => {
+        // Força checagem de nova versão no servidor toda vez que o app é aberto
+        registration.update();
+      });
+
+      // Quando o novo Service Worker assumir o controle, recarrega a página automaticamente
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
+    }
+  </script>
 
   <style>
     body {
@@ -198,7 +215,7 @@
           <div class="relative">
             <input type="password" id="m-senha" required placeholder="••••••••" 
               class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] font-semibold outline-none pr-10" />
-            <button type="button" onclick="toggleSenhaMobile()" class="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600">
+            <button type="button" onclick="toggleSenhaMobile()" class="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none">
               <i id="m-icone-senha" class="ph-bold ph-eye text-base"></i>
             </button>
           </div>
@@ -264,7 +281,7 @@
               <label class="block text-xs font-black tracking-wide uppercase text-slate-600 mb-1.5">
                 SELECIONE O VEÍCULO DISPONÍVEL <span class="text-[#1E5E3A]">*</span>
               </label>
-              <select id="m-inicio-veiculo" onchange="aoMudarVeiculoMobile(this.value)" required
+              <select id="m-inicio-veiculo" onchange="atualizarKmVeiculoMobile()" required
                 class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] font-semibold outline-none transition cursor-pointer shadow-xs">
                 <option value="">Selecione o veículo...</option>
               </select>
@@ -418,57 +435,15 @@
       </section>
 
       <!-- ==================== ABA 3: HISTÓRICO ==================== -->
-      <!-- SUBSTITUA A <section id="tab-historico"> POR ESTA ESTRUTURA NO mobile.html -->
-<section id="tab-historico" class="hidden space-y-4">
-  
-  <!-- Título da Seção -->
-  <div class="flex items-center justify-between px-1 pt-1">
-    <div class="flex items-center gap-2">
-      <i class="ph-bold ph-clock-counter-clockwise text-emerald-400 text-lg"></i>
-      <h2 class="text-base font-black tracking-tight text-white">Minhas Rotas</h2>
-    </div>
-    <span class="text-[10px] font-mono font-bold bg-slate-800/90 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-full">
-      Histórico
-    </span>
-  </div>
-
-  <!-- Barra de Pesquisa & Filtros -->
-  <div class="space-y-2.5">
-    <div class="relative">
-      <span class="absolute left-3.5 top-2.5 text-slate-400 text-sm">
-        <i class="ph-bold ph-magnifying-glass"></i>
-      </span>
-      <input type="text" id="filtro-busca-historico" oninput="filtrarHistoricoMobile()" placeholder="Buscar por carro, condutor ou destino..."
-             class="w-full bg-[#111827]/90 border border-slate-700/80 text-white placeholder:text-slate-400 rounded-xl pl-9 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#1E5E3A] transition shadow-inner" />
-    </div>
-
-    <!-- Filtros em Pílulas -->
-    <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-      <button type="button" onclick="setFiltroCategoriaMobile('todas')" id="btn-cat-todas"
-              class="bg-[#1E5E3A] text-white font-bold px-3 py-1.5 rounded-xl whitespace-nowrap shadow-xs">
-        Todas (<span id="m-count-todas">0</span>)
-      </button>
-      <button type="button" onclick="setFiltroCategoriaMobile('avarias')" id="btn-cat-avarias"
-              class="bg-slate-800 text-slate-300 hover:text-rose-400 border border-slate-700 font-semibold px-3 py-1.5 rounded-xl whitespace-nowrap flex items-center gap-1.5">
-        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-        Com Avarias (<span id="m-count-avarias">0</span>)
-      </button>
-      <button type="button" onclick="setFiltroCategoriaMobile('concluidas')" id="btn-cat-concluidas"
-              class="bg-slate-800 text-slate-300 hover:text-emerald-400 border border-slate-700 font-semibold px-3 py-1.5 rounded-xl whitespace-nowrap">
-        Concluídas
-      </button>
-    </div>
-  </div>
-
-  <!-- Contêiner Dinâmico de Cards -->
-  <div id="m-lista-historico" class="space-y-3.5">
-    <div class="text-center py-8 text-slate-400 text-xs font-medium">
-      <i class="ph-bold ph-spinner animate-spin text-lg"></i>
-      <p class="mt-1">Carregando histórico...</p>
-    </div>
-  </div>
-
-</section>
+      <section id="tab-historico" class="hidden space-y-3">
+        <div class="flex items-center justify-between px-1">
+          <h2 class="text-xs font-black text-slate-300 uppercase tracking-wider">Meu Histórico de Rotas</h2>
+          <span id="m-total-rotas-badge" class="text-[11px] bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 font-mono font-bold px-2.5 py-0.5 rounded-full">
+            0 rotas
+          </span>
+        </div>
+        <div id="m-lista-historico" class="space-y-3"></div>
+      </section>
 
     </main>
 
