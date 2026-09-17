@@ -1,7 +1,7 @@
 // =========================================================================
 // SERVICE WORKER - PWA OFFLINE CACHE
 // =========================================================================
-const CACHE_NAME = 'arvo-mobile-v6';
+const CACHE_NAME = 'arvo-mobile-v7';
 
 const ASSETS_TO_CACHE = [
  '/arvocarmobile/frontendmobile/mobile.html',
