@@ -14,6 +14,47 @@ let veiculos = [];
 let rotas = [];
 let listaModelosReferencia = [];
 
+// Dicionário com coordenadas padrão das bases e municípios de operação
+const COORDENADAS_BASES = {
+  "BASE CENTRAL ALEGRE": { lat: -20.761921, lng: -41.533884 },
+  "ALEGRE": { lat: -20.761921, lng: -41.533884 },
+  "GUAÇUÍ": { lat: -20.770687, lng: -41.674244 },
+  "CASTELO": { lat: -20.606867, lng: -41.204096 },
+  "CELINA": { lat: -20.806500, lng: -41.558300 },
+  "MUNIZ FREIRE": { lat: -20.463385, lng: -41.413571 },
+  "LOCADORA CACHOEIRO": { lat: -20.858238, lng: -41.120567 },
+  "CACHOEIRO": { lat: -20.848900, lng: -41.112800 },
+  "LOCADORA CASTELO": { lat: -20.602361, lng: -41.212152 }
+};
+
+// Função para obter as coordenadas de partida (GPS instantâneo ou Base Fixa)
+async function obterCoordenadasPartida(origemTexto) {
+  if (navigator.geolocation) {
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 3000
+        });
+      });
+      return {
+        lat: Number(pos.coords.latitude.toFixed(6)),
+        lng: Number(pos.coords.longitude.toFixed(6)),
+        tipo: 'GPS_REAL'
+      };
+    } catch (e) {
+      console.warn("GPS do aparelho indisponível no momento, recorrendo à base fixa:", e.message);
+    }
+  }
+
+  const chave = (origemTexto || '').trim().toUpperCase();
+  if (COORDENADAS_BASES[chave]) {
+    return { ...COORDENADAS_BASES[chave], tipo: 'BASE_FIXA' };
+  }
+
+  return null;
+}
+
 // =========================================================================
 // SESSÃO, PERMISSÕES E LOGIN
 // =========================================================================
@@ -151,7 +192,6 @@ function iniciarAppMobile() {
   carregarDadosMobile();
   sincronizarFilaRotas();
 
-  // Monitoramento contínuo de rotas > 12h
   if (window._intervaloRotasMobile) clearInterval(window._intervaloRotasMobile);
   window._intervaloRotasMobile = setInterval(verificarRotasExcedidas12h, 300000);
 }
@@ -177,18 +217,39 @@ function switchMobileTab(tab) {
     activeBtn.classList.add('text-brand-700', 'font-bold');
   }
 
+  // --- AO ABRIR A ABA FINALIZAR ---
+  if (tab === 'finalizar') {
+    renderizarOpcoesRotasAtivas();
+
+    const emailAtual = (usuarioLogado?.email || '').toLowerCase().trim();
+    const ehAdmin = emailAtual === 'admin@arvo.tec.br' || emailAtual === 'admfin@arvo.tec.br';
+
+    // Localiza a rota ativa (compatível com temp_ e offline)
+    const rotaAberta = (rotas || []).find(r => 
+      r.status === 'Em Uso' && 
+      (ehAdmin || (r.responsavel && r.responsavel.toLowerCase().trim() === emailAtual))
+    );
+
+    if (rotaAberta) {
+      const selectRota = document.getElementById('m-fim-rota-select');
+      if (selectRota) {
+        selectRota.value = rotaAberta.id;
+        selecionarRotaFimMobile();
+      }
+      iniciarRastreamentoTempoRealMobile(rotaAberta);
+    } else {
+      const blocoMapa = document.getElementById('m-bloco-mapa-rota');
+      const blocoForm = document.getElementById('m-bloco-formulario-fim');
+      if (blocoMapa) blocoMapa.classList.add('hidden');
+      if (blocoForm) blocoForm.classList.remove('hidden');
+    }
+  }
+
   if (tab === 'historico') {
     renderizarHistoricoMobile();
   }
 }
 
-/**
- * Exibe um popup modal perfeitamente centralizado na tela (Web e Mobile)
- * @param {'sucesso'|'erro'|'aviso'|'info'} tipo 
- * @param {string} titulo 
- * @param {string} mensagem 
- * @param {Function} [onClose]
- */
 function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
   const modalId = `app-modal-${Date.now()}`;
 
@@ -201,7 +262,6 @@ function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
 
   const config = temas[tipo] || temas.aviso;
 
-  // Backdrop em tela inteira com fallback inline blindado
   const backdrop = document.createElement('div');
   backdrop.id = modalId;
   backdrop.style.cssText = `
@@ -221,7 +281,6 @@ function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
     box-sizing: border-box !important;
   `;
 
-  // Card com largura fixa, centralização e visual ArvoCar
   backdrop.innerHTML = `
     <div style="
       background-color: #ffffff !important;
@@ -292,7 +351,6 @@ function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
   };
 }
 
-// Sobrescreve o alert nativo para usar o modal
 window.alert = function (mensagem) {
   const texto = String(mensagem || '');
   let tipo = 'aviso';
@@ -309,7 +367,6 @@ window.alert = function (mensagem) {
 
   mostrarPopupCustom(tipo, titulo, texto);
 };
-
 
 // =========================================================================
 // CARREGAMENTO DE DADOS COM CACHE LOCAL
@@ -385,7 +442,6 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   const combAtual = (tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum').trim().toUpperCase();
   const ehEtanol = combAtual.includes('ETANOL') || combAtual.includes('ÁLCOOL');
 
-  // 1. Apuração sequencial por histórico real
   if (abastsCarro.length >= 2) {
     const deltaKm = Number(abastsCarro[0].km_atual) - Number(abastsCarro[1].km_atual);
     const litros = Number(abastsCarro[0].quantidade_litros);
@@ -395,14 +451,12 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
     }
   }
 
-  // 2. Média técnica cadastrada no próprio veículo
   const cUrb = Number(ehEtanol ? veiculo?.consumo_etanol_urbano : veiculo?.consumo_gasolina_urbano) || 0;
   const cRod = Number(ehEtanol ? veiculo?.consumo_etanol_rodoviario : veiculo?.consumo_gasolina_rodoviario) || 0;
   if (cUrb > 0 && cRod > 0) {
     return Number(((cUrb + cRod) / 2).toFixed(2));
   }
 
-  // 3. Consulta na tabela modelos_referencia
   if (veiculo?.modelo_referencia_id && listaModelosReferencia.length > 0) {
     const ref = listaModelosReferencia.find(m => Number(m.id) === Number(veiculo.modelo_referencia_id));
     if (ref) {
@@ -414,7 +468,6 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
     }
   }
 
-  // 4. Fallback nominal dos limites cadastrados
   const cMin = Number(veiculo?.consumo_min) || 10;
   const cMax = Number(veiculo?.consumo_max) || 14;
   let fallback = (cMin + cMax) / 2;
@@ -424,35 +477,150 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
 }
 
 // =========================================================================
-// OPERAÇÃO DE ROTAS (INÍCIO / FIM)
+// GOOGLE MAPS EM TEMPO REAL NO MOBILE
 // =========================================================================
-function veiculoVisivelParaUsuario(v, user) {
-  const tipo = (v?.tipo_frota || '').toUpperCase().trim();
-  const isExterno = tipo.includes('EXTERN') || tipo.includes('ESPORADIC');
+let gMapMobile = null;
+let gPolylineMobile = null;
+let gMarkerPosAtual = null;
+let watchIdMobileGPS = null;
+let coordenadasEmTempoReal = [];
 
-  // Carros da frota regular continuam visíveis para todos
-  if (!isExterno) return true;
+function iniciarRastreamentoTempoRealMobile(rotaAtiva) {
+  if (!rotaAtiva) return;
 
-  const emailUsuario = (user?.email || '').toLowerCase().trim();
-  const adminPadrao = (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : 'admin@arvo.tec.br').toLowerCase().trim();
-  const ehAdmin = emailUsuario === adminPadrao;
+  const blocoMapa = document.getElementById('m-bloco-mapa-rota');
+  const blocoForm = document.getElementById('m-bloco-formulario-fim');
+  const containerMapa = document.getElementById('mapa-mobile-tempo-real');
 
-  // Admin sempre enxerga tudo
-  if (ehAdmin) return true;
+  if (!blocoMapa || !containerMapa) return;
 
-  const motoristaAutorizado = (v?.motorista_autorizado || '').toLowerCase().trim();
+  // Mostra o card com o mapa e esconde o formulário
+  blocoMapa.classList.remove('hidden');
+  if (blocoForm) blocoForm.classList.add('hidden');
 
-  // Se for externo e não tiver motorista atribuído, fica oculto para usuários comuns
-  if (!motoristaAutorizado) return false;
+  const lblOrigem = document.getElementById('m-mapa-origem-txt');
+  if (lblOrigem) lblOrigem.innerText = rotaAtiva.origem || 'Origem';
 
-  // Libera se o condutor logado bater com o motorista credenciado (por e-mail, nome ou ID)
-  if (emailUsuario === motoristaAutorizado) return true;
-  if (user?.nome && user.nome.toLowerCase().trim() === motoristaAutorizado) return true;
-  if (user?.id && String(user.id).trim() === motoristaAutorizado) return true;
+  // Recupera coordenadas salvas em cache para esta rota
+  const chaveCache = `arvo_gps_rota_${rotaAtiva.id}`;
+  try {
+    const salvas = JSON.parse(localStorage.getItem(chaveCache) || '[]');
+    coordenadasEmTempoReal = Array.isArray(salvas) ? salvas : [];
+  } catch (e) {
+    coordenadasEmTempoReal = [];
+  }
 
-  return false;
+  // Ponto inicial de centralização
+  let pontoInicial = { lat: -20.761921, lng: -41.533884 }; // Alegre
+  if (coordenadasEmTempoReal.length > 0) {
+    pontoInicial = coordenadasEmTempoReal[coordenadasEmTempoReal.length - 1];
+  } else if (rotaAtiva.coords_origem) {
+    pontoInicial = rotaAtiva.coords_origem;
+  } else if (COORDENADAS_BASES[(rotaAtiva.origem || '').toUpperCase()]) {
+    pontoInicial = COORDENADAS_BASES[(rotaAtiva.origem || '').toUpperCase()];
+  }
+
+  // Renderiza a instância do Google Maps
+  setTimeout(() => {
+    if (typeof google !== 'undefined' && google.maps) {
+      if (!gMapMobile) {
+        gMapMobile = new google.maps.Map(containerMapa, {
+          center: pontoInicial,
+          zoom: 16,
+          mapTypeId: 'roadmap',
+          disableDefaultUI: true,
+          zoomControl: true
+        });
+
+        gPolylineMobile = new google.maps.Polyline({
+          path: coordenadasEmTempoReal,
+          geodesic: true,
+          strokeColor: '#D97706',
+          strokeOpacity: 0.9,
+          strokeWeight: 5,
+          map: gMapMobile
+        });
+
+        gMarkerPosAtual = new google.maps.Marker({
+          position: pontoInicial,
+          map: gMapMobile,
+          title: 'Posição Atual',
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 7,
+            fillColor: '#1E5E3A',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2
+          }
+        });
+      } else {
+        google.maps.event.trigger(gMapMobile, 'resize');
+        gMapMobile.setCenter(pontoInicial);
+        if (gPolylineMobile) gPolylineMobile.setPath(coordenadasEmTempoReal);
+        if (gMarkerPosAtual) gMarkerPosAtual.setPosition(pontoInicial);
+      }
+    }
+  }, 100);
+
+  // Monitoramento do GPS do aparelho
+  if (navigator.geolocation && watchIdMobileGPS === null) {
+    watchIdMobileGPS = navigator.geolocation.watchPosition(
+      (pos) => {
+        const novaCoord = {
+          lat: Number(pos.coords.latitude.toFixed(6)),
+          lng: Number(pos.coords.longitude.toFixed(6)),
+          timestamp: new Date().toISOString()
+        };
+
+        coordenadasEmTempoReal.push(novaCoord);
+        localStorage.setItem(chaveCache, JSON.stringify(coordenadasEmTempoReal));
+
+        const ptsTxt = document.getElementById('m-mapa-pontos-txt');
+        if (ptsTxt) ptsTxt.innerText = `${coordenadasEmTempoReal.length} pts registrados`;
+
+        if (gPolylineMobile && gMapMobile) {
+          const path = gPolylineMobile.getPath();
+          const latLng = new google.maps.LatLng(novaCoord.lat, novaCoord.lng);
+          path.push(latLng);
+          if (gMarkerPosAtual) gMarkerPosAtual.setPosition(latLng);
+          gMapMobile.panTo(latLng);
+        }
+      },
+      (err) => console.warn("GPS em deslocamento:", err.message),
+      { enableHighAccuracy: true, maximumAge: 4000, timeout: 10000 }
+    );
+  }
 }
 
+function exibirFormularioDevolucaoMobile() {
+  const blocoMapa = document.getElementById('m-bloco-mapa-rota');
+  const blocoForm = document.getElementById('m-bloco-formulario-fim');
+  if (blocoMapa) blocoMapa.classList.add('hidden');
+  if (blocoForm) blocoForm.classList.remove('hidden');
+}
+
+function destruirMapaMobile(rotaId) {
+  if (watchIdMobileGPS !== null) {
+    navigator.geolocation.clearWatch(watchIdMobileGPS);
+    watchIdMobileGPS = null;
+  }
+  const pontosFinais = [...coordenadasEmTempoReal];
+  if (rotaId) localStorage.removeItem(`arvo_gps_rota_${rotaId}`);
+  coordenadasEmTempoReal = [];
+  gMapMobile = null;
+  gPolylineMobile = null;
+  gMarkerPosAtual = null;
+
+  const blocoMapa = document.getElementById('m-bloco-mapa-rota');
+  if (blocoMapa) blocoMapa.classList.add('hidden');
+
+  return pontosFinais;
+}
+
+// =========================================================================
+// OPERAÇÃO DE ROTAS (INÍCIO / FIM)
+// =========================================================================
 function renderizarOpcoesVeiculos() {
   const select = document.getElementById('m-inicio-veiculo');
   if (!select || !usuarioLogado) return;
@@ -465,7 +633,6 @@ function renderizarOpcoesVeiculos() {
   veiculos
     .filter(v => {
       if (v.status !== 'Disponivel') return false;
-      // Trava de veículo externo exclusivo
       const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO' || (v.proprietario || '').toUpperCase() === 'EXTERNO';
       const condutorExclusivo = (v.motorista_autorizado || '').toLowerCase().trim();
       if (isExterno && condutorExclusivo && condutorExclusivo !== emailUser && !isAdmin) {
@@ -552,7 +719,6 @@ async function handleMobileInicioRota(e) {
     return;
   }
 
-  // Trava de exclusividade externa
   const emailUser = (usuarioLogado.email || '').toLowerCase().trim();
   const isAdmin = emailUser === 'admin@arvo.tec.br';
   const isExterno = (veiculo.tipo_frota || '').toUpperCase() === 'EXTERNO' || (veiculo.proprietario || '').toUpperCase() === 'EXTERNO';
@@ -566,7 +732,7 @@ async function handleMobileInicioRota(e) {
   const selectOrigem = document.getElementById('m-inicio-origem')?.value;
   const outroOrigem = document.getElementById('m-inicio-origem-outro')?.value?.trim();
   const origemFinal = selectOrigem === 'OUTRO' ? outroOrigem : selectOrigem;
-  const finalidade = document.getElementById('m-inicio-finalidade')?.value;
+  const finalidade = document.getElementById('m-inicio-finalidade')?.value || 'DEMANDAS INTERNAS';
   const kmSaida = Number(document.getElementById('m-inicio-km')?.value || veiculo.km_atual || 0);
 
   if (!origemFinal) {
@@ -580,19 +746,27 @@ async function handleMobileInicioRota(e) {
   }
 
   const tempId = `temp_${Date.now()}`;
+  const dataSaidaAtual = new Date().toISOString();
+  const coordsPartida = await obterCoordenadasPartida(origemFinal);
+
   const payloadRota = {
     id: tempId,
-    veiculo_id: veiculoId,
-    uuid_veiculos: uuidVeiculo || veiculo.uuid_veiculos,
-    placa: placaVeiculo || veiculo.placa,
+    veiculo_id: veiculo.nome_frota || veiculoId,
+    uuid_veiculos: uuidVeiculo || veiculo.uuid_veiculos || null,
+    placa: placaVeiculo || veiculo.placa || null,
     responsavel: usuarioLogado.email,
     origem: origemFinal,
     finalidade: finalidade,
     km_saida: kmSaida,
-    data_saida: new Date().toISOString(),
+    data_saida: dataSaidaAtual,
     status: 'Em Uso',
-    offline_sync: !navigator.onLine
+    offline_sync: !navigator.onLine,
+    coords_origem: coordsPartida,
+    coordenadas: coordsPartida ? [{ lat: coordsPartida.lat, lng: coordsPartida.lng, timestamp: dataSaidaAtual }] : []
   };
+
+  // Inicia captura contínua de GPS
+  iniciarRastreamentoGPS();
 
   if (!navigator.onLine) {
     salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadRota });
@@ -623,14 +797,14 @@ async function handleMobileInicioRota(e) {
     let qVeic = db.from('veiculos').update({ status: 'Em Uso' });
     if (uuidVeiculo) {
       qVeic = qVeic.eq('uuid_veiculos', uuidVeiculo);
-    } else if (veiculo.nome_frota) {
-      qVeic = qVeic.eq('nome_frota', veiculoId);
+    } else if (veiculo.placa) {
+      qVeic = qVeic.eq('placa', veiculo.placa);
     } else {
-      qVeic = qVeic.eq('id', veiculoId);
+      qVeic = qVeic.eq('id', veiculo.id);
     }
     await qVeic;
 
-    alert(`✅ Rota iniciada com sucesso com o veículo ${veiculoId}!`);
+    alert(`✅ Rota iniciada com sucesso com o veículo ${veiculo.nome_frota || veiculoId}!`);
     e.target.reset();
     toggleOutroOrigemMobile('');
     await carregarDadosMobile();
@@ -702,7 +876,14 @@ function calcularKmPercorridoMobile() {
   }
 }
 
-// 3. FINALIZAÇÃO DA ROTA COM CÁLCULO E PERSISTÊNCIA DE CONSUMO_LITROS E TANQUE_VIRTUAL
+function exibirFormularioDevolucaoMobile() {
+  const blocoMapa = document.getElementById('m-bloco-mapa-rota');
+  const blocoForm = document.getElementById('m-bloco-formulario-fim');
+  if (blocoMapa) blocoMapa.classList.add('hidden');
+  if (blocoForm) blocoForm.classList.remove('hidden');
+}
+
+// 3. FINALIZAÇÃO DA ROTA
 async function handleMobileFimRota(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-m-confirmar-fim');
@@ -713,6 +894,15 @@ async function handleMobileFimRota(e) {
     alert("Selecione uma rota ativa.");
     return;
   }
+
+  if (typeof destruirMapaMobile === 'function') {
+    destruirMapaMobile(rota.id);
+  }
+
+  const pontosColetados = destruirMapaMobile();
+  pararRastreamentoGPS();
+
+  const coordenadasFinais = pontosColetados.length > 0 ? pontosColetados : (rota.coordenadas || []);
 
   const selectDestino = document.getElementById('m-fim-destino')?.value;
   const outroDestino = document.getElementById('m-fim-destino-outro')?.value?.trim();
@@ -734,7 +924,6 @@ async function handleMobileFimRota(e) {
 
   const kmTotal = kmRetorno - Number(rota.km_saida);
 
-  // Localiza o veículo em memória
   const veiculoAlvo = veiculos.find(v =>
     (rota.uuid_veiculos && v.uuid_veiculos === rota.uuid_veiculos) ||
     String(v.id) === String(rota.veiculo_id) ||
@@ -742,7 +931,6 @@ async function handleMobileFimRota(e) {
     (rota.placa && String(v.placa) === String(rota.placa))
   ) || {};
 
-  // Recupera histórico de abastecimentos em cache
   let histAbast = [];
   try {
     histAbast = JSON.parse(localStorage.getItem('arvo_cache_abastecimentos') || '[]');
@@ -750,13 +938,11 @@ async function handleMobileFimRota(e) {
     histAbast = [];
   }
 
-  // Cálculo da média e litros consumidos
   const medConsumo = obterMediaConsumoEsperada(veiculoAlvo, null, histAbast);
   const litrosConsumidos = kmTotal > 0 && medConsumo > 0
     ? Number((kmTotal / medConsumo).toFixed(2))
     : 0;
 
-  // Débito no tanque virtual
   const capTanque = Number(veiculoAlvo.tanque || 47);
   const tanqueAtual = (veiculoAlvo.tanque_virtual !== null && veiculoAlvo.tanque_virtual !== undefined)
     ? Number(veiculoAlvo.tanque_virtual)
@@ -764,19 +950,18 @@ async function handleMobileFimRota(e) {
   const novoTanqueVirtual = Number(Math.max(0, tanqueAtual - litrosConsumidos).toFixed(2));
   const dataRetornoIso = new Date().toISOString();
 
-  // Payload completo com consumo_litros
   const payloadFim = {
     rota_id: rota.id,
     destino: destinoFinal,
     km_retorno: kmRetorno,
     km_total: kmTotal,
+    coordenadas: pontosColetados,
     consumo_litros: litrosConsumidos,
     data_retorno: dataRetornoIso,
     status: 'Concluida',
     anomalia: anomaliaMarcada ? (relatorioAnomalia || 'Anomalia sem detalhes') : null
   };
 
-  // Tratamento Offline
   if (!navigator.onLine || String(rota.id).startsWith('temp_')) {
     salvarNaFilaRotas({
       tipo: 'FIM',
@@ -814,13 +999,12 @@ async function handleMobileFimRota(e) {
     return;
   }
 
-  // Fluxo Online
   try {
-    // 1. Atualiza a tabela rotas gravando consumo_litros
     const { error: errRota } = await db.from('rotas').update({
       destino: destinoFinal,
       km_retorno: kmRetorno,
       km_total: kmTotal,
+      coordenadas: pontosColetados,
       consumo_litros: litrosConsumidos,
       data_retorno: payloadFim.data_retorno,
       status: 'Concluida',
@@ -829,7 +1013,6 @@ async function handleMobileFimRota(e) {
 
     if (errRota) throw errRota;
 
-    // 2. Atualiza tabela veiculos com odômetro, disponibilidade e tanque virtual
     const payloadVeiculo = {
       km_atual: kmRetorno,
       status: 'Disponivel',
@@ -850,7 +1033,6 @@ async function handleMobileFimRota(e) {
       await db.from('veiculos').update(payloadVeiculo).or(condicoesVeiculo.join(','));
     }
 
-    // 3. Encerra reserva vinculada se houver
     try {
       await db.from('reservas').update({ status: 'CONCLUIDA' })
         .eq('veiculo_id', rota.veiculo_id)
@@ -905,9 +1087,6 @@ function salvarCachesLocais() {
   localStorage.setItem('arvo_cache_rotas', JSON.stringify(rotas));
 }
 
-// =========================================================================
-// SINCRONIZAÇÃO EM SEGUNDO PLANO SEGURA (FILA OFFLINE -> SUPABASE)
-// =========================================================================
 async function sincronizarFilaRotas() {
   if (!navigator.onLine) return;
   const fila = JSON.parse(localStorage.getItem('arvo_sync_rotas_queue') || '[]');
@@ -925,7 +1104,6 @@ async function sincronizarFilaRotas() {
         delete payload.id;
         delete payload.offline_sync;
 
-        // 1. Inserção sem .single() para contornar bloqueios de RLS
         const { data: inserido, error: errInsert } = await db
           .from('rotas')
           .insert([payload])
@@ -935,7 +1113,6 @@ async function sincronizarFilaRotas() {
 
         const idRealCriado = (inserido && inserido[0]) ? inserido[0].id : null;
 
-        // 2. Atualiza o status do veículo por Placa ou Nome de Frota
         const identificador = payload.placa || payload.veiculo_id;
         let qVeic = db.from('veiculos').update({ status: 'Em Uso' });
         if (payload.placa) {
@@ -945,7 +1122,6 @@ async function sincronizarFilaRotas() {
         }
         await qVeic;
 
-        // 3. Atualiza os itens seguintes da fila que dependiam do tempId
         if (idRealCriado && tempId) {
           fila.forEach(outroItem => {
             if (outroItem.tipo === 'FIM' && String(outroItem.payload?.rota_id) === String(tempId)) {
@@ -957,13 +1133,11 @@ async function sincronizarFilaRotas() {
       } else if (item.tipo === 'FIM') {
         const { rota_id, ...dadosFim } = item.payload;
 
-        // Se ainda for um ID temporário não resolvido, aguarda próximo ciclo
         if (String(rota_id).startsWith('temp_')) {
           itensRestantes.push(item);
           continue;
         }
 
-        // 1. Atualiza o fechamento da rota no banco
         const { error: errFim } = await db
           .from('rotas')
           .update(dadosFim)
@@ -971,7 +1145,6 @@ async function sincronizarFilaRotas() {
 
         if (errFim) throw errFim;
 
-        // 2. Atualiza o veículo para 'Disponivel'
         const placaAlvo = item.placa || item.payload?.placa;
         const veicAlvo = item.veiculo_id || item.payload?.veiculo_id;
         const payloadUpdateVeic = {
@@ -988,7 +1161,6 @@ async function sincronizarFilaRotas() {
         }
         await qVeicFim;
 
-        // 3. Conclui eventuais reservas vinculadas
         try {
           await db.from('reservas').update({ status: 'CONCLUIDA' })
             .eq('veiculo_id', veicAlvo)
@@ -1003,7 +1175,6 @@ async function sincronizarFilaRotas() {
     }
   }
 
-  // Atualiza a fila apenas com o que realmente falhou
   localStorage.setItem('arvo_sync_rotas_queue', JSON.stringify(itensRestantes));
 
   if (itensRestantes.length === 0) {
@@ -1014,18 +1185,11 @@ async function sincronizarFilaRotas() {
 
 window.addEventListener('online', sincronizarFilaRotas);
 
-/**
- * Trata a mudança do select de veículos no mobile, atualizando
- * o campo de KM e renderizando o card de telemetria escuro.
- */
 function aoMudarVeiculoMobile(valor) {
   atualizarKmVeiculoMobile();
   renderPreviewCardCarroMobile(valor);
 }
 
-/**
- * Monta o card escuro com telemetria, tanque e imagem do carro selecionado
- */
 function renderPreviewCardCarroMobile(veiculoId) {
   const container = document.getElementById('m-preview-card-carro');
   if (!container) return;
@@ -1057,7 +1221,6 @@ function renderPreviewCardCarroMobile(veiculoId) {
   const capTanque = Number(veiculo.tanque || 47);
   const litrosAtuais = Number(veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined ? veiculo.tanque_virtual : capTanque);
 
-  // Segmentos do medidor de tanque
   let segmentosHTML = '';
   if (!isExterno) {
     const totalSegmentos = 16;
@@ -1076,12 +1239,10 @@ function renderPreviewCardCarroMobile(veiculoId) {
     }
   }
 
-  // Fundo Laranja 70% de transparência quando Em Uso, ou azul escuro quando Disponível
   const estiloCardMobile = isEmUso
     ? "background: rgba(234, 88, 12, 0.70); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1.5px solid rgba(254, 215, 170, 0.6); box-shadow: 0 10px 25px rgba(234, 88, 12, 0.35);"
     : "background: linear-gradient(180deg, #182230 0%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.1);";
 
-  // Imagem do veículo
   const ref = `${veiculo.nome_frota || ''} ${veiculo.marca || ''}`.toUpperCase();
   let imgUrl = '/imagens/mobi.png';
   if (ref.includes('COMPASS') || ref.includes('JEEP')) imgUrl = '/imagens/jeepcomp.png';
@@ -1175,18 +1336,14 @@ function renderizarHistoricoMobile() {
     emailUsuario = String(rawSessao || '').toLowerCase().trim();
   }
 
-  // Permissão: admin e admfin visualizam todas as rotas; motorista comum vê apenas as suas
   const ehAdmin = emailUsuario === 'admin@arvo.tec.br' || emailUsuario === 'admfin@arvo.tec.br';
-
   const todasRotas = Array.isArray(rotas) ? rotas : [];
 
-  // 1. Filtro de visibilidade por condutor
   const rotasPermitidas = todasRotas.filter(r => {
     if (ehAdmin) return true;
     return (r.responsavel || '').toLowerCase().trim() === emailUsuario;
   });
 
-  // Atualiza contadores
   const totalRotas = rotasPermitidas.length;
   const totalComAvarias = rotasPermitidas.filter(r => r.anomalia && r.anomalia.trim() !== '').length;
 
@@ -1195,20 +1352,17 @@ function renderizarHistoricoMobile() {
   if (countTodasEl) countTodasEl.innerText = totalRotas;
   if (countAvariasEl) countAvariasEl.innerText = totalComAvarias;
 
-  // 2. Filtro de busca textual e de abas/categorias
   const termoBusca = (document.getElementById('filtro-busca-historico')?.value || '').toLowerCase().trim();
 
   const rotasFiltradas = rotasPermitidas.filter(r => {
     const isConcluida = r.status !== 'Em Uso' && (r.status === 'Concluida' || r.status === 'CONCLUIDA' || r.data_retorno);
     const temAvaria = Boolean(r.anomalia && r.anomalia.trim() !== '');
 
-    // Categoria
     if (typeof categoriaFiltroMobile !== 'undefined') {
       if (categoriaFiltroMobile === 'avarias' && !temAvaria) return false;
       if (categoriaFiltroMobile === 'concluidas' && !isConcluida) return false;
     }
 
-    // Busca textual
     if (termoBusca) {
       const textoParaBusca = `${r.veiculo_id || ''} ${r.nome_frota || ''} ${r.placa || ''} ${r.responsavel || ''} ${r.origem || ''} ${r.destino || ''} ${r.finalidade || ''}`.toLowerCase();
       if (!textoParaBusca.includes(termoBusca)) return false;
@@ -1232,20 +1386,17 @@ function renderizarHistoricoMobile() {
     const isEmUso = r.status === 'Em Uso';
     const temAvaria = Boolean(r.anomalia && r.anomalia.trim() !== '');
     
-    // Nome do condutor amigável
     let condutorNome = r.responsavel || 'Condutor';
     if (typeof usuarios !== 'undefined' && Array.isArray(usuarios)) {
       const u = usuarios.find(user => (user.email || '').toLowerCase().trim() === (r.responsavel || '').toLowerCase().trim());
       if (u?.nome) condutorNome = u.nome;
     }
 
-    // Quilometragem percorrida (Trip Computer)
     const kmTotalNum = Number(r.km_total || 0);
     const kmPartes = kmTotalNum.toFixed(1).split('.');
     const tripMain = kmPartes[0];
     const tripDec = '.' + kmPartes[1];
 
-    // Cálculo do tempo de percurso
     let tempoFormatado = '--h --m';
     if (r.data_saida && r.data_retorno) {
       const diffMs = Math.max(0, new Date(r.data_retorno).getTime() - new Date(r.data_saida).getTime());
@@ -1259,7 +1410,6 @@ function renderizarHistoricoMobile() {
       tempoFormatado = `${String(horas).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
     }
 
-    // Datas (Ex: 03/03 - 04/03)
     const formatarDiaMes = (iso) => {
       if (!iso) return '';
       const d = new Date(iso);
@@ -1270,7 +1420,6 @@ function renderizarHistoricoMobile() {
     const dFim = formatarDiaMes(r.data_retorno);
     const periodoDatas = dFim ? `${dInicio} - ${dFim}` : `${dInicio} (Em trânsito)`;
 
-    // Estilização dinâmica condicional: Laranja 70% translúcido para "Em Uso" e Bege para Concluídas
     const estiloCard = isEmUso 
       ? 'background: rgba(234, 88, 12, 0.70); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1.5px solid rgba(254, 215, 170, 0.6); box-shadow: 0 10px 25px rgba(234, 88, 12, 0.35);'
       : '';
@@ -1283,7 +1432,6 @@ function renderizarHistoricoMobile() {
     if (estiloCard) card.setAttribute('style', estiloCard);
 
     card.innerHTML = `
-      <!-- Topo do Card -->
       <div class="flex items-start justify-between pb-2 border-b ${isEmUso ? 'border-white/20' : 'border-[#EAE3D6]'}">
         <div class="flex items-center gap-2.5">
           <div class="w-9 h-9 rounded-xl ${isEmUso ? 'bg-black/30 border border-white/30 text-white' : 'bg-emerald-50 border border-emerald-200/80 text-[#1E5E3A]'} flex items-center justify-center shadow-inner font-bold">
@@ -1309,7 +1457,6 @@ function renderizarHistoricoMobile() {
         </div>
       </div>
 
-      <!-- Seção Telemetria: Trajeto + Trip Computer + Cronômetro -->
       <div class="${isEmUso ? 'bg-black/30 border-white/20' : 'bg-white/90 border-[#E5DFD3]'} rounded-2xl p-3 border shadow-xs space-y-2.5">
         <div class="flex items-center justify-between gap-3">
           
@@ -1327,7 +1474,6 @@ function renderizarHistoricoMobile() {
             </div>
           </div>
 
-          <!-- Trip Computer -->
           <div class="trip-computer" title="Distância Percorrida">
             <div class="trip-header">
               <span class="trip-tag">VIAGEM</span>
@@ -1358,7 +1504,6 @@ function renderizarHistoricoMobile() {
         </div>
       </div>
 
-      <!-- Anomalia ou Status OK -->
       ${temAvaria ? `
         <div class="${isEmUso ? 'bg-rose-950/70 border-rose-400/50 text-rose-100' : 'bg-rose-50 border-rose-200 text-xs'} border rounded-xl p-2.5 flex items-start gap-2">
           <i class="ph-bold ph-warning-circle ${isEmUso ? 'text-rose-300' : 'text-rose-600'} text-base shrink-0 mt-0.5"></i>
@@ -1429,7 +1574,7 @@ async function verificarRotasExcedidas12h() {
       const diferencaHoras = (agora - new Date(rota.data_saida)) / (1000 * 60 * 60);
 
       if (diferencaHoras >= 12) {
-        exibirPopUpAlerta(rota, diferencaHoras, sessao);
+        exibirPopUpAlerta(rota, diferencaHoras);
       }
     });
 }
@@ -1438,11 +1583,9 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   if (!rota || !rota.id) return;
   const modalId = `modal-alerta-${rota.id}`;
 
-  // Se já existir na tela, remove para recriar atualizado
   const modalAntigo = document.getElementById(modalId);
   if (modalAntigo) modalAntigo.remove();
 
-  // Leitura segura da sessão
   const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
   let emailUsuario = '';
   let nomeUsuario = '';
@@ -1472,7 +1615,6 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   const popUp = document.createElement('div');
   popUp.id = modalId;
   popUp.className = "modal-alerta-backdrop";
-  // Estilo inline de contingência para garantir fixação e sobreposição
   popUp.style.cssText = "position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(15, 23, 42, 0.75) !important; z-index: 99999 !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 1rem !important; box-sizing: border-box !important;";
 
   popUp.innerHTML = `
@@ -1515,7 +1657,48 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   document.body.appendChild(popUp);
 }
 
+// =========================================================================
+// GEOLOCALIZAÇÃO
+// =========================================================================
+let watchIdGps = null;
+let pontosRotaAtual = [];
 
+function iniciarRastreamentoGPS() {
+  pontosRotaAtual = [];
+  if (!navigator.geolocation) {
+    console.warn("Geolocalização não suportada no aparelho.");
+    return;
+  }
+
+  watchIdGps = navigator.geolocation.watchPosition(
+    (pos) => {
+      const ponto = {
+        lat: Number(pos.coords.latitude.toFixed(6)),
+        lng: Number(pos.coords.longitude.toFixed(6)),
+        timestamp: new Date().toISOString()
+      };
+      pontosRotaAtual.push(ponto);
+      localStorage.setItem('arvo_gps_temp', JSON.stringify(pontosRotaAtual));
+    },
+    (err) => console.warn("Erro ao capturar GPS:", err.message),
+    {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 10000
+    }
+  );
+}
+
+function pararRastreamentoGPS() {
+  if (watchIdGps !== null) {
+    navigator.geolocation.clearWatch(watchIdGps);
+    watchIdGps = null;
+  }
+  const rotaGravada = [...pontosRotaAtual];
+  localStorage.removeItem('arvo_gps_temp');
+  pontosRotaAtual = [];
+  return rotaGravada;
+}
 
 // =========================================================================
 // INICIALIZAÇÃO NO DOM E EXPORTAÇÃO GLOBAL
@@ -1526,7 +1709,6 @@ document.addEventListener('DOMContentLoaded', () => {
     usuarioLogado = sessao;
     iniciarAppMobile();
 
-    // Lê a aba vinda da URL (?tab=...) ou do localStorage
     const params = new URLSearchParams(window.location.search);
     const abaParam = params.get('tab') || localStorage.getItem('arvo_mobile_active_tab');
     if (abaParam) {
@@ -1552,3 +1734,7 @@ window.handleMobileFimRota = handleMobileFimRota;
 window.abrirFinalizacaoDiretaMobile = abrirFinalizacaoDiretaMobile;
 window.obterMediaConsumoEsperada = obterMediaConsumoEsperada;
 window.exibirPopUpAlerta = exibirPopUpAlerta;
+window.aoMudarVeiculoMobile = aoMudarVeiculoMobile;
+window.setFiltroCategoriaMobile = setFiltroCategoriaMobile;
+window.filtrarHistoricoMobile = filtrarHistoricoMobile;
+window.exibirFormularioDevolucaoMobile = exibirFormularioDevolucaoMobile;

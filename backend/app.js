@@ -124,10 +124,6 @@ function atualizarUsuarioNoCabecalho() {
 
 /**
  * Exibe um popup modal perfeitamente centralizado na tela (Web e Mobile)
- * @param {'sucesso'|'erro'|'aviso'|'info'} tipo 
- * @param {string} titulo 
- * @param {string} mensagem 
- * @param {Function} [onClose]
  */
 function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
   const modalId = `app-modal-${Date.now()}`;
@@ -141,7 +137,6 @@ function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
 
   const config = temas[tipo] || temas.aviso;
 
-  // Backdrop em tela inteira com fallback inline blindado
   const backdrop = document.createElement('div');
   backdrop.id = modalId;
   backdrop.style.cssText = `
@@ -161,7 +156,6 @@ function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
     box-sizing: border-box !important;
   `;
 
-  // Card com largura fixa, centralização e visual ArvoCar
   backdrop.innerHTML = `
     <div style="
       background-color: #ffffff !important;
@@ -250,6 +244,48 @@ window.alert = function (mensagem) {
   mostrarPopupCustom(tipo, titulo, texto);
 };
 
+// =========================================================================
+// 2.1 COORDENADAS BASE DE LOCALIZAÇÃO ESCRITÓRIOS
+// =========================================================================
+
+// Dicionário com coordenadas padrão das bases (corrigido os sinais repetidos --)
+const COORDENADAS_BASES = {
+  "BASE CENTRAL ALEGRE": { lat: -20.761921434859808, lng: -41.533884461049986 },
+  "ALEGRE": { lat: -20.761921434859808, lng: -41.533884461049986 },
+  "GUAÇUÍ": { lat: -20.770687031454834, lng: -41.674244082674676 },
+  "CASTELO": { lat: -20.60686706579922, lng: -41.20409608718904 },
+  "MUNIZ FREIRE": { lat: -20.463385075249683, lng: -41.41357126008319 },
+  "LOCADORA CACHOEIRO": { lat: -20.858238836550413, lng: -41.12056777598245 },
+  "LOCADORA CASTELO": { lat: -20.602361586924207, lng: -41.21215241943304 }
+};
+
+// Função para obter as coordenadas de partida (GPS instantâneo ou Base Fixa)
+async function obterCoordenadasPartida(origemTexto) {
+  if (navigator.geolocation) {
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 4000
+        });
+      });
+      return {
+        lat: Number(pos.coords.latitude.toFixed(6)),
+        lng: Number(pos.coords.longitude.toFixed(6)),
+        tipo: 'GPS_REAL'
+      };
+    } catch (e) {
+      console.warn("GPS do aparelho indisponível, recorrendo à base fixa:", e.message);
+    }
+  }
+
+  const chave = (origemTexto || '').trim().toUpperCase();
+  if (COORDENADAS_BASES[chave]) {
+    return { ...COORDENADAS_BASES[chave], tipo: 'BASE_FIXA' };
+  }
+
+  return null;
+}
 
 // =========================================================================
 // 3. NAVEGAÇÃO ENTRE MÓDULOS E SUB-ABAS
@@ -335,7 +371,6 @@ function setSubTab(moduleName, tab) {
     }
 
   } else {
-    // Validação de permissões para abas de cadastro
     if ((tab === 'cad-veiculos' || tab === 'cad-usuarios') && typeof ehAdminMaster === 'function' && !ehAdminMaster()) {
       alert("Acesso restrito: Usuário sem permissão para cadastrar ou editar veículos e condutores.");
       tab = 'dashboard';
@@ -343,11 +378,9 @@ function setSubTab(moduleName, tab) {
 
     const abasGestao = ['dashboard', 'cad-veiculos', 'cad-usuarios', 'manutencao'];
     
-    // Classes visuais completas de inativo e ativo
     const classeInativo = "flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all active:scale-95 cursor-pointer whitespace-nowrap";
     const classeAtivo   = "flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm bg-[#1E5E3A] text-white shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap";
 
-    // 1. Oculta todas as views e reseta os botões para o fundo branco inativo
     abasGestao.forEach(t => {
       const view = document.getElementById(`view-${t}`);
       const btn = document.getElementById(`subtab-${t}`);
@@ -365,7 +398,6 @@ function setSubTab(moduleName, tab) {
       }
     });
 
-    // 2. Exibe a view selecionada e coloca o fundo verde ativo no botão clicado
     const activeView = document.getElementById(`view-${tab}`);
     const activeBtn = document.getElementById(`subtab-${tab}`);
 
@@ -382,7 +414,6 @@ function setSubTab(moduleName, tab) {
       }
     }
 
-    // 3. Executa as funções de carregamento de dados da aba
     if (tab === 'manutencao') {
       if (typeof popularSelectManutencaoAba === 'function') popularSelectManutencaoAba();
       if (typeof carregarHistoricoManutencoes === 'function') carregarHistoricoManutencoes();
@@ -551,7 +582,7 @@ async function handleInicioRota(e) {
   const nomeCarro = veiculo.nome_frota || veiculo.id;
   const placaCarro = veiculo.placa;
 
-  // 1. Verificação de Reserva Ativa
+  // Verificação de Reserva Ativa
   try {
     const { data: reservasCarro, error: errRes } = await db
       .from('reservas')
@@ -633,8 +664,8 @@ async function handleInicioRota(e) {
   }
 
   const dataHoraSaidaAtual = new Date().toISOString();
+  const coordsPartida = await obterCoordenadasPartida(origemFinal);
 
-  // Payload com as colunas reais da tabela 'rotas'
   const novaRota = {
     veiculo_id: nomeCarro,
     placa: placaCarro,
@@ -650,11 +681,12 @@ async function handleInicioRota(e) {
     km_total: 0,
     consumo_litros: null,
     anomalia: '',
-    status: 'Em Uso'
+    status: 'Em Uso',
+    coords_origem: coordsPartida,
+    coordenadas: coordsPartida ? [{ lat: coordsPartida.lat, lng: coordsPartida.lng, timestamp: dataHoraSaidaAtual }] : []
   };
 
   try {
-    // 1. Inserção resiliente no Supabase (não depende de permissão de retorno SELECT sob RLS)
     const { data: inserido, error: erroRota } = await db
       .from('rotas')
       .insert([novaRota])
@@ -667,7 +699,6 @@ async function handleInicioRota(e) {
 
     const rotaIdCriada = (inserido && inserido[0]) ? inserido[0].id : '';
 
-    // 2. Atualiza o status do veículo para 'Em Uso'
     const payloadUpdateVeiculo = { status: 'Em Uso' };
     if (isExterno && kmSaidaFinal > kmBanco) {
       payloadUpdateVeiculo.km_atual = kmSaidaFinal;
@@ -687,7 +718,7 @@ async function handleInicioRota(e) {
     
     alert(`✅ Rota ${rotaIdCriada ? '#' + rotaIdCriada : ''} iniciada com sucesso!`);
     await carregarTodosDadosDoBanco();
-    setSubTab('operacao', 'retorno'); // Redireciona diretamente para a tela de devolução/fechamento
+    setSubTab('operacao', 'retorno');
   } catch (err) {
     console.error("Erro ao iniciar rota no banco:", err);
     alert("Erro ao gravar rota no Supabase: " + (err.message || JSON.stringify(err)));
@@ -698,6 +729,7 @@ async function handleInicioRota(e) {
     }
   }
 }
+
 function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos = []) {
   const placa = veiculo?.placa;
   const vId = veiculo?.id;
@@ -913,7 +945,162 @@ function formatarDataHora(dataIso) {
 }
 
 // =========================================================================
-// HELPER: FORMATAÇÃO DE CRONÔMETRO (TEMPO DE ROTA)
+// GOOGLE MAPS: VISUALIZAÇÃO DE TRAJETO NA ABA MINHAS ROTAS
+// =========================================================================
+let gMapHistorico = null;
+let marcadoresHistorico = [];
+let polylineHistorico = null;
+let rotaLinhaSelecionada = null;
+
+function initGoogleMapsHistorico() {
+  const container = document.getElementById('mapa-historico-rotas');
+  if (!container || gMapHistorico || typeof google === 'undefined') return;
+
+  const defaultCenter = { lat: -20.7633, lng: -41.5331 };
+
+  gMapHistorico = new google.maps.Map(container, {
+    center: defaultCenter,
+    zoom: 11,
+    mapTypeId: 'roadmap',
+    disableDefaultUI: false,
+    zoomControl: true,
+    streetViewControl: false,
+    fullscreenControl: false
+  });
+}
+
+function limparElementosMapa() {
+  if (marcadoresHistorico && marcadoresHistorico.length > 0) {
+    marcadoresHistorico.forEach(m => m.setMap(null));
+    marcadoresHistorico = [];
+  }
+  if (polylineHistorico) {
+    polylineHistorico.setMap(null);
+    polylineHistorico = null;
+  }
+}
+
+async function plotarRotaNoMapa(rotaId) {
+  initGoogleMapsHistorico();
+  if (!gMapHistorico) return;
+
+  const rota = (rotas || []).find(r => String(r.id) === String(rotaId));
+  if (!rota) return;
+
+  const lblStatus = document.getElementById('mapa-status-rota');
+  const lblTipo = document.getElementById('mapa-tipo-tracado');
+  if (lblStatus) lblStatus.innerText = `Rota #${rota.id} (${rota.placa || rota.veiculo_id})`;
+
+  if (rotaLinhaSelecionada) rotaLinhaSelecionada.classList.remove('bg-emerald-50/80');
+  const trAtual = document.getElementById(`tr-rota-${rota.id}`);
+  if (trAtual) {
+    trAtual.classList.add('bg-emerald-50/80');
+    rotaLinhaSelecionada = trAtual;
+  }
+
+  limparElementosMapa();
+
+  let coords = rota.coordenadas;
+  if (typeof coords === 'string') {
+    try { coords = JSON.parse(coords); } catch (e) { coords = []; }
+  }
+
+  if (Array.isArray(coords) && coords.length >= 2) {
+    if (lblTipo) lblTipo.innerText = 'Trajeto Real (GPS)';
+
+    const path = coords.map(p => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+
+    const mInicio = new google.maps.Marker({
+      position: path[0],
+      map: gMapHistorico,
+      title: `Início: ${rota.origem}`,
+      label: 'A'
+    });
+
+    const mFim = new google.maps.Marker({
+      position: path[path.length - 1],
+      map: gMapHistorico,
+      title: `Fim: ${rota.destino || 'Em trânsito'}`,
+      label: 'B'
+    });
+
+    marcadoresHistorico.push(mInicio, mFim);
+
+    polylineHistorico = new google.maps.Polyline({
+      path: path,
+      geodesic: true,
+      strokeColor: '#1E5E3A',
+      strokeOpacity: 0.85,
+      strokeWeight: 4
+    });
+    polylineHistorico.setMap(gMapHistorico);
+
+    const bounds = new google.maps.LatLngBounds();
+    path.forEach(pt => bounds.extend(pt));
+    gMapHistorico.fitBounds(bounds);
+    return;
+  }
+
+  if (lblTipo) lblTipo.innerText = 'Origem & Destino (Estimado)';
+  const geocoder = new google.maps.Geocoder();
+
+  const buscarLatLng = (localNome) => {
+    return new Promise((resolve) => {
+      geocoder.geocode({ address: `${localNome}, Espírito Santo, Brasil` }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          resolve(results[0].geometry.location);
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  };
+
+  const ptOrigem = await buscarLatLng(rota.origem || 'Alegre');
+  const ptDestino = rota.destino ? await buscarLatLng(rota.destino) : null;
+
+  const bounds = new google.maps.LatLngBounds();
+
+  if (ptOrigem) {
+    const mOrigem = new google.maps.Marker({
+      position: ptOrigem,
+      map: gMapHistorico,
+      title: `Origem: ${rota.origem}`,
+      label: 'A'
+    });
+    marcadoresHistorico.push(mOrigem);
+    bounds.extend(ptOrigem);
+  }
+
+  if (ptDestino) {
+    const mDestino = new google.maps.Marker({
+      position: ptDestino,
+      map: gMapHistorico,
+      title: `Destino: ${rota.destino}`,
+      label: 'B'
+    });
+    marcadoresHistorico.push(mDestino);
+    bounds.extend(ptDestino);
+  }
+
+  if (ptOrigem && ptDestino) {
+    polylineHistorico = new google.maps.Polyline({
+      path: [ptOrigem, ptDestino],
+      geodesic: true,
+      strokeColor: '#94a3b8',
+      strokeOpacity: 0.7,
+      strokeWeight: 2
+    });
+    polylineHistorico.setMap(gMapHistorico);
+    gMapHistorico.fitBounds(bounds);
+  } else if (ptOrigem) {
+    gMapHistorico.setCenter(ptOrigem);
+    gMapHistorico.setZoom(13);
+  }
+}
+
+// =========================================================================
+// HELPER: FORMATAÇÃO DE CRONÔMETRO
 // =========================================================================
 function formatarTempoDecorrido(dataIso) {
   if (!dataIso) return "00h 00m 00s";
@@ -931,7 +1118,7 @@ function formatarTempoDecorrido(dataIso) {
 }
 
 // =========================================================================
-// OBTÉM O CAMINHO DA IMAGEM DO CARRO NA PASTA /imagens/
+// OBTÉM O CAMINHO DA IMAGEM DO CARRO
 // =========================================================================
 function mapearImagemCarro(carro) {
   if (carro?.foto_url && carro.foto_url.trim() !== '') return carro.foto_url;
@@ -973,7 +1160,6 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
 
   const imagemCarroFinal = mapearImagemCarro(veiculo);
 
-  // Consumo Histórico
   const rotasCarro = (typeof rotas !== 'undefined' ? rotas : []).filter(r => {
     const rPlaca = (r.placa || '').trim().toUpperCase();
     const rVeic = (r.veiculo_id ? String(r.veiculo_id) : '').trim().toUpperCase();
@@ -991,7 +1177,6 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
     mediaCalculada = ((Number(veiculo.consumo_min || 10) + Number(veiculo.consumo_max || 14)) / 2);
   }
 
-  // Tanque e Telemetria
   const capTanque = Number(veiculo.tanque || 47);
   let litrosAtuais = capTanque;
 
@@ -1050,7 +1235,6 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
     }
   }
 
-  // Condutor Formatado
   let condutorNome = '';
   if (isEmUso && rotaAtiva) {
     const emailDono = (rotaAtiva.responsavel || '').toLowerCase().trim();
@@ -1062,7 +1246,6 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
     condutorNome = uObj?.nome || veiculo.motorista_autorizado;
   }
 
-  // Cronômetro Box
   let timerHTML = '';
   if (exibirTimer && rotaAtiva?.data_saida) {
     const tempoInicial = formatarTempoDecorrido(rotaAtiva.data_saida);
@@ -1079,7 +1262,6 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
     `;
   }
 
-  // Bloco Telemetria
   let mioloHTML = '';
   if (isExterno) {
     mioloHTML = `
@@ -1200,7 +1382,7 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
 }
 
 // =========================================================================
-// RENDERIZAÇÃO DOS PREVIEWS LATERAIS (INÍCIO E RETORNO)
+// RENDERIZAÇÃO DOS PREVIEWS LATERAIS
 // =========================================================================
 function renderPreviewCardSaida() {
   const container = document.getElementById('preview-card-saida');
@@ -1353,7 +1535,6 @@ function abrirModalEditVeiculo(veiculoId) {
     return;
   }
 
-  // Helpers seguros que evitam quebra do script se algum campo faltar no HTML
   const setVal = (id, val) => {
     const el = document.getElementById(id);
     if (el) el.value = (val !== undefined && val !== null) ? val : '';
@@ -1364,7 +1545,6 @@ function abrirModalEditVeiculo(veiculoId) {
     if (el) el.innerText = txt || '';
   };
 
-  // Preenchimento de todos os dados originais
   setVal('edit-v-id', v.uuid_veiculos || v.id);
   setText('modal-edit-v-title', v.placa || v.nome_frota || v.id);
   setVal('edit-v-placa', v.placa || '');
@@ -1376,23 +1556,18 @@ function abrirModalEditVeiculo(veiculoId) {
   setVal('edit-v-status', v.status || 'Disponivel');
   setVal('edit-v-anomalias', v.anomalias || '');
   
-  // Tipo de frota e modelo de referência (se existirem na tela)
   const selectTipo = document.getElementById('edit-v-tipofrota');
   if (selectTipo) {
     selectTipo.value = (v.tipo_frota || 'PROPRIO').toUpperCase();
   }
   setVal('edit-v-referencia', v.modelo_referencia_id || '');
 
-  // Exibição do modal
   const modal = document.getElementById('modal-edit-veiculo');
   if (modal) {
     modal.classList.remove('hidden');
-  } else {
-    console.error("Elemento 'modal-edit-veiculo' não encontrado no DOM.");
   }
 }
 
-// Garante disponibilidade global caso seja chamado diretamente por onclick=""
 window.abrirModalEditVeiculo = abrirModalEditVeiculo;
 
 function fecharModalEditVeiculo() {
@@ -1404,13 +1579,11 @@ async function handleSalvarEditVeiculo(e) {
     e.preventDefault();
   }
 
-  // Verificação de permissão de administrador
   if (typeof ehAdminMaster === 'function' && !ehAdminMaster()) {
     alert("Permissão negada: Apenas o administrador geral pode alterar veículos.");
     return;
   }
 
-  // Helpers seguros contra elementos ausentes e tolerantes a decimais com vírgula
   const getVal = (id) => {
     const el = document.getElementById(id);
     return el ? el.value.trim() : '';
@@ -1445,7 +1618,6 @@ async function handleSalvarEditVeiculo(e) {
     anomalias: getVal('edit-v-anomalias')
   };
 
-  // Feedback visual no botão de salvar
   const btnSalvar = document.querySelector('#modal-edit-veiculo button[type="submit"]') || 
                     document.querySelector('#formEditVeiculo button[type="submit"]');
   if (btnSalvar) {
@@ -1454,11 +1626,9 @@ async function handleSalvarEditVeiculo(e) {
   }
 
   try {
-    // 1. Tenta atualizar pelo identificador (ID numérico ou UUID)
     let atualizado = false;
 
     if (idChave) {
-      // Tenta por uuid_veiculos ou id
       const { data: dataUuid, error: errUuid } = await db
         .from('veiculos')
         .update(dadosAtualizados)
@@ -1470,7 +1640,6 @@ async function handleSalvarEditVeiculo(e) {
       }
     }
 
-    // 2. Fallback direto pela placa se o primeiro não tiver afetado linhas
     if (!atualizado && placaVal) {
       const { data: dataPlaca, error: errPlaca } = await db
         .from('veiculos')
@@ -1496,8 +1665,6 @@ async function handleSalvarEditVeiculo(e) {
 
     if (typeof carregarTodosDadosDoBanco === 'function') {
       await carregarTodosDadosDoBanco();
-    } else if (typeof carregarVeiculos === 'function') {
-      await carregarVeiculos();
     }
   } catch (err) {
     console.error("Erro ao atualizar veículo:", err);
@@ -1510,7 +1677,6 @@ async function handleSalvarEditVeiculo(e) {
   }
 }
 
-// Exposição no escopo global para garantir a execução via HTML
 window.handleSalvarEditVeiculo = handleSalvarEditVeiculo;
 
 async function handleApagarVeiculo(veiculoId) {
@@ -2134,24 +2300,20 @@ function renderHistorico() {
 
   const listaRotas = Array.isArray(rotas) ? rotas : [];
 
-  // Função auxiliar para identificar status "Em Uso" de forma tolerante
   const rotaEstaAberta = (r) => {
     const s = String(r.status || '').toUpperCase().trim();
     return s === 'EM USO' || s.includes('USO') || s.includes('ROTA') || !r.data_retorno;
   };
 
-  // 1. Todas as rotas abertas no topo (ordenadas da mais recente para a mais antiga)
   const rotasAbertas = listaRotas
     .filter(rotaEstaAberta)
     .sort((a, b) => new Date(b.data_saida || b.created_at) - new Date(a.data_saida || a.created_at));
 
-  // 2. Apenas as 10 últimas rotas concluídas
   const ultimas10Concluidas = listaRotas
     .filter(r => !rotaEstaAberta(r))
     .sort((a, b) => new Date(b.data_retorno || b.data_saida || b.created_at) - new Date(a.data_retorno || a.data_saida || a.created_at))
     .slice(0, 10);
 
-  // 3. Combina as listas mantendo as abertas no topo
   const rotasExibicao = [...rotasAbertas, ...ultimas10Concluidas];
 
   if (rotasExibicao.length === 0) {
@@ -2166,8 +2328,9 @@ function renderHistorico() {
   rotasExibicao.forEach(r => {
     const isEmUso = rotaEstaAberta(r);
     const tr = document.createElement('tr');
-    tr.className = `hover:bg-slate-50 transition ${isEmUso ? 'bg-amber-50/50 font-semibold' : ''}`;
-
+    tr.id = `tr-rota-${r.id}`;
+    tr.className = `hover:bg-slate-50 transition cursor-pointer ${isEmUso ? 'bg-amber-50/50 font-semibold' : ''}`;
+    tr.onclick = () => plotarRotaNoMapa(r.id);
     tr.innerHTML = `
       <td class="py-3 px-3 font-mono font-bold text-slate-800">${r.id}</td>
       <td class="py-3 px-3 font-extrabold text-slate-900 text-sm">
@@ -2424,29 +2587,25 @@ window.aoMudarVeiculoInicio = aoMudarVeiculoInicio;
 window.aoMudarRotaFim = aoMudarRotaFim;
 window.obterImagemVeiculo = obterImagemVeiculo;
 window.mapearImagemCarro = mapearImagemCarro;
+window.plotarRotaNoMapa = plotarRotaNoMapa;
 
 // =========================================================================
 // INICIALIZAÇÃO
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  // Carrega os dados do sistema
-  if (typeof carregarTodosDadosDoBanco === 'function') {
-    await carregarTodosDadosDoBanco();
-  }
+  await carregarTodosDadosDoBanco();
+  await carregarModelosReferencia();
 
-  // Detecta se a página foi aberta com a intenção de ir direto para a Gestão
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('modulo') === 'gestao') {
     if (typeof setModule === 'function') {
-      setModule('gestao'); // Exibe module-gestao e oculta module-operacao
+      setModule('gestao');
     }
     if (typeof setSubTab === 'function') {
-      setSubTab('gestao', 'dashboard'); // Força a exibição de "Visão Geral da Frota" e renderiza os cards[cite: 7, 8]
+      setSubTab('gestao', 'dashboard');
     }
   }
-  
-  await carregarTodosDadosDoBanco();
-  await carregarModelosReferencia();
+
   solicitarPermissaoNotificacoes();
   verificarRotasExcedidas12h();
   setInterval(verificarRotasExcedidas12h, 5 * 60 * 1000);

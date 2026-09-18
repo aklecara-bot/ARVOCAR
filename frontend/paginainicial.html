@@ -13,6 +13,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCpneTztAKsrV6oT6JR5b3eLVEzx2A9Sik"></script>
 
   <!-- Arquivo de Estilos Centralizado -->
   <link rel="stylesheet" href="../EsTyle/style.css" />
@@ -283,43 +284,81 @@
       </section>
 
       <!-- 3. Minhas Rotas (Log / Histórico) -->
+      <!-- 3. Minhas Rotas (Log / Histórico com Mapa à Esquerda) -->
       <section id="view-minhas-rotas" class="hidden">
         <div class="card-panel">
           
           <div class="toolbar-filtro">
             <div>
               <h2 class="card-title">Histórico de Rotas</h2>
-              <p class="card-subtitle">Todas as viagens registradas no sistema</p>
+              <p class="card-subtitle">Todas as viagens registradas no sistema (clique em uma rota para traçar no mapa)</p>
             </div>
             <div>
               <input type="text" id="filtro-rotas" oninput="filtrarHistorico()" placeholder="Buscar por veículo ou condutor..." class="form-control input-busca-rotas" />
             </div>
           </div>
 
-          <div class="table-wrapper">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Cód.</th>
-                  <th>Veículo</th>
-                  <th>Condutor</th>
-                  <th>Trajeto</th>
-                  <th>Finalidade</th>
-                  <th>Saída</th>
-                  <th>Retorno</th>
-                  <th style="text-align: center;">KM</th>
-                  <th style="text-align: center;">Consumo</th>
-                  <th>Avarias</th>
-                  <th style="text-align: center;">Status</th>
-                </tr>
-              </thead>
-              <tbody id="tabelaHistorico">
-                <tr>
-                  <td colspan="11" class="py-8 text-center text-slate-400 font-medium">Carregando rotas...</td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Grid Responsivo: Mapa à Esquerda e Tabela à Direita -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-4 items-start">
+            
+            <!-- Coluna da Esquerda: Container do Google Maps (5 colunas) -->
+            <div class="lg:col-span-5 flex flex-col gap-3 sticky top-20">
+              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-3">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                  <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <i class="ph-bold ph-map-trifold text-[#1E5E3A] text-base"></i> Visualização de Trajeto
+                  </span>
+                  <span id="mapa-status-rota" class="text-[10px] font-mono font-bold text-slate-400">Nenhuma rota selecionada</span>
+                </div>
+
+                <!-- Div de renderização do Google Maps -->
+                <div id="mapa-historico-rotas" class="w-full h-[480px] rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 text-xs text-center p-4">
+                  Selecione uma rota na lista ao lado para projetar o trajeto no mapa.
+                </div>
+
+                <!-- Legenda do Mapa -->
+                <div class="mt-2.5 flex items-center justify-between text-[11px] text-slate-500 px-1">
+                  <span class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block"></span> Origem (A)
+                  </span>
+                  <span class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-600 inline-block"></span> Destino (B)
+                  </span>
+                  <span id="mapa-tipo-tracado" class="font-semibold text-slate-600 text-[10px]">Aguardando seleção...</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Coluna da Direita: Tabela com suas 11 Colunas Originais (7 colunas) -->
+            <div class="lg:col-span-7 overflow-hidden">
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Cód.</th>
+                      <th>Veículo</th>
+                      <th>Condutor</th>
+                      <th>Trajeto</th>
+                      <th>Finalidade</th>
+                      <th>Saída</th>
+                      <th>Retorno</th>
+                      <th style="text-align: center;">KM</th>
+                      <th style="text-align: center;">Consumo</th>
+                      <th>Avarias</th>
+                      <th style="text-align: center;">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabelaHistorico">
+                    <tr>
+                      <td colspan="11" class="py-8 text-center text-slate-400 font-medium">Carregando rotas...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
+
         </div>
       </section>
 
@@ -561,7 +600,7 @@
               </button>
             </form>
           </div>
-
+          <div id="mapa-deslocamento" class="w-full h-64 rounded-xl border border-slate-300 mt-3 hidden"></div>
           <!-- Tabela de Veículos -->
           <div class="card-panel lg:col-span-2 p-0 overflow-hidden flex flex-col">
             <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">

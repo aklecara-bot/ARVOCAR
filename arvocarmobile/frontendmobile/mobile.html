@@ -20,6 +20,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCpneTztAKsrV6oT6JR5b3eLVEzx2A9Sik"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then((registration) => {
@@ -355,9 +356,48 @@
 
       </section>
 
-      <!-- ==================== ABA 2: FINALIZAR ROTA ==================== -->
+     
+ <!-- ==================== ABA 2: FINALIZAR ROTA (COM MAPA DINÂMICO) ==================== -->
       <section id="tab-finalizar" class="hidden space-y-4">
-        <div class="bg-[#FAF7F2] rounded-3xl p-5 shadow-2xl border border-[#EFE9DF] text-slate-800">
+
+        <!-- 1. BLOCO DO MAPA (Aparece em primeiro plano se houver rota ativa) -->
+        <div id="m-bloco-mapa-rota" class="hidden space-y-3">
+          <div class="bg-[#FAF7F2] rounded-3xl p-5 shadow-2xl border border-[#EFE9DF] text-slate-800">
+            
+            <div class="flex items-center justify-between pb-3 border-b border-amber-900/10 mb-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-[#D97706] shadow-inner">
+                  <i class="ph-bold ph-navigation-arrow text-lg animate-pulse"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-black text-slate-900 leading-tight">Trajeto em Andamento</h3>
+                  <p class="text-[11px] text-slate-500 font-medium">Deslocamento registrado via GPS</p>
+                </div>
+              </div>
+              <span id="m-status-gps" class="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                GPS Ativo
+              </span>
+            </div>
+
+            <!-- Div com altura explícita para o Google Maps -->
+            <div id="mapa-mobile-tempo-real" style="width: 100%; height: 260px; min-height: 260px;" class="rounded-2xl bg-slate-200 border border-[#DDD8CE] shadow-inner overflow-hidden"></div>
+
+            <div class="flex items-center justify-between text-xs font-semibold mt-3 px-1 text-slate-600">
+              <span>Origem: <b id="m-mapa-origem-txt" class="text-slate-900 font-bold">-</b></span>
+              <span id="m-mapa-pontos-txt" class="font-mono text-[#1E5E3A] font-bold">0 pts registrados</span>
+            </div>
+          </div>
+
+          <!-- BOTÃO LARANJA: Leva para o formulário de fechamento -->
+          <button type="button" onclick="exibirFormularioDevolucaoMobile()" id="btn-m-avancar-devolucao"
+            class="w-full bg-[#D97706] hover:bg-[#B45309] text-white font-black text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2 active:scale-95">
+            <i class="ph-bold ph-flag-checkered text-base"></i>
+            <span>Registrar Devolução e KM Final &rarr;</span>
+          </button>
+        </div>
+
+        <!-- 2. FORMULÁRIO DE FINALIZAÇÃO (Mantido 100% íntegro) -->
+        <div id="m-bloco-formulario-fim" class="bg-[#FAF7F2] rounded-3xl p-5 shadow-2xl border border-[#EFE9DF] text-slate-800">
           
           <div class="flex items-center gap-3 pb-3 border-b border-amber-900/10 mb-4">
             <div class="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-[#D97706] shadow-inner">
@@ -409,6 +449,8 @@
             <input type="text" id="m-fim-destino-outro" placeholder="Digite o local de devolução..."
               class="hidden w-full bg-white border border-[#E2DDD5] text-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-medium outline-none" />
 
+            <div id="m-km-feedback" class="text-[11px] font-medium"></div>
+
             <div class="pt-2 border-t border-[#E2DDD5]">
               <label class="block text-xs font-black tracking-wide uppercase text-slate-700 mb-1.5">Situação do Carro</label>
               <div class="flex items-center gap-4 text-xs font-semibold mb-2">
@@ -432,6 +474,7 @@
             </button>
           </form>
         </div>
+
       </section>
 
       <!-- ==================== ABA 3: HISTÓRICO ==================== -->
