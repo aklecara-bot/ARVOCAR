@@ -987,67 +987,20 @@ async function plotarRotaNoMapa(rotaId) {
   const rota = (rotas || []).find(r => String(r.id) === String(rotaId));
   if (!rota) return;
 
-  const lblStatus = document.getElementById('mapa-status-rota');
-  const lblTipo = document.getElementById('mapa-tipo-tracado');
-  if (lblStatus) lblStatus.innerText = `Rota #${rota.id} (${rota.placa || rota.veiculo_id})`;
-
-  if (rotaLinhaSelecionada) rotaLinhaSelecionada.classList.remove('bg-emerald-50/80');
-  const trAtual = document.getElementById(`tr-rota-${rota.id}`);
-  if (trAtual) {
-    trAtual.classList.add('bg-emerald-50/80');
-    rotaLinhaSelecionada = trAtual;
-  }
-
   limparElementosMapa();
 
-  let coords = rota.coordenadas;
-  if (typeof coords === 'string') {
-    try { coords = JSON.parse(coords); } catch (e) { coords = []; }
-  }
-
-  if (Array.isArray(coords) && coords.length >= 2) {
-    if (lblTipo) lblTipo.innerText = 'Trajeto Real (GPS)';
-
-    const path = coords.map(p => ({ lat: Number(p.lat), lng: Number(p.lng) }));
-
-    const mInicio = new google.maps.Marker({
-      position: path[0],
-      map: gMapHistorico,
-      title: `Início: ${rota.origem}`,
-      label: 'A'
-    });
-
-    const mFim = new google.maps.Marker({
-      position: path[path.length - 1],
-      map: gMapHistorico,
-      title: `Fim: ${rota.destino || 'Em trânsito'}`,
-      label: 'B'
-    });
-
-    marcadoresHistorico.push(mInicio, mFim);
-
-    polylineHistorico = new google.maps.Polyline({
-      path: path,
-      geodesic: true,
-      strokeColor: '#1E5E3A',
-      strokeOpacity: 0.85,
-      strokeWeight: 4
-    });
-    polylineHistorico.setMap(gMapHistorico);
-
-    const bounds = new google.maps.LatLngBounds();
-    path.forEach(pt => bounds.extend(pt));
-    gMapHistorico.fitBounds(bounds);
-    return;
-  }
-
-  if (lblTipo) lblTipo.innerText = 'Origem & Destino (Estimado)';
-  const geocoder = new google.maps.Geocoder();
-
-  const buscarLatLng = (localNome) => {
+  // Helper de Geocodificação existente
+  const buscarLatLng = (endereco) => {
     return new Promise((resolve) => {
-      geocoder.geocode({ address: `${localNome}, Espírito Santo, Brasil` }, (results, status) => {
-        if (status === 'OK' && results[0]) {
+      if (!endereco || typeof google === 'undefined') return resolve(null);
+      const chaveBase = (endereco || '').trim().toUpperCase();
+      if (typeof COORDENADAS_BASES !== 'undefined' && COORDENADAS_BASES[chaveBase]) {
+        return resolve(new google.maps.LatLng(COORDENADAS_BASES[chaveBase].lat, COORDENADAS_BASES[chaveBase].lng));
+      }
+
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: endereco + ', ES, Brasil' }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
           resolve(results[0].geometry.location);
         } else {
           resolve(null);
@@ -1058,9 +1011,9 @@ async function plotarRotaNoMapa(rotaId) {
 
   const ptOrigem = await buscarLatLng(rota.origem || 'Alegre');
   const ptDestino = rota.destino ? await buscarLatLng(rota.destino) : null;
-
   const bounds = new google.maps.LatLngBounds();
 
+  // Marcador de Origem (A)
   if (ptOrigem) {
     const mOrigem = new google.maps.Marker({
       position: ptOrigem,
@@ -1072,6 +1025,7 @@ async function plotarRotaNoMapa(rotaId) {
     bounds.extend(ptOrigem);
   }
 
+  // Marcador de Destino (B)
   if (ptDestino) {
     const mDestino = new google.maps.Marker({
       position: ptDestino,
@@ -1083,16 +1037,66 @@ async function plotarRotaNoMapa(rotaId) {
     bounds.extend(ptDestino);
   }
 
+  // 1. PRIORIDADE: Trajeto real registrado pelo GPS do celular
+  let coordsReais = rota.coordenadas;
+  if (typeof coordsReais === 'string') {
+    try { coordsReais = JSON.parse(coordsReais); } catch (e) { coordsReais = []; }
+  }
+
+  if (Array.isArray(coordsReais) && coordsReais.length > 1) {
+    const pathTrajeto = coordsReais
+      .filter(p => p && p.lat && p.lng)
+      .map(p => {
+        const latLng = new google.maps.LatLng(Number(p.lat), Number(p.lng));
+        bounds.extend(latLng);
+        return latLng;
+      });
+
+    if (pathTrajeto.length > 1) {
+      polylineHistorico = new google.maps.Polyline({
+        path: pathTrajeto,
+        geodesic: true,
+        strokeColor: '#1E5E3A',
+        strokeOpacity: 0.9,
+        strokeWeight: 4,
+        map: gMapHistorico
+      });
+      gMapHistorico.fitBounds(bounds);
+      return;
+    }
+  }
+
+  // 2. FALLBACK: Caso não tenha GPS gravado, traça pelas rodovias via DirectionsService
   if (ptOrigem && ptDestino) {
-    polylineHistorico = new google.maps.Polyline({
-      path: [ptOrigem, ptDestino],
-      geodesic: true,
-      strokeColor: '#94a3b8',
-      strokeOpacity: 0.7,
-      strokeWeight: 2
+    const directionsService = new google.maps.DirectionsService();
+    directionsService.route({
+      origin: ptOrigem,
+      destination: ptDestino,
+      travelMode: google.maps.TravelMode.DRIVING
+    }, (response, status) => {
+      if (status === 'OK' && response) {
+        polylineHistorico = new google.maps.Polyline({
+          path: response.routes[0].overview_path,
+          geodesic: true,
+          strokeColor: '#1E5E3A',
+          strokeOpacity: 0.85,
+          strokeWeight: 4,
+          map: gMapHistorico
+        });
+        gMapHistorico.fitBounds(bounds);
+      } else {
+        // Contingência final em linha reta
+        polylineHistorico = new google.maps.Polyline({
+          path: [ptOrigem, ptDestino],
+          geodesic: true,
+          strokeColor: '#94a3b8',
+          strokeOpacity: 0.7,
+          strokeWeight: 2,
+          map: gMapHistorico
+        });
+        gMapHistorico.fitBounds(bounds);
+      }
     });
-    polylineHistorico.setMap(gMapHistorico);
-    gMapHistorico.fitBounds(bounds);
   } else if (ptOrigem) {
     gMapHistorico.setCenter(ptOrigem);
     gMapHistorico.setZoom(13);

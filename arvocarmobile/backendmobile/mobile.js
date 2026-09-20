@@ -895,14 +895,27 @@ async function handleMobileFimRota(e) {
     return;
   }
 
-  if (typeof destruirMapaMobile === 'function') {
-    destruirMapaMobile(rota.id);
+  // 1. Interrompe os rastreadores e consolida os pontos de GPS coletados
+  let pontosGpsRastreamento = [];
+  if (typeof pararRastreamentoGPS === 'function') {
+    pontosGpsRastreamento = pararRastreamentoGPS() || [];
   }
 
-  const pontosColetados = destruirMapaMobile();
-  pararRastreamentoGPS();
+  let pontosGpsMapa = [];
+  if (typeof destruirMapaMobile === 'function') {
+    // Passa o rota.id e recebe os pontos acumulados pelo mapa
+    pontosGpsMapa = destruirMapaMobile(rota.id) || [];
+  }
 
-  const coordenadasFinais = pontosColetados.length > 0 ? pontosColetados : (rota.coordenadas || []);
+  // Prioriza os pontos em tempo real; se vazios, usa os já vinculados à rota
+  let coordenadasFinais = [];
+  if (pontosGpsMapa.length > 0) {
+    coordenadasFinais = pontosGpsMapa;
+  } else if (pontosGpsRastreamento.length > 0) {
+    coordenadasFinais = pontosGpsRastreamento;
+  } else if (Array.isArray(rota.coordenadas) && rota.coordenadas.length > 0) {
+    coordenadasFinais = rota.coordenadas;
+  }
 
   const selectDestino = document.getElementById('m-fim-destino')?.value;
   const outroDestino = document.getElementById('m-fim-destino-outro')?.value?.trim();
@@ -938,7 +951,10 @@ async function handleMobileFimRota(e) {
     histAbast = [];
   }
 
-  const medConsumo = obterMediaConsumoEsperada(veiculoAlvo, null, histAbast);
+  const medConsumo = (typeof obterMediaConsumoEsperada === 'function')
+    ? obterMediaConsumoEsperada(veiculoAlvo, null, histAbast)
+    : 12;
+
   const litrosConsumidos = kmTotal > 0 && medConsumo > 0
     ? Number((kmTotal / medConsumo).toFixed(2))
     : 0;
@@ -950,18 +966,21 @@ async function handleMobileFimRota(e) {
   const novoTanqueVirtual = Number(Math.max(0, tanqueAtual - litrosConsumidos).toFixed(2));
   const dataRetornoIso = new Date().toISOString();
 
+  // Payload final com as coordenadas reais garantidas
   const payloadFim = {
     rota_id: rota.id,
     destino: destinoFinal,
     km_retorno: kmRetorno,
     km_total: kmTotal,
-    coordenadas: pontosColetados,
+    coordenadas: coordenadasFinais,
     consumo_litros: litrosConsumidos,
+    tanque_virtual: novoTanqueVirtual,
     data_retorno: dataRetornoIso,
     status: 'Concluida',
     anomalia: anomaliaMarcada ? (relatorioAnomalia || 'Anomalia sem detalhes') : null
   };
 
+  // Encerramento Offline ou com Rota Temporária
   if (!navigator.onLine || String(rota.id).startsWith('temp_')) {
     salvarNaFilaRotas({
       tipo: 'FIM',
@@ -977,6 +996,7 @@ async function handleMobileFimRota(e) {
     rota.consumo_litros = litrosConsumidos;
     rota.data_retorno = payloadFim.data_retorno;
     rota.destino = destinoFinal;
+    rota.coordenadas = coordenadasFinais;
 
     if (veiculoAlvo) {
       veiculoAlvo.km_atual = kmRetorno;
@@ -999,12 +1019,13 @@ async function handleMobileFimRota(e) {
     return;
   }
 
+  // Encerramento Online via Supabase
   try {
     const { error: errRota } = await db.from('rotas').update({
       destino: destinoFinal,
       km_retorno: kmRetorno,
       km_total: kmTotal,
-      coordenadas: pontosColetados,
+      coordenadas: coordenadasFinais,
       consumo_litros: litrosConsumidos,
       data_retorno: payloadFim.data_retorno,
       status: 'Concluida',
@@ -1062,6 +1083,7 @@ async function handleMobileFimRota(e) {
     rota.status = 'Concluida';
     rota.km_total = kmTotal;
     rota.consumo_litros = litrosConsumidos;
+    rota.coordenadas = coordenadasFinais;
     salvarCachesLocais();
     alert(`📶 Finalização salva localmente.`);
     switchMobileTab('historico');
