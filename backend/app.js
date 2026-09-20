@@ -987,9 +987,30 @@ async function plotarRotaNoMapa(rotaId) {
   const rota = (rotas || []).find(r => String(r.id) === String(rotaId));
   if (!rota) return;
 
+  // 1. Atualiza os títulos e rótulos da interface
+  const lblStatus = document.getElementById('mapa-status-rota');
+  const lblTipo = document.getElementById('mapa-tipo-tracado');
+  const nomeVeiculo = rota.nome_frota || rota.veiculo_id || '';
+  const placaVeiculo = rota.placa ? ` (${rota.placa})` : '';
+
+  if (lblStatus) {
+    lblStatus.innerText = `Rota #${rota.id} ${placaVeiculo || nomeVeiculo}`.trim();
+    lblStatus.classList.remove('text-slate-400');
+    lblStatus.classList.add('text-slate-800', 'font-extrabold');
+  }
+
+  // 2. Destaca visualmente a linha selecionada na tabela
+  document.querySelectorAll('#tabelaHistorico tr').forEach(tr => {
+    tr.classList.remove('bg-emerald-50/80', 'ring-1', 'ring-emerald-500');
+  });
+  const trAtiva = document.getElementById(`tr-rota-${rota.id}`);
+  if (trAtiva) {
+    trAtiva.classList.add('bg-emerald-50/80', 'ring-1', 'ring-emerald-500');
+  }
+
   limparElementosMapa();
 
-  // Helper de Geocodificação existente
+  // Helper de Geocodificação
   const buscarLatLng = (endereco) => {
     return new Promise((resolve) => {
       if (!endereco || typeof google === 'undefined') return resolve(null);
@@ -1037,7 +1058,7 @@ async function plotarRotaNoMapa(rotaId) {
     bounds.extend(ptDestino);
   }
 
-  // 1. PRIORIDADE: Trajeto real registrado pelo GPS do celular
+  // 3. PRIORIDADE: Trajeto real registrado pelo GPS
   let coordsReais = rota.coordenadas;
   if (typeof coordsReais === 'string') {
     try { coordsReais = JSON.parse(coordsReais); } catch (e) { coordsReais = []; }
@@ -1053,6 +1074,7 @@ async function plotarRotaNoMapa(rotaId) {
       });
 
     if (pathTrajeto.length > 1) {
+      if (lblTipo) lblTipo.innerText = 'Trajeto Real (GPS)';
       polylineHistorico = new google.maps.Polyline({
         path: pathTrajeto,
         geodesic: true,
@@ -1066,8 +1088,9 @@ async function plotarRotaNoMapa(rotaId) {
     }
   }
 
-  // 2. FALLBACK: Caso não tenha GPS gravado, traça pelas rodovias via DirectionsService
+  // 4. FALLBACK: Consulta de rotas por rodovias
   if (ptOrigem && ptDestino) {
+    if (lblTipo) lblTipo.innerText = 'Traçado por Rodovia (Estimado)';
     const directionsService = new google.maps.DirectionsService();
     directionsService.route({
       origin: ptOrigem,
@@ -1085,7 +1108,8 @@ async function plotarRotaNoMapa(rotaId) {
         });
         gMapHistorico.fitBounds(bounds);
       } else {
-        // Contingência final em linha reta
+        // Fallback final linha reta
+        if (lblTipo) lblTipo.innerText = 'Origem & Destino (Estimado)';
         polylineHistorico = new google.maps.Polyline({
           path: [ptOrigem, ptDestino],
           geodesic: true,
@@ -1098,6 +1122,7 @@ async function plotarRotaNoMapa(rotaId) {
       }
     });
   } else if (ptOrigem) {
+    if (lblTipo) lblTipo.innerText = 'Origem na Base';
     gMapHistorico.setCenter(ptOrigem);
     gMapHistorico.setZoom(13);
   }
@@ -2356,6 +2381,11 @@ function renderHistorico() {
         </span>
       </td>
     `;
+
+    if (rotasExibicao.length > 0) {
+    // Plota automaticamente a primeira rota da tabela
+    plotarRotaNoMapa(rotasExibicao[0].id);
+  }
     tbody.appendChild(tr);
   });
 }
