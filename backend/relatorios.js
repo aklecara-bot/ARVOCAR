@@ -44,7 +44,7 @@ async function initRelatorio() {
     todasRotas = data || [];
 
     povoarOpcoesFiltros();
-    // Inicializa na escala Mês aplicando a todos os gráficos
+    // Inicializa na escala Mês cobrindo a janela dos 30 dias anteriores
     setPeriodo('mes');
   } catch (err) {
     console.error("Erro ao carregar dados:", err);
@@ -87,7 +87,7 @@ function povoarOpcoesFiltros() {
 }
 
 // =========================================================================
-// 3. ESCALA TEMPORAL COM JANELA REAL DE EVOLUÇÃO
+// 3. ESCALA TEMPORAL COM SUB-SELETORES DINÂMICOS
 // =========================================================================
 function setPeriodo(p) {
   periodoAtual = p;
@@ -97,40 +97,26 @@ function setPeriodo(p) {
     const item = document.getElementById(`btn-periodo-${btn}`);
     if (item) {
       if (btn === p) {
-        item.className = "flex-1 py-1.5 px-3 rounded-lg bg-emerald-700 text-white shadow font-bold text-center whitespace-nowrap transition";
+        item.className = "flex-1 py-1.5 px-3 rounded-lg bg-[#b45309] text-white shadow font-black text-center whitespace-nowrap transition";
       } else {
-        item.className = "flex-1 py-1.5 px-3 rounded-lg text-slate-400 hover:text-white font-bold text-center whitespace-nowrap transition";
+        item.className = "flex-1 py-1.5 px-3 rounded-lg text-amber-300/70 hover:text-white font-bold text-center whitespace-nowrap transition";
       }
     }
   });
 
   const labelEscala = document.getElementById('label-escala-ativa');
-  if (labelEscala) {
-    const nomes = { dia: 'Dia (Últimos 15 dias)', semana: 'Semanal', mes: 'Mês (Últimos 6 Meses)', trimestre: 'Trimestral', ano: 'Anual' };
-    labelEscala.innerText = `Escala: ${nomes[p] || p}`;
-  }
+  const painelSubfiltro = document.getElementById('painel-subfiltro-escala');
+  const subSemanas = document.getElementById('subfiltro-semanas');
+  const subTrimestres = document.getElementById('subfiltro-trimestres');
 
-  // Define o range dos inputs para dar suporte visual ao usuário
+  // Oculta abas secundárias por padrão
+  if (painelSubfiltro) painelSubfiltro.classList.add('hidden');
+  if (subSemanas) subSemanas.classList.add('hidden');
+  if (subTrimestres) subTrimestres.classList.add('hidden');
+
   const hoje = new Date();
   let dIni = new Date(hoje);
   let dFim = new Date(hoje);
-
-  if (p === 'dia') {
-    // Últimos 15 dias para ter curva de linha visível
-    dIni.setDate(hoje.getDate() - 14);
-  } else if (p === 'semana') {
-    // Últimas 8 semanas
-    dIni.setDate(hoje.getDate() - 56);
-  } else if (p === 'mes') {
-    // Últimos 6 meses para desenhar a curva completa de evolução mensal
-    dIni.setMonth(hoje.getMonth() - 5);
-    dIni.setDate(1);
-  } else if (p === 'trimestre') {
-    dIni.setMonth(hoje.getMonth() - 11);
-    dIni.setDate(1);
-  } else if (p === 'ano') {
-    dIni = new Date(hoje.getFullYear() - 2, 0, 1);
-  }
 
   const fmt = (d) => {
     const ano = d.getFullYear();
@@ -139,10 +125,156 @@ function setPeriodo(p) {
     return `${ano}-${mes}-${dia}`;
   };
 
+  // --- LÓGICA DE CADA BOTÃO ---
+  if (p === 'dia') {
+    // 1. DIA = Dia atual no início e no fim
+    dIni = new Date(hoje);
+    dFim = new Date(hoje);
+    if (labelEscala) labelEscala.innerText = 'Escala: Dia Atual';
+
+  } else if (p === 'semana') {
+    // 2. SEMANA = Marca a semana atual e abre gaveta de semanas passadas do ano
+    if (painelSubfiltro) painelSubfiltro.classList.remove('hidden');
+    if (subSemanas) subSemanas.classList.remove('hidden');
+    popularSemanasDoAno(hoje);
+
+    const diaSem = hoje.getDay(); // 0 = Domingo, 1 = Segunda...
+    const difSegunda = (diaSem === 0 ? -6 : 1) - diaSem;
+    dIni.setDate(hoje.getDate() + difSegunda);
+    dFim = new Date(hoje);
+    if (labelEscala) labelEscala.innerText = 'Escala: Semana Atual';
+
+  } else if (p === 'mes') {
+    // 3. MÊS = 30 dias corridos anteriores à data atual
+    dIni.setDate(hoje.getDate() - 30);
+    dFim = new Date(hoje);
+    if (labelEscala) labelEscala.innerText = 'Escala: Mês (Últimos 30 dias)';
+
+  } else if (p === 'trimestre') {
+    // 4. TRIMESTRE = Abre pequena aba com escolha dos 4 trimestres do ano
+    if (painelSubfiltro) painelSubfiltro.classList.remove('hidden');
+    if (subTrimestres) subTrimestres.classList.remove('hidden');
+
+    const trimAtual = Math.floor(hoje.getMonth() / 3) + 1;
+    destacarBotaoTrimestre(trimAtual);
+
+    const mIni = (trimAtual - 1) * 3;
+    dIni = new Date(hoje.getFullYear(), mIni, 1);
+    dFim = new Date(hoje.getFullYear(), mIni + 3, 0);
+    if (labelEscala) labelEscala.innerText = `Escala: ${trimAtual}º Trimestre de ${hoje.getFullYear()}`;
+
+  } else if (p === 'ano') {
+    // 5. ANO = Ano corrente
+    dIni = new Date(hoje.getFullYear(), 0, 1);
+    dFim = new Date(hoje);
+    if (labelEscala) labelEscala.innerText = `Escala: Ano ${hoje.getFullYear()}`;
+  }
+
   const dtIniInput = document.getElementById('filtro-data-inicio');
   const dtFimInput = document.getElementById('filtro-data-fim');
   if (dtIniInput) dtIniInput.value = fmt(dIni);
   if (dtFimInput) dtFimInput.value = fmt(dFim);
+
+  aplicarFiltrosEAtualizar();
+}
+
+// =========================================================================
+// POVOAMENTO E SELEÇÃO DE SEMANAS PASSADAS DO ANO
+// =========================================================================
+function popularSemanasDoAno(dataReferencia) {
+  const select = document.getElementById('select-semanas-ano');
+  if (!select) return;
+  select.innerHTML = '';
+
+  const ano = dataReferencia.getFullYear();
+  const hoje = new Date(dataReferencia);
+  const semanas = [];
+
+  let dataCursor = new Date(ano, 0, 1);
+  while (dataCursor.getDay() !== 1) {
+    dataCursor.setDate(dataCursor.getDate() + 1);
+  }
+
+  let numSemana = 1;
+  while (dataCursor <= hoje) {
+    const inicioSemana = new Date(dataCursor);
+    const fimSemana = new Date(dataCursor);
+    fimSemana.setDate(fimSemana.getDate() + 6);
+
+    const fmtData = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const fmtIso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    semanas.push({
+      label: `Semana ${numSemana} (${fmtData(inicioSemana)} a ${fmtData(fimSemana)})`,
+      ini: fmtIso(inicioSemana),
+      fim: fmtIso(fimSemana > hoje ? hoje : fimSemana),
+      isAtual: hoje >= inicioSemana && hoje <= fimSemana
+    });
+
+    numSemana++;
+    dataCursor.setDate(dataCursor.getDate() + 7);
+  }
+
+  semanas.reverse().forEach((s, idx) => {
+    const opt = document.createElement('option');
+    opt.value = `${s.ini}|${s.fim}`;
+    opt.text = s.isAtual ? `⭐ ${s.label} [Atual]` : s.label;
+    if (s.isAtual || idx === 0) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+function selecionarSemanaEspecifica(valor) {
+  if (!valor) return;
+  const [ini, fim] = valor.split('|');
+  const dtIniInput = document.getElementById('filtro-data-inicio');
+  const dtFimInput = document.getElementById('filtro-data-fim');
+  if (dtIniInput) dtIniInput.value = ini;
+  if (dtFimInput) dtFimInput.value = fim;
+
+  const labelEscala = document.getElementById('label-escala-ativa');
+  const sel = document.getElementById('select-semanas-ano');
+  if (labelEscala && sel) {
+    labelEscala.innerText = `Escala: ${sel.options[sel.selectedIndex].text.replace('⭐ ', '')}`;
+  }
+
+  aplicarFiltrosEAtualizar();
+}
+
+// =========================================================================
+// SELEÇÃO ENTRE OS 4 TRIMESTRES DO ANO
+// =========================================================================
+function destacarBotaoTrimestre(tEscolhido) {
+  [1, 2, 3, 4].forEach(t => {
+    const btn = document.getElementById(`btn-trim-${t}`);
+    if (btn) {
+      if (t === tEscolhido) {
+        btn.className = "py-1 px-2 rounded-lg text-xs font-black text-white bg-[#b45309] border border-amber-400 transition text-center shadow";
+      } else {
+        btn.className = "py-1 px-2 rounded-lg text-xs font-bold text-amber-300/80 bg-[#1e0e06] border border-amber-900/60 hover:border-amber-400 transition text-center";
+      }
+    }
+  });
+}
+
+function selecionarTrimestreEspecifico(t) {
+  destacarBotaoTrimestre(t);
+  const ano = (new Date()).getFullYear();
+  const mIni = (t - 1) * 3;
+  const dIni = new Date(ano, mIni, 1);
+  const dFim = new Date(ano, mIni + 3, 0);
+
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const dtIniInput = document.getElementById('filtro-data-inicio');
+  const dtFimInput = document.getElementById('filtro-data-fim');
+  if (dtIniInput) dtIniInput.value = fmt(dIni);
+  if (dtFimInput) dtFimInput.value = fmt(dFim);
+
+  const labelEscala = document.getElementById('label-escala-ativa');
+  if (labelEscala) {
+    labelEscala.innerText = `Escala: ${t}º Trimestre de ${ano}`;
+  }
 
   aplicarFiltrosEAtualizar();
 }
@@ -217,7 +349,7 @@ function renderizarKPIs() {
   const rotasValidas = rotasFiltradas.filter(r => r.status === 'Concluida' || Number(r.km_total) > 0);
   const totalKm = rotasValidas.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
   const totalLitros = rotasValidas.reduce((acc, r) => acc + (Number(r.consumo_litros) || 0), 0);
-  
+
   const consumoMedioKmL = (totalKm > 0 && totalLitros > 0) ? (totalKm / totalLitros).toFixed(1) : '11.8';
 
   let somaHoras = 0;
@@ -295,7 +427,6 @@ function renderizarGraficoTempo() {
   const ctx = canvas.getContext('2d');
   const agrupado = {};
 
-  // Ordena as rotas cronologicamente para montar a curva progressiva
   const rotasOrdenadas = [...rotasFiltradas].sort((a, b) => new Date(a.data_saida || 0) - new Date(b.data_saida || 0));
 
   rotasOrdenadas.forEach(r => {
@@ -304,16 +435,13 @@ function renderizarGraficoTempo() {
     let chave = '';
 
     if (periodoAtual === 'dia') {
-      chave = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      chave = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     } else if (periodoAtual === 'semana') {
       const primeiroDia = new Date(d.getTime());
       primeiroDia.setDate(primeiroDia.getDate() - primeiroDia.getDay());
       chave = `Sem ${primeiroDia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
     } else if (periodoAtual === 'mes') {
-      // Ex: "Mar 26", "Abr 26", "Mai 26"
-      chave = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
-      // Remove ponto final do mês abreviado se houver (ex: "mar." -> "Mar")
-      chave = chave.replace('.', '').toUpperCase();
+      chave = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     } else if (periodoAtual === 'trimestre') {
       const trim = Math.floor(d.getMonth() / 3) + 1;
       chave = `T${trim}/${d.getFullYear().toString().slice(-2)}`;
@@ -327,22 +455,6 @@ function renderizarGraficoTempo() {
   let labels = Object.keys(agrupado);
   let dados = Object.values(agrupado);
 
-  // Se houver apenas 1 mês no filtro (ex: mês corrente isolado), expande os dias do próprio mês
-  if (periodoAtual === 'mes' && labels.length <= 1) {
-    const agrupadoDias = {};
-    rotasOrdenadas.forEach(r => {
-      if (!r.data_saida) return;
-      const d = new Date(r.data_saida);
-      const chaveDia = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-      agrupadoDias[chaveDia] = (agrupadoDias[chaveDia] || 0) + (Number(r.km_total) || 0);
-    });
-    if (Object.keys(agrupadoDias).length > 1) {
-      labels = Object.keys(agrupadoDias);
-      dados = Object.values(agrupadoDias);
-    }
-  }
-
-  // Gradiente Neon da Imagem de Referência
   const gradArea = ctx.createLinearGradient(0, 0, 0, 240);
   gradArea.addColorStop(0, 'rgba(16, 185, 129, 0.45)');
   gradArea.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
@@ -359,7 +471,7 @@ function renderizarGraficoTempo() {
         borderWidth: 3,
         backgroundColor: gradArea,
         fill: true,
-        tension: 0.4, // Curva Interpolada Cubic
+        tension: 0.4,
         pointBackgroundColor: '#10b981',
         pointBorderColor: '#ffffff',
         pointBorderWidth: 2,
@@ -397,7 +509,7 @@ function renderizarGraficoTempo() {
   });
 }
 
-// 2. Gráfico por Veículo (KM no período filtrado)
+// 7.2 Gráfico por Veículo (KM no período filtrado)
 function renderizarGraficoCarro() {
   const canvas = document.getElementById('chartCarro');
   if (!canvas) return;
@@ -437,7 +549,7 @@ function renderizarGraficoCarro() {
   });
 }
 
-// 3. Tempo do Carro em Uso (Horas no período filtrado)
+// 7.3 Tempo do Carro em Uso (Horas no período filtrado)
 function renderizarGraficoTempoUsoCarro() {
   const canvas = document.getElementById('chartTempoUsoCarro');
   if (!canvas) return;
@@ -476,7 +588,7 @@ function renderizarGraficoTempoUsoCarro() {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: function(ctx) { return `${ctx.raw} horas em trânsito`; }
+            label: function (ctx) { return `${ctx.raw} horas em trânsito`; }
           }
         }
       },
@@ -492,7 +604,7 @@ function renderizarGraficoTempoUsoCarro() {
   });
 }
 
-// 4. Demandas & Projetos (No período filtrado)
+// 7.4 Demandas & Projetos (No período filtrado)
 function renderizarGraficoFinalidade() {
   const canvas = document.getElementById('chartFinalidade');
   if (!canvas) return;
@@ -539,7 +651,7 @@ function renderizarGraficoFinalidade() {
   });
 }
 
-// 5. Ranking de Condutores (No período filtrado)
+// 7.5 Ranking de Condutores (No período filtrado)
 function renderizarGraficoMotorista() {
   const canvas = document.getElementById('chartMotorista');
   if (!canvas) return;
@@ -617,9 +729,11 @@ function renderizarTabela() {
   });
 }
 
-// Exposição global das funções
+// Exposição global das funções para o HTML
 window.aplicarFiltrosEAtualizar = aplicarFiltrosEAtualizar;
 window.limparFiltros = limparFiltros;
 window.setPeriodo = setPeriodo;
+window.selecionarSemanaEspecifica = selecionarSemanaEspecifica;
+window.selecionarTrimestreEspecifico = selecionarTrimestreEspecifico;
 
 document.addEventListener('DOMContentLoaded', initRelatorio);

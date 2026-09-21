@@ -47,6 +47,16 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #d97706;
     }
+
+    /* Ícone do Seletor de Calendário Nativo na Cor Âmbar do Texto */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      filter: invert(85%) sepia(30%) saturate(600%) hue-rotate(345deg) brightness(105%) contrast(98%);
+      opacity: 0.9;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator:hover {
+      opacity: 1;
+    }
   </style>
 </head>
 <body class="bg-[#140b05] text-amber-50 font-sans min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-slate-950">
@@ -112,7 +122,7 @@
   <!-- ================= 3. CONTEÚDO PRINCIPAL ================= -->
   <main class="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 space-y-6">
 
-    <!-- BARRA DE CONTROLE: FILTROS DINÂMICOS (FUNDO BASE EM LARANJA/ÂMBAR) -->
+    <!-- BARRA DE CONTROLE: FILTROS DINÂMICOS -->
     <div class="bg-gradient-to-b from-[#211209] to-[#170c06] border border-amber-500/20 rounded-3xl p-5 shadow-2xl backdrop-blur-md space-y-4">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-amber-900/40">
         <div class="flex items-center gap-2.5">
@@ -137,32 +147,32 @@
         </div>
       </div>
 
-      <!-- Linha 1: Seletores de Categoria (Inputs com fundo escuro alaranjado) -->
+      <!-- Linha 1: Seletores de Categoria -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
           <label class="block text-[10px] font-black uppercase tracking-wider text-amber-400 mb-1">Motorista</label>
-          <select id="filtro-motorista" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-900/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-bold outline-none focus:border-amber-500">
+          <select id="filtro-motorista" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-bold outline-none focus:border-amber-500">
             <option value="TODOS">Todos os Motoristas</option>
           </select>
         </div>
 
         <div>
           <label class="block text-[10px] font-black uppercase tracking-wider text-amber-400 mb-1">Finalidade / Projeto</label>
-          <select id="filtro-finalidade" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-900/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-bold outline-none focus:border-amber-500">
+          <select id="filtro-finalidade" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-bold outline-none focus:border-amber-500">
             <option value="TODOS">Todas as Finalidades</option>
           </select>
         </div>
 
         <div>
           <label class="block text-[10px] font-black uppercase tracking-wider text-amber-400 mb-1">Origem de Saída</label>
-          <select id="filtro-origem" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-900/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-bold outline-none focus:border-amber-500">
+          <select id="filtro-origem" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-bold outline-none focus:border-amber-500">
             <option value="TODOS">Todas as Origens</option>
           </select>
         </div>
 
         <div>
           <label class="block text-[10px] font-black uppercase tracking-wider text-amber-400 mb-1">Carro / Veículo</label>
-          <select id="filtro-veiculo" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-900/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-bold outline-none focus:border-amber-500">
+          <select id="filtro-veiculo" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-bold outline-none focus:border-amber-500">
             <option value="TODOS">Todos os Veículos</option>
           </select>
         </div>
@@ -172,31 +182,51 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pt-3 border-t border-amber-900/40 items-end">
         <div class="lg:col-span-3">
           <label class="block text-[10px] font-black uppercase tracking-wider text-amber-400 mb-1">Data Inicial</label>
-          <input type="date" id="filtro-data-inicio" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-900/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-mono outline-none focus:border-amber-500" />
+          <input type="date" id="filtro-data-inicio" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-mono outline-none focus:border-amber-500 [color-scheme:dark]" />
         </div>
 
         <div class="lg:col-span-3">
           <label class="block text-[10px] font-black uppercase tracking-wider text-amber-400 mb-1">Data Final</label>
-          <input type="date" id="filtro-data-fim" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-900/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-mono outline-none focus:border-amber-500" />
+          <input type="date" id="filtro-data-fim" onchange="aplicarFiltrosEAtualizar()" class="w-full bg-[#140a04] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-mono outline-none focus:border-amber-500 [color-scheme:dark]" />
         </div>
 
-        <!-- Seletor de Escala Temporal -->
+        <!-- Seletor de Escala Temporal e Gaveta Sub-Filtros -->
         <div class="lg:col-span-6">
           <label class="block text-[10px] font-black uppercase tracking-wider text-amber-400 mb-1">Escala Temporal do Gráfico</label>
-          <div class="flex bg-[#120803] p-1 rounded-xl border border-amber-900/50 text-xs font-bold gap-1 overflow-x-auto">
+          <div class="flex bg-[#120803] p-1 rounded-xl border border-amber-200/50 text-xs font-bold gap-1 overflow-x-auto">
             <button type="button" id="btn-periodo-dia" onclick="setPeriodo('dia')" class="flex-1 py-1.5 px-3 rounded-lg text-amber-300/70 hover:text-white transition text-center whitespace-nowrap">Dia</button>
             <button type="button" id="btn-periodo-semana" onclick="setPeriodo('semana')" class="flex-1 py-1.5 px-3 rounded-lg text-amber-300/70 hover:text-white transition text-center whitespace-nowrap">Sem</button>
             <button type="button" id="btn-periodo-mes" onclick="setPeriodo('mes')" class="flex-1 py-1.5 px-3 rounded-lg bg-[#b45309] text-white shadow font-black transition text-center whitespace-nowrap">Mês</button>
             <button type="button" id="btn-periodo-trimestre" onclick="setPeriodo('trimestre')" class="flex-1 py-1.5 px-3 rounded-lg text-amber-300/70 hover:text-white transition text-center whitespace-nowrap">Trim</button>
             <button type="button" id="btn-periodo-ano" onclick="setPeriodo('ano')" class="flex-1 py-1.5 px-3 rounded-lg text-amber-300/70 hover:text-white transition text-center whitespace-nowrap">Ano</button>
           </div>
+
+          <!-- GAVETA EXPANSÍVEL: SUB-SELETORES DINÂMICOS (SEMANAS E TRIMESTRES) -->
+          <div id="painel-subfiltro-escala" class="hidden mt-2 p-2 rounded-xl bg-[#140a04] border border-amber-500/30">
+            <!-- Sub-seletor para Semanas Passadas -->
+            <div id="subfiltro-semanas" class="hidden flex items-center gap-2">
+              <span class="text-[10px] uppercase font-bold text-amber-400 whitespace-nowrap"><i class="ph-bold ph-calendar"></i> Semana:</span>
+              <select id="select-semanas-ano" onchange="selecionarSemanaEspecifica(this.value)" class="w-full bg-[#1c0d05] border border-amber-500/40 text-amber-100 text-xs rounded-lg px-2.5 py-1.5 font-mono outline-none">
+              </select>
+            </div>
+
+            <!-- Sub-seletor para os 4 Trimestres -->
+            <div id="subfiltro-trimestres" class="hidden flex items-center gap-2">
+              <span class="text-[10px] uppercase font-bold text-amber-400 whitespace-nowrap"><i class="ph-bold ph-chart-pie-slice"></i> Trimestre:</span>
+              <div class="grid grid-cols-4 gap-1.5 w-full">
+                <button type="button" id="btn-trim-1" onclick="selecionarTrimestreEspecifico(1)" class="py-1 px-2 rounded-lg text-xs font-bold text-amber-300/80 bg-[#1e0e06] border border-amber-900/60 hover:border-amber-400 transition text-center">1º Trim (Jan-Mar)</button>
+                <button type="button" id="btn-trim-2" onclick="selecionarTrimestreEspecifico(2)" class="py-1 px-2 rounded-lg text-xs font-bold text-amber-300/80 bg-[#1e0e06] border border-amber-900/60 hover:border-amber-400 transition text-center">2º Trim (Abr-Jun)</button>
+                <button type="button" id="btn-trim-3" onclick="selecionarTrimestreEspecifico(3)" class="py-1 px-2 rounded-lg text-xs font-bold text-amber-300/80 bg-[#1e0e06] border border-amber-900/60 hover:border-amber-400 transition text-center">3º Trim (Jul-Set)</button>
+                <button type="button" id="btn-trim-4" onclick="selecionarTrimestreEspecifico(4)" class="py-1 px-2 rounded-lg text-xs font-bold text-amber-300/80 bg-[#1e0e06] border border-amber-900/60 hover:border-amber-400 transition text-center">4º Trim (Out-Dez)</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- ================= 4. KPIS ANALÍTICOS (CYBER-COCKPIT ÂMBAR) ================= -->
+    <!-- ================= 4. KPIS ANALÍTICOS ================= -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-
       <!-- KPI 1: Distância Total -->
       <div class="relative bg-gradient-to-br from-[#241308] to-[#150a04] rounded-2xl p-5 border border-cyan-500/30 glow-cyan-cockpit transition hover:-translate-y-1">
         <div class="flex justify-between items-start">
@@ -244,13 +274,12 @@
           <i class="ph-bold ph-check-circle"></i> Logadas em servidor
         </div>
       </div>
-
     </div>
 
-    <!-- ================= 5. GRID DE GRÁFICOS ANALÍTICOS (FUNDO EM BASE LARANJA) ================= -->
+    <!-- ================= 5. GRID DE GRÁFICOS ANALÍTICOS ================= -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-      <!-- GRÁFICO 1 (7 colunas): Quilometragem Acumulada no Tempo (Fundo Laranja Profundo) -->
+      <!-- GRÁFICO 1: Quilometragem Acumulada no Tempo -->
       <div class="lg:col-span-7 bg-gradient-to-b from-[#241308] to-[#140a04] rounded-3xl p-6 border border-amber-500/25 shadow-2xl relative overflow-hidden glow-amber-cockpit">
         <div class="flex justify-between items-center mb-4">
           <div>
@@ -258,7 +287,7 @@
             <h3 class="text-base font-black text-white">Quilometragem Acumulada no Tempo</h3>
           </div>
           <span id="label-escala-ativa" class="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold bg-[#33180b] text-amber-300 border border-amber-500/30 font-mono">
-            Escala: Mês
+            Escala: Mês (Últimos 30 dias)
           </span>
         </div>
         <div class="h-64">
@@ -266,7 +295,7 @@
         </div>
       </div>
 
-      <!-- GRÁFICO 2 (5 colunas): Comparativo de KM por Veículo (Fundo Laranja Profundo) -->
+      <!-- GRÁFICO 2: Quilometragem por Veículo -->
       <div class="lg:col-span-5 bg-gradient-to-b from-[#241308] to-[#140a04] rounded-3xl p-6 border border-amber-500/25 shadow-2xl relative overflow-hidden">
         <div class="flex justify-between items-center mb-4">
           <div>
@@ -280,7 +309,7 @@
         </div>
       </div>
 
-      <!-- GRÁFICO 3 (6 colunas): Tempo do Carro em Uso (Fundo Laranja Profundo) -->
+      <!-- GRÁFICO 3: Tempo do Carro em Uso -->
       <div class="lg:col-span-6 bg-gradient-to-b from-[#281509] to-[#160a04] rounded-3xl p-6 border border-amber-500/30 shadow-2xl relative overflow-hidden glow-orange-cockpit">
         <div class="flex justify-between items-center mb-4">
           <div>
@@ -296,7 +325,7 @@
         </div>
       </div>
 
-      <!-- GRÁFICO 4 (6 colunas): Demandas & Projetos (Fundo Laranja Profundo) -->
+      <!-- GRÁFICO 4: Demandas & Projetos -->
       <div class="lg:col-span-6 bg-gradient-to-b from-[#241308] to-[#140a04] rounded-3xl p-6 border border-amber-500/25 shadow-2xl relative overflow-hidden">
         <div class="flex justify-between items-center mb-4">
           <div>
@@ -310,7 +339,7 @@
         </div>
       </div>
 
-      <!-- GRÁFICO 5 (12 colunas): Ranking por Condutor (Fundo Laranja Profundo) -->
+      <!-- GRÁFICO 5: Ranking por Condutor -->
       <div class="lg:col-span-12 bg-gradient-to-b from-[#241308] to-[#140a04] rounded-3xl p-6 border border-amber-500/25 shadow-2xl relative overflow-hidden">
         <div class="flex justify-between items-center mb-4">
           <div>
@@ -326,7 +355,7 @@
 
     </div>
 
-    <!-- ================= 6. TABELA / LISTAS COM FUNDO BASE EM LARANJA ================= -->
+    <!-- ================= 6. TABELA COM LOG EM TEMPO REAL ================= -->
     <div class="bg-gradient-to-b from-[#211209] to-[#170c06] rounded-3xl border border-amber-500/20 shadow-2xl p-6 space-y-4 backdrop-blur-md">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-900/40 pb-4">
         <div>
@@ -372,7 +401,7 @@
   <!-- ================= 7. INTEGRAÇÃO COM BACKEND ================= -->
   <script src="/backend/relatorios.js"></script>
 
-  <!-- Script Auxiliar para Exportação em CSV -->
+  <!-- Script de Exportação CSV -->
   <script>
     function exportarRelatorioCSV() {
       const tabela = document.getElementById('tabelaRelatorioRotas');
