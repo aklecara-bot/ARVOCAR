@@ -11,7 +11,6 @@ const db = (window.supabase && typeof window.supabase.createClient === 'function
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 const FIN_ADMIN_EMAIL = "admfin@arvo.tec.br";
 
-// Validação de formato da CNH (11 dígitos numéricos e sem sequências repetidas)
 const validarNumeroCNH = (cnh) => {
   if (!cnh) return false;
   const limpo = String(cnh).replace(/\D/g, '');
@@ -28,7 +27,6 @@ let currentUserIndex = 0;
 // =========================================================================
 // 2. CONTROLE DE SESSÃO, PERMISSÕES E LOGOUT
 // =========================================================================
-
 function verificarSessaoUsuario() {
   const sessaoRaw = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
   if (!sessaoRaw) {
@@ -70,7 +68,6 @@ function aplicarPermissoesUsuario() {
   const podeVerGestao = ehGestorOuAdmin();
   const podeEditarCadastros = ehAdminMaster();
 
-  // 1. Visibilidade do Painel de Gestão
   if (btnGestao) {
     if (podeVerGestao) {
       btnGestao.classList.remove('hidden');
@@ -83,7 +80,6 @@ function aplicarPermissoesUsuario() {
     }
   }
 
-  // 2. Bloqueio de abas de cadastro e botões de edição para o perfil admfin
   const subtabCadVeiculos = document.getElementById('subtab-cad-veiculos');
   const subtabCadUsuarios = document.getElementById('subtab-cad-usuarios');
   const viewCadVeiculos = document.getElementById('view-cad-veiculos');
@@ -122,9 +118,6 @@ function atualizarUsuarioNoCabecalho() {
   if (inputUsuario) inputUsuario.value = `${u.nome} <${u.email}>`;
 }
 
-/**
- * Exibe um popup modal perfeitamente centralizado na tela (Web e Mobile)
- */
 function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
   const modalId = `app-modal-${Date.now()}`;
 
@@ -226,7 +219,6 @@ function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
   };
 }
 
-// Sobrescreve o alert nativo para usar o modal
 window.alert = function (mensagem) {
   const texto = String(mensagem || '');
   let tipo = 'aviso';
@@ -247,8 +239,6 @@ window.alert = function (mensagem) {
 // =========================================================================
 // 2.1 COORDENADAS BASE DE LOCALIZAÇÃO ESCRITÓRIOS
 // =========================================================================
-
-// Dicionário com coordenadas padrão das bases (corrigido os sinais repetidos --)
 const COORDENADAS_BASES = {
   "BASE CENTRAL ALEGRE": { lat: -20.761921434859808, lng: -41.533884461049986 },
   "ALEGRE": { lat: -20.761921434859808, lng: -41.533884461049986 },
@@ -259,7 +249,6 @@ const COORDENADAS_BASES = {
   "LOCADORA CASTELO": { lat: -20.602361586924207, lng: -41.21215241943304 }
 };
 
-// Função para obter as coordenadas de partida (GPS instantâneo ou Base Fixa)
 async function obterCoordenadasPartida(origemTexto) {
   if (navigator.geolocation) {
     try {
@@ -290,7 +279,6 @@ async function obterCoordenadasPartida(origemTexto) {
 // =========================================================================
 // 3. NAVEGAÇÃO ENTRE MÓDULOS E SUB-ABAS
 // =========================================================================
-
 function setModule(mod) {
   if (mod === 'gestao' && !ehGestorOuAdmin()) {
     alert("Acesso restrito: Apenas a administração tem permissão para acessar o Painel de Gestão.");
@@ -377,7 +365,6 @@ function setSubTab(moduleName, tab) {
     }
 
     const abasGestao = ['dashboard', 'cad-veiculos', 'cad-usuarios', 'manutencao'];
-    
     const classeInativo = "flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all active:scale-95 cursor-pointer whitespace-nowrap";
     const classeAtivo   = "flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm bg-[#1E5E3A] text-white shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap";
 
@@ -428,15 +415,11 @@ function setSubTab(moduleName, tab) {
   }
 }
 
-// =========================================================================
-// POVOAMENTO DO SELECT DE VEÍCULOS NA ABA DE MANUTENÇÃO
-// =========================================================================
 function popularSelectManutencaoAba() {
   const sel = document.getElementById('manut-aba-veiculo');
   if (!sel) return;
 
   sel.innerHTML = '<option value="">Selecione o veículo...</option>';
-
   const veiculosAtivos = (veiculos || []).filter(v => (v.status || '').trim() !== 'Fora de Uso');
 
   if (veiculosAtivos.length === 0) {
@@ -475,7 +458,6 @@ function atualizarKmManutencaoAba() {
 // =========================================================================
 // 4. CARREGAMENTO GERAL DE DADOS (SUPABASE)
 // =========================================================================
-
 async function carregarTodosDadosDoBanco() {
   const usuarioSessao = verificarSessaoUsuario();
   if (!usuarioSessao) return;
@@ -517,7 +499,6 @@ async function carregarTodosDadosDoBanco() {
 // =========================================================================
 // 5. OPERAÇÕES DE ROTAS (CHECK-OUT E CHECK-IN)
 // =========================================================================
-
 function toggleOutroOrigem(valor) {
   const inputTexto = document.getElementById('form-inicio-origem-texto');
   if (inputTexto) {
@@ -692,10 +673,7 @@ async function handleInicioRota(e) {
       .insert([novaRota])
       .select('id');
 
-    if (erroRota) {
-      console.error("Erro detalhado no insert de rotas:", erroRota);
-      throw erroRota;
-    }
+    if (erroRota) throw erroRota;
 
     const rotaIdCriada = (inserido && inserido[0]) ? inserido[0].id : '';
 
@@ -710,8 +688,7 @@ async function handleInicioRota(e) {
     } else {
       qVeic = qVeic.eq('id', veiculo.id);
     }
-    const { error: erroVeic } = await qVeic;
-    if (erroVeic) console.warn("Aviso ao atualizar veículo:", erroVeic.message);
+    await qVeic;
 
     e.target.reset();
     if (typeof toggleOutroOrigem === 'function') toggleOutroOrigem('');
@@ -987,30 +964,21 @@ async function plotarRotaNoMapa(rotaId) {
   const rota = (rotas || []).find(r => String(r.id) === String(rotaId));
   if (!rota) return;
 
-  // 1. Atualiza os títulos e rótulos da interface
   const lblStatus = document.getElementById('mapa-status-rota');
   const lblTipo = document.getElementById('mapa-tipo-tracado');
-  const nomeVeiculo = rota.nome_frota || rota.veiculo_id || '';
-  const placaVeiculo = rota.placa ? ` (${rota.placa})` : '';
-
   if (lblStatus) {
-    lblStatus.innerText = `Rota #${rota.id} ${placaVeiculo || nomeVeiculo}`.trim();
+    lblStatus.innerText = `Rota #${rota.id} (${rota.placa || rota.veiculo_id || ''})`.trim();
     lblStatus.classList.remove('text-slate-400');
     lblStatus.classList.add('text-slate-800', 'font-extrabold');
   }
 
-  // 2. Destaca visualmente a linha selecionada na tabela
-  document.querySelectorAll('#tabelaHistorico tr').forEach(tr => {
-    tr.classList.remove('bg-emerald-50/80', 'ring-1', 'ring-emerald-500');
-  });
-  const trAtiva = document.getElementById(`tr-rota-${rota.id}`);
-  if (trAtiva) {
-    trAtiva.classList.add('bg-emerald-50/80', 'ring-1', 'ring-emerald-500');
-  }
+  // Destaca a linha clicada na tabela
+  document.querySelectorAll('#tabelaHistorico tr').forEach(tr => tr.classList.remove('bg-emerald-50/80'));
+  const trAtual = document.getElementById(`tr-rota-${rota.id}`);
+  if (trAtual) trAtual.classList.add('bg-emerald-50/80');
 
   limparElementosMapa();
 
-  // Helper de Geocodificação
   const buscarLatLng = (endereco) => {
     return new Promise((resolve) => {
       if (!endereco || typeof google === 'undefined') return resolve(null);
@@ -1018,77 +986,117 @@ async function plotarRotaNoMapa(rotaId) {
       if (typeof COORDENADAS_BASES !== 'undefined' && COORDENADAS_BASES[chaveBase]) {
         return resolve(new google.maps.LatLng(COORDENADAS_BASES[chaveBase].lat, COORDENADAS_BASES[chaveBase].lng));
       }
-
       const geocoder = new google.maps.Geocoder();
       geocoder.geocode({ address: endereco + ', ES, Brasil' }, (results, status) => {
-        if (status === 'OK' && results && results[0]) {
-          resolve(results[0].geometry.location);
-        } else {
-          resolve(null);
-        }
+        if (status === 'OK' && results && results[0]) resolve(results[0].geometry.location);
+        else resolve(null);
       });
     });
   };
 
-  const ptOrigem = await buscarLatLng(rota.origem || 'Alegre');
-  const ptDestino = rota.destino ? await buscarLatLng(rota.destino) : null;
   const bounds = new google.maps.LatLngBounds();
 
-  // Marcador de Origem (A)
-  if (ptOrigem) {
-    const mOrigem = new google.maps.Marker({
-      position: ptOrigem,
+  // 1. Trata os pontos de GPS salvos no banco
+  let coords = rota.coordenadas;
+  if (typeof coords === 'string') {
+    try { coords = JSON.parse(coords); } catch (e) { coords = []; }
+  }
+
+  // Se houver rastro real do GPS (2 ou mais pontos válidos)
+  if (Array.isArray(coords) && coords.length >= 2) {
+    if (lblTipo) lblTipo.innerText = 'Trajeto Real (Ajustado a Rodovias)';
+
+    const pInicio = new google.maps.LatLng(Number(coords[0].lat), Number(coords[0].lng));
+    const pFim = new google.maps.LatLng(Number(coords[coords.length - 1].lat), Number(coords[coords.length - 1].lng));
+
+    const mInicio = new google.maps.Marker({
+      position: pInicio,
       map: gMapHistorico,
-      title: `Origem: ${rota.origem}`,
+      title: `Início: ${rota.origem || 'Origem'}`,
       label: 'A'
     });
+
+    const mFim = new google.maps.Marker({
+      position: pFim,
+      map: gMapHistorico,
+      title: `Fim: ${rota.destino || 'Em trânsito'}`,
+      label: 'B'
+    });
+
+    marcadoresHistorico.push(mInicio, mFim);
+
+    // Amostragem de waypoints intermediários para não ultrapassar a cota da Directions API (máx. 20 a 23 pontos)
+    const intermediarios = coords.slice(1, -1);
+    const waypoints = (intermediarios.length > 20
+      ? intermediarios.filter((_, idx) => idx % Math.ceil(intermediarios.length / 20) === 0)
+      : intermediarios
+    ).map(p => ({
+      location: new google.maps.LatLng(Number(p.lat), Number(p.lng)),
+      stopover: false
+    }));
+
+    const directionsService = new google.maps.DirectionsService();
+
+    directionsService.route({
+      origin: pInicio,
+      destination: pFim,
+      waypoints: waypoints,
+      optimizeWaypoints: false,
+      travelMode: google.maps.TravelMode.DRIVING
+    }, (result, status) => {
+      if (status === 'OK' && result) {
+        polylineHistorico = new google.maps.Polyline({
+          path: result.routes[0].overview_path,
+          geodesic: true,
+          strokeColor: '#1E5E3A',
+          strokeOpacity: 0.9,
+          strokeWeight: 4,
+          map: gMapHistorico
+        });
+        result.routes[0].overview_path.forEach(pt => bounds.extend(pt));
+      } else {
+        // Fallback: se a API de trânsito falhar, une os pontos geográficos brutos do GPS
+        const fallbackPath = coords.map(p => new google.maps.LatLng(Number(p.lat), Number(p.lng)));
+        polylineHistorico = new google.maps.Polyline({
+          path: fallbackPath,
+          geodesic: true,
+          strokeColor: '#1E5E3A',
+          strokeOpacity: 0.85,
+          strokeWeight: 4,
+          map: gMapHistorico
+        });
+        fallbackPath.forEach(pt => bounds.extend(pt));
+      }
+
+      gMapHistorico.fitBounds(bounds);
+
+      // Trava de segurança para evitar zoom microscópico em paradas
+      google.maps.event.addListenerOnce(gMapHistorico, 'idle', () => {
+        if (gMapHistorico.getZoom() > 16) {
+          gMapHistorico.setZoom(16);
+        }
+      });
+    });
+
+    return;
+  }
+
+  // 2. Se não houver pontos suficientes (ou 1 único ponto gravado), calcula rota entre Origem e Destino
+  const ptOrigem = await buscarLatLng(rota.origem || 'Alegre');
+  const ptDestino = rota.destino ? await buscarLatLng(rota.destino) : null;
+
+  if (ptOrigem) {
+    const mOrigem = new google.maps.Marker({ position: ptOrigem, map: gMapHistorico, title: `Origem: ${rota.origem}`, label: 'A' });
     marcadoresHistorico.push(mOrigem);
     bounds.extend(ptOrigem);
   }
 
-  // Marcador de Destino (B)
   if (ptDestino) {
-    const mDestino = new google.maps.Marker({
-      position: ptDestino,
-      map: gMapHistorico,
-      title: `Destino: ${rota.destino}`,
-      label: 'B'
-    });
+    const mDestino = new google.maps.Marker({ position: ptDestino, map: gMapHistorico, title: `Destino: ${rota.destino}`, label: 'B' });
     marcadoresHistorico.push(mDestino);
     bounds.extend(ptDestino);
   }
 
-  // 3. PRIORIDADE: Trajeto real registrado pelo GPS
-  let coordsReais = rota.coordenadas;
-  if (typeof coordsReais === 'string') {
-    try { coordsReais = JSON.parse(coordsReais); } catch (e) { coordsReais = []; }
-  }
-
-  if (Array.isArray(coordsReais) && coordsReais.length > 1) {
-    const pathTrajeto = coordsReais
-      .filter(p => p && p.lat && p.lng)
-      .map(p => {
-        const latLng = new google.maps.LatLng(Number(p.lat), Number(p.lng));
-        bounds.extend(latLng);
-        return latLng;
-      });
-
-    if (pathTrajeto.length > 1) {
-      if (lblTipo) lblTipo.innerText = 'Trajeto Real (GPS)';
-      polylineHistorico = new google.maps.Polyline({
-        path: pathTrajeto,
-        geodesic: true,
-        strokeColor: '#1E5E3A',
-        strokeOpacity: 0.9,
-        strokeWeight: 4,
-        map: gMapHistorico
-      });
-      gMapHistorico.fitBounds(bounds);
-      return;
-    }
-  }
-
-  // 4. FALLBACK: Consulta de rotas por rodovias
   if (ptOrigem && ptDestino) {
     if (lblTipo) lblTipo.innerText = 'Traçado por Rodovia (Estimado)';
     const directionsService = new google.maps.DirectionsService();
@@ -1108,8 +1116,6 @@ async function plotarRotaNoMapa(rotaId) {
         });
         gMapHistorico.fitBounds(bounds);
       } else {
-        // Fallback final linha reta
-        if (lblTipo) lblTipo.innerText = 'Origem & Destino (Estimado)';
         polylineHistorico = new google.maps.Polyline({
           path: [ptOrigem, ptDestino],
           geodesic: true,
@@ -1124,7 +1130,7 @@ async function plotarRotaNoMapa(rotaId) {
   } else if (ptOrigem) {
     if (lblTipo) lblTipo.innerText = 'Origem na Base';
     gMapHistorico.setCenter(ptOrigem);
-    gMapHistorico.setZoom(13);
+    gMapHistorico.setZoom(14);
   }
 }
 
@@ -1410,9 +1416,6 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
   `;
 }
 
-// =========================================================================
-// RENDERIZAÇÃO DOS PREVIEWS LATERAIS
-// =========================================================================
 function renderPreviewCardSaida() {
   const container = document.getElementById('preview-card-saida');
   if (!container) return;
@@ -1487,7 +1490,6 @@ function aoMudarRotaFim() {
 // =========================================================================
 // 6. GESTÃO DE VEÍCULOS (EXCLUSIVO ADMIN MASTER)
 // =========================================================================
-
 function veiculoVisivelParaUsuario(v, user) {
   const tipo = (v?.tipo_frota || '').toUpperCase().trim();
   const isExterno = tipo.includes('EXTERN') || tipo.includes('ESPORADIC');
@@ -1501,7 +1503,6 @@ function veiculoVisivelParaUsuario(v, user) {
   if (ehAdmin) return true;
 
   const motoristaAutorizado = (v?.motorista_autorizado || '').toLowerCase().trim();
-
   if (!motoristaAutorizado) return false;
 
   if (emailUsuario === motoristaAutorizado) return true;
@@ -1597,8 +1598,6 @@ function abrirModalEditVeiculo(veiculoId) {
   }
 }
 
-window.abrirModalEditVeiculo = abrirModalEditVeiculo;
-
 function fecharModalEditVeiculo() {
   document.getElementById('modal-edit-veiculo').classList.add('hidden');
 }
@@ -1686,15 +1685,9 @@ async function handleSalvarEditVeiculo(e) {
       throw new Error("Nenhum registro correspondente foi localizado para atualização.");
     }
 
-    if (typeof fecharModalEditVeiculo === 'function') {
-      fecharModalEditVeiculo();
-    }
-
+    fecharModalEditVeiculo();
     alert(`✅ Veículo [${dadosAtualizados.placa}] atualizado com sucesso!`);
-
-    if (typeof carregarTodosDadosDoBanco === 'function') {
-      await carregarTodosDadosDoBanco();
-    }
+    await carregarTodosDadosDoBanco();
   } catch (err) {
     console.error("Erro ao atualizar veículo:", err);
     alert("Erro ao atualizar veículo: " + (err.message || 'Verifique sua conexão.'));
@@ -1705,8 +1698,6 @@ async function handleSalvarEditVeiculo(e) {
     }
   }
 }
-
-window.handleSalvarEditVeiculo = handleSalvarEditVeiculo;
 
 async function handleApagarVeiculo(veiculoId) {
   if (!ehAdminMaster()) {
@@ -1760,7 +1751,6 @@ async function handleApagarVeiculo(veiculoId) {
 // =========================================================================
 // 7. GESTÃO DE USUÁRIOS (EXCLUSIVO ADMIN MASTER)
 // =========================================================================
-
 function toggleVerSenhaEdicao() {
   const input = document.getElementById('edit-u-senha');
   const icone = document.getElementById('icone-senha-edit');
@@ -1913,7 +1903,6 @@ async function handleApagarUsuario(usuarioId, nome) {
 // =========================================================================
 // 8. RENDERIZAÇÃO DE TABELAS E COMPONENTES
 // =========================================================================
-
 function renderAll() {
   renderFleetGrid();
   renderDashboardKPIs();
@@ -1986,7 +1975,6 @@ function renderFleetGrid() {
   });
 }
 
-// Loop global de atualização do cronômetro
 if (!window.timerGlobalRotasIniciado) {
   window.timerGlobalRotasIniciado = true;
   setInterval(() => {
@@ -2087,7 +2075,7 @@ function renderTabelaUsuariosCad() {
 
     let badgeStatus;
     if (!cnhValida) {
-      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700" title="CNH não possui 11 dígitos numéricos válidos">CNH Inválida</span>`;
+      badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">CNH Inválida</span>`;
     } else if (u.status === 'Inativo') {
       badgeStatus = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Inativo</span>`;
     } else {
@@ -2100,9 +2088,7 @@ function renderTabelaUsuariosCad() {
       <td class="py-3 px-4 font-bold text-slate-800">${u.nome}</td>
       <td class="py-3 px-4 text-slate-600">${u.email}</td>
       <td class="py-3 px-4 font-mono font-semibold ${cnhValida ? 'text-brand-700' : 'text-rose-600 font-bold'}">${u.cnh || '-'}</td>
-      <td class="py-3 px-4 text-center">
-        ${badgeStatus}
-      </td>
+      <td class="py-3 px-4 text-center">${badgeStatus}</td>
       <td class="py-3 px-4 text-center">
         ${podeAcoes ? `
           <div class="flex items-center justify-center gap-2">
@@ -2173,13 +2159,7 @@ function atualizarKmInicialPreenchido() {
       .sort((a, b) => new Date(b.data_retorno || b.data_saida) - new Date(a.data_retorno || a.data_saida));
 
     const ultimaRota = ultimasRotasCarro[0];
-
-    let kmSincronizado = 0;
-    if (ultimaRota && Number(ultimaRota.km_retorno) > 0) {
-      kmSincronizado = Number(ultimaRota.km_retorno);
-    } else {
-      kmSincronizado = Number(v.km_atual || 0);
-    }
+    let kmSincronizado = (ultimaRota && Number(ultimaRota.km_retorno) > 0) ? Number(ultimaRota.km_retorno) : Number(v.km_atual || 0);
 
     inputKm.value = kmSincronizado;
     
@@ -2188,12 +2168,10 @@ function atualizarKmInicialPreenchido() {
       inputKm.readOnly = false;
       inputKm.classList.remove('bg-slate-100');
       inputKm.classList.add('bg-white', 'border-indigo-300', 'focus:ring-2', 'focus:ring-indigo-500');
-      inputKm.title = "Carro Externo: Confirme ou ajuste o KM atual visualizado no painel.";
     } else {
       inputKm.readOnly = true;
       inputKm.classList.remove('bg-white', 'border-indigo-300', 'focus:ring-2', 'focus:ring-indigo-500');
       inputKm.classList.add('bg-slate-100');
-      inputKm.title = "KM sincronizado com o último registro.";
     }
   } else {
     inputKm.value = '';
@@ -2381,13 +2359,12 @@ function renderHistorico() {
         </span>
       </td>
     `;
-
-    if (rotasExibicao.length > 0) {
-    // Plota automaticamente a primeira rota da tabela
-    plotarRotaNoMapa(rotasExibicao[0].id);
-  }
     tbody.appendChild(tr);
   });
+
+  if (rotasExibicao.length > 0) {
+    plotarRotaNoMapa(rotasExibicao[0].id);
+  }
 }
 
 function filtrarHistorico() {
@@ -2400,7 +2377,6 @@ function filtrarHistorico() {
 // =========================================================================
 // 9. ALERTAS DE ROTAS (> 12H)
 // =========================================================================
-
 async function solicitarPermissaoNotificacoes() {
   if ("Notification" in window && Notification.permission === "default") {
     await Notification.requestPermission();

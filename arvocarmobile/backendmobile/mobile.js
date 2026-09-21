@@ -217,14 +217,13 @@ function switchMobileTab(tab) {
     activeBtn.classList.add('text-brand-700', 'font-bold');
   }
 
-  // --- AO ABRIR A ABA FINALIZAR ---
+  // Ao abrir a aba finalizar
   if (tab === 'finalizar') {
     renderizarOpcoesRotasAtivas();
 
     const emailAtual = (usuarioLogado?.email || '').toLowerCase().trim();
     const ehAdmin = emailAtual === 'admin@arvo.tec.br' || emailAtual === 'admfin@arvo.tec.br';
 
-    // Localiza a rota ativa (compatível com temp_ e offline)
     const rotaAberta = (rotas || []).find(r => 
       r.status === 'Em Uso' && 
       (ehAdmin || (r.responsavel && r.responsavel.toLowerCase().trim() === emailAtual))
@@ -477,13 +476,164 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
 }
 
 // =========================================================================
+// SISTEMA DE GEOLOCALIZAÇÃO TEMPORIZADA (3 MINUTOS) SOB MOVIMENTO
+// =========================================================================
+let wakeLock = null;
+let watchIdGps = null;
+let coordenadasEmTempoReal = [];
+let ultimoPontoRegistrado = null;
+let ultimoTimestampSalvo = 0;
+let idRotaRastreamentoAtiva = null;
+
+const INTERVALO_LEITURA_MS = 3 * 60 * 1000; // 3 minutos
+const DISTANCIA_MINIMA_METROS = 50;         // Mínimo de 50 metros de deslocamento
+
+async function manterTelaAtiva() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      console.log('ARVO GPS: Tela travada ativa para deslocamento.');
+    }
+  } catch (err) {
+    console.warn('WakeLock aviso:', err.message);
+  }
+}
+
+function liberarTelaAtiva() {
+  if (wakeLock !== null) {
+    wakeLock.release().then(() => { wakeLock = null; });
+  }
+}
+
+function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Raio da Terra em metros
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function iniciarRastreamentoIntervaladoGPS(rotaId) {
+  if (!navigator.geolocation) {
+    console.warn("Geolocalização não suportada no aparelho.");
+    return;
+  }
+
+  idRotaRastreamentoAtiva = rotaId;
+  const chaveCache = `arvo_gps_rota_${rotaId}`;
+  
+  // Tenta restaurar pontos já existentes da rota se houver
+  try {
+    const existentes = JSON.parse(localStorage.getItem(chaveCache) || '[]');
+    coordenadasEmTempoReal = Array.isArray(existentes) ? existentes : [];
+  } catch (e) {
+    coordenadasEmTempoReal = [];
+  }
+
+  if (coordenadasEmTempoReal.length > 0) {
+    ultimoPontoRegistrado = coordenadasEmTempoReal[coordenadasEmTempoReal.length - 1];
+    ultimoTimestampSalvo = new Date(ultimoPontoRegistrado.timestamp || Date.now()).getTime();
+  } else {
+    ultimoPontoRegistrado = null;
+    ultimoTimestampSalvo = 0;
+  }
+
+  if (watchIdGps !== null) {
+    navigator.geolocation.clearWatch(watchIdGps);
+    watchIdGps = null;
+  }
+
+  manterTelaAtiva();
+
+  watchIdGps = navigator.geolocation.watchPosition(
+    (pos) => {
+      const agora = Date.now();
+      const coords = pos.coords;
+      const velocidadeKmh = coords.speed ? coords.speed * 3.6 : 0;
+
+      // 1. Valida se o carro está em deslocamento real
+      let distanciaPercorrida = 0;
+      if (ultimoPontoRegistrado) {
+        distanciaPercorrida = calcularDistanciaMetros(
+          ultimoPontoRegistrado.lat,
+          ultimoPontoRegistrado.lng,
+          coords.latitude,
+          coords.longitude
+        );
+      }
+
+      // Se o veículo estiver parado no trânsito ou estacionado, NÃO registra
+      const estaParado = distanciaPercorrida < DISTANCIA_MINIMA_METROS && velocidadeKmh < 5;
+      if (ultimoPontoRegistrado !== null && estaParado) {
+        return;
+      }
+
+      // 2. Valida a janela de tempo de 3 minutos (exceto o primeiro registro da saída)
+      const tempoDecorrido = (agora - ultimoTimestampSalvo) >= INTERVALO_LEITURA_MS;
+      if (!tempoDecorrido && ultimoPontoRegistrado !== null) {
+        return;
+      }
+
+      // 3. Registra e persiste a coordenada válida
+      const novoPonto = {
+        lat: Number(coords.latitude.toFixed(6)),
+        lng: Number(coords.longitude.toFixed(6)),
+        velocidade: Number(velocidadeKmh.toFixed(1)),
+        timestamp: new Date().toISOString()
+      };
+
+      ultimoPontoRegistrado = novoPonto;
+      ultimoTimestampSalvo = agora;
+
+      coordenadasEmTempoReal.push(novoPonto);
+      localStorage.setItem(chaveCache, JSON.stringify(coordenadasEmTempoReal));
+
+      const ptsTxt = document.getElementById('m-mapa-pontos-txt');
+      if (ptsTxt) ptsTxt.innerText = `${coordenadasEmTempoReal.length} pts registrados`;
+
+      // Atualiza o mapa na tela se estiver ativo
+      if (gPolylineMobile && gMapMobile) {
+        const path = gPolylineMobile.getPath();
+        const latLng = new google.maps.LatLng(novoPonto.lat, novoPonto.lng);
+        path.push(latLng);
+        if (gMarkerPosAtual) gMarkerPosAtual.setPosition(latLng);
+        gMapMobile.panTo(latLng);
+      }
+    },
+    (err) => console.warn("GPS Erro:", err.message),
+    {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 12000
+    }
+  );
+}
+
+function pararRastreamentoGPS() {
+  if (watchIdGps !== null) {
+    navigator.geolocation.clearWatch(watchIdGps);
+    watchIdGps = null;
+  }
+  liberarTelaAtiva();
+
+  const pontosFinais = [...coordenadasEmTempoReal];
+  if (idRotaRastreamentoAtiva) {
+    localStorage.removeItem(`arvo_gps_rota_${idRotaRastreamentoAtiva}`);
+    idRotaRastreamentoAtiva = null;
+  }
+  return pontosFinais;
+}
+
+// =========================================================================
 // GOOGLE MAPS EM TEMPO REAL NO MOBILE
 // =========================================================================
 let gMapMobile = null;
 let gPolylineMobile = null;
 let gMarkerPosAtual = null;
-let watchIdMobileGPS = null;
-let coordenadasEmTempoReal = [];
 
 function iniciarRastreamentoTempoRealMobile(rotaAtiva) {
   if (!rotaAtiva) return;
@@ -494,14 +644,17 @@ function iniciarRastreamentoTempoRealMobile(rotaAtiva) {
 
   if (!blocoMapa || !containerMapa) return;
 
-  // Mostra o card com o mapa e esconde o formulário
   blocoMapa.classList.remove('hidden');
   if (blocoForm) blocoForm.classList.add('hidden');
 
   const lblOrigem = document.getElementById('m-mapa-origem-txt');
   if (lblOrigem) lblOrigem.innerText = rotaAtiva.origem || 'Origem';
 
-  // Recupera coordenadas salvas em cache para esta rota
+  // Garante que o rastreamento intervalado esteja ligado para esta rota
+  if (watchIdGps === null) {
+    iniciarRastreamentoIntervaladoGPS(rotaAtiva.id);
+  }
+
   const chaveCache = `arvo_gps_rota_${rotaAtiva.id}`;
   try {
     const salvas = JSON.parse(localStorage.getItem(chaveCache) || '[]');
@@ -510,8 +663,7 @@ function iniciarRastreamentoTempoRealMobile(rotaAtiva) {
     coordenadasEmTempoReal = [];
   }
 
-  // Ponto inicial de centralização
-  let pontoInicial = { lat: -20.761921, lng: -41.533884 }; // Alegre
+  let pontoInicial = { lat: -20.761921, lng: -41.533884 };
   if (coordenadasEmTempoReal.length > 0) {
     pontoInicial = coordenadasEmTempoReal[coordenadasEmTempoReal.length - 1];
   } else if (rotaAtiva.coords_origem) {
@@ -520,7 +672,6 @@ function iniciarRastreamentoTempoRealMobile(rotaAtiva) {
     pontoInicial = COORDENADAS_BASES[(rotaAtiva.origem || '').toUpperCase()];
   }
 
-  // Renderiza a instância do Google Maps
   setTimeout(() => {
     if (typeof google !== 'undefined' && google.maps) {
       if (!gMapMobile) {
@@ -562,35 +713,6 @@ function iniciarRastreamentoTempoRealMobile(rotaAtiva) {
       }
     }
   }, 100);
-
-  // Monitoramento do GPS do aparelho
-  if (navigator.geolocation && watchIdMobileGPS === null) {
-    watchIdMobileGPS = navigator.geolocation.watchPosition(
-      (pos) => {
-        const novaCoord = {
-          lat: Number(pos.coords.latitude.toFixed(6)),
-          lng: Number(pos.coords.longitude.toFixed(6)),
-          timestamp: new Date().toISOString()
-        };
-
-        coordenadasEmTempoReal.push(novaCoord);
-        localStorage.setItem(chaveCache, JSON.stringify(coordenadasEmTempoReal));
-
-        const ptsTxt = document.getElementById('m-mapa-pontos-txt');
-        if (ptsTxt) ptsTxt.innerText = `${coordenadasEmTempoReal.length} pts registrados`;
-
-        if (gPolylineMobile && gMapMobile) {
-          const path = gPolylineMobile.getPath();
-          const latLng = new google.maps.LatLng(novaCoord.lat, novaCoord.lng);
-          path.push(latLng);
-          if (gMarkerPosAtual) gMarkerPosAtual.setPosition(latLng);
-          gMapMobile.panTo(latLng);
-        }
-      },
-      (err) => console.warn("GPS em deslocamento:", err.message),
-      { enableHighAccuracy: true, maximumAge: 4000, timeout: 10000 }
-    );
-  }
 }
 
 function exibirFormularioDevolucaoMobile() {
@@ -601,13 +723,7 @@ function exibirFormularioDevolucaoMobile() {
 }
 
 function destruirMapaMobile(rotaId) {
-  if (watchIdMobileGPS !== null) {
-    navigator.geolocation.clearWatch(watchIdMobileGPS);
-    watchIdMobileGPS = null;
-  }
   const pontosFinais = [...coordenadasEmTempoReal];
-  if (rotaId) localStorage.removeItem(`arvo_gps_rota_${rotaId}`);
-  coordenadasEmTempoReal = [];
   gMapMobile = null;
   gPolylineMobile = null;
   gMarkerPosAtual = null;
@@ -749,6 +865,8 @@ async function handleMobileInicioRota(e) {
   const dataSaidaAtual = new Date().toISOString();
   const coordsPartida = await obterCoordenadasPartida(origemFinal);
 
+  const pontoInicial = coordsPartida ? [{ lat: coordsPartida.lat, lng: coordsPartida.lng, timestamp: dataSaidaAtual }] : [];
+
   const payloadRota = {
     id: tempId,
     veiculo_id: veiculo.nome_frota || veiculoId,
@@ -762,11 +880,14 @@ async function handleMobileInicioRota(e) {
     status: 'Em Uso',
     offline_sync: !navigator.onLine,
     coords_origem: coordsPartida,
-    coordenadas: coordsPartida ? [{ lat: coordsPartida.lat, lng: coordsPartida.lng, timestamp: dataSaidaAtual }] : []
+    coordenadas: pontoInicial
   };
 
-  // Inicia captura contínua de GPS
-  iniciarRastreamentoGPS();
+  // Inicializa o cache com o ponto de saída
+  localStorage.setItem(`arvo_gps_rota_${tempId}`, JSON.stringify(pontoInicial));
+
+  // Inicia rastreamento temporizado a cada 3 minutos sob movimento
+  iniciarRastreamentoIntervaladoGPS(tempId);
 
   if (!navigator.onLine) {
     salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadRota });
@@ -790,10 +911,17 @@ async function handleMobileInicioRota(e) {
     delete payloadRota.id;
     delete payloadRota.offline_sync;
 
-    const { error: insertErr } = await db.from('rotas').insert([payloadRota]);
+    const { data: rotaInserida, error: insertErr } = await db.from('rotas').insert([payloadRota]).select('id');
     if (insertErr) throw insertErr;
 
-    // Atualiza status do veículo
+    const idReal = (rotaInserida && rotaInserida[0]) ? rotaInserida[0].id : null;
+    if (idReal) {
+      // Transfere o ID da rota para o rastreador
+      idRotaRastreamentoAtiva = idReal;
+      localStorage.setItem(`arvo_gps_rota_${idReal}`, JSON.stringify(pontoInicial));
+      localStorage.removeItem(`arvo_gps_rota_${tempId}`);
+    }
+
     let qVeic = db.from('veiculos').update({ status: 'Em Uso' });
     if (uuidVeiculo) {
       qVeic = qVeic.eq('uuid_veiculos', uuidVeiculo);
@@ -876,14 +1004,9 @@ function calcularKmPercorridoMobile() {
   }
 }
 
-function exibirFormularioDevolucaoMobile() {
-  const blocoMapa = document.getElementById('m-bloco-mapa-rota');
-  const blocoForm = document.getElementById('m-bloco-formulario-fim');
-  if (blocoMapa) blocoMapa.classList.add('hidden');
-  if (blocoForm) blocoForm.classList.remove('hidden');
-}
-
-// 3. FINALIZAÇÃO DA ROTA
+// =========================================================================
+// FINALIZAÇÃO DA ROTA
+// =========================================================================
 async function handleMobileFimRota(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-m-confirmar-fim');
@@ -895,27 +1018,39 @@ async function handleMobileFimRota(e) {
     return;
   }
 
-  // 1. Interrompe os rastreadores e consolida os pontos de GPS coletados
-  let pontosGpsRastreamento = [];
-  if (typeof pararRastreamentoGPS === 'function') {
-    pontosGpsRastreamento = pararRastreamentoGPS() || [];
-  }
+  // 1. Encerra o rastreamento e consolida todas as coordenadas coletadas
+  const pontosRastreamento = pararRastreamentoGPS() || [];
+  
+  let pontosCache = [];
+  try {
+    pontosCache = JSON.parse(localStorage.getItem(`arvo_gps_rota_${rota.id}`) || '[]');
+  } catch (err) {}
 
-  let pontosGpsMapa = [];
-  if (typeof destruirMapaMobile === 'function') {
-    // Passa o rota.id e recebe os pontos acumulados pelo mapa
-    pontosGpsMapa = destruirMapaMobile(rota.id) || [];
-  }
-
-  // Prioriza os pontos em tempo real; se vazios, usa os já vinculados à rota
   let coordenadasFinais = [];
-  if (pontosGpsMapa.length > 0) {
-    coordenadasFinais = pontosGpsMapa;
-  } else if (pontosGpsRastreamento.length > 0) {
-    coordenadasFinais = pontosGpsRastreamento;
+  if (pontosRastreamento.length >= 2) {
+    coordenadasFinais = pontosRastreamento;
+  } else if (pontosCache.length >= 2) {
+    coordenadasFinais = pontosCache;
   } else if (Array.isArray(rota.coordenadas) && rota.coordenadas.length > 0) {
     coordenadasFinais = rota.coordenadas;
   }
+
+  // Adiciona o ponto de chegada caso ainda não tenha sido registrado
+  if (navigator.geolocation && coordenadasFinais.length <= 1) {
+    try {
+      const posFinal = await new Promise((res, rej) => {
+        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 2500 });
+      });
+      coordenadasFinais.push({
+        lat: Number(posFinal.coords.latitude.toFixed(6)),
+        lng: Number(posFinal.coords.longitude.toFixed(6)),
+        velocidade: 0,
+        timestamp: new Date().toISOString()
+      });
+    } catch (errGps) {}
+  }
+
+  destruirMapaMobile(rota.id);
 
   const selectDestino = document.getElementById('m-fim-destino')?.value;
   const outroDestino = document.getElementById('m-fim-destino-outro')?.value?.trim();
@@ -966,7 +1101,6 @@ async function handleMobileFimRota(e) {
   const novoTanqueVirtual = Number(Math.max(0, tanqueAtual - litrosConsumidos).toFixed(2));
   const dataRetornoIso = new Date().toISOString();
 
-  // Payload final com as coordenadas reais garantidas
   const payloadFim = {
     rota_id: rota.id,
     destino: destinoFinal,
@@ -1135,7 +1269,6 @@ async function sincronizarFilaRotas() {
 
         const idRealCriado = (inserido && inserido[0]) ? inserido[0].id : null;
 
-        const identificador = payload.placa || payload.veiculo_id;
         let qVeic = db.from('veiculos').update({ status: 'Em Uso' });
         if (payload.placa) {
           qVeic = qVeic.eq('placa', payload.placa);
@@ -1641,7 +1774,6 @@ function exibirPopUpAlerta(rota, horasAbertas) {
 
   popUp.innerHTML = `
     <div class="modal-alerta-card" style="background: #ffffff !important; border-radius: 1.5rem !important; max-width: 24rem !important; width: 100% !important; padding: 1.5rem !important; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3) !important; text-align: center !important; border: 1px solid #ffe4e6 !important;">
-      
       <div class="modal-alerta-icon-box" style="width: 3.5rem; height: 3.5rem; background-color: #ffe4e6; color: #e11d48; border-radius: 1rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; font-size: 1.75rem;">
         <i class="ph-bold ph-warning-circle"></i>
       </div>
@@ -1677,49 +1809,6 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   `;
 
   document.body.appendChild(popUp);
-}
-
-// =========================================================================
-// GEOLOCALIZAÇÃO
-// =========================================================================
-let watchIdGps = null;
-let pontosRotaAtual = [];
-
-function iniciarRastreamentoGPS() {
-  pontosRotaAtual = [];
-  if (!navigator.geolocation) {
-    console.warn("Geolocalização não suportada no aparelho.");
-    return;
-  }
-
-  watchIdGps = navigator.geolocation.watchPosition(
-    (pos) => {
-      const ponto = {
-        lat: Number(pos.coords.latitude.toFixed(6)),
-        lng: Number(pos.coords.longitude.toFixed(6)),
-        timestamp: new Date().toISOString()
-      };
-      pontosRotaAtual.push(ponto);
-      localStorage.setItem('arvo_gps_temp', JSON.stringify(pontosRotaAtual));
-    },
-    (err) => console.warn("Erro ao capturar GPS:", err.message),
-    {
-      enableHighAccuracy: true,
-      maximumAge: 5000,
-      timeout: 10000
-    }
-  );
-}
-
-function pararRastreamentoGPS() {
-  if (watchIdGps !== null) {
-    navigator.geolocation.clearWatch(watchIdGps);
-    watchIdGps = null;
-  }
-  const rotaGravada = [...pontosRotaAtual];
-  localStorage.removeItem('arvo_gps_temp');
-  pontosRotaAtual = [];
-  return rotaGravada;
 }
 
 // =========================================================================
@@ -1760,3 +1849,7 @@ window.aoMudarVeiculoMobile = aoMudarVeiculoMobile;
 window.setFiltroCategoriaMobile = setFiltroCategoriaMobile;
 window.filtrarHistoricoMobile = filtrarHistoricoMobile;
 window.exibirFormularioDevolucaoMobile = exibirFormularioDevolucaoMobile;
+window.manterTelaAtiva = manterTelaAtiva;
+window.liberarTelaAtiva = liberarTelaAtiva;
+window.iniciarRastreamentoIntervaladoGPS = iniciarRastreamentoIntervaladoGPS;
+window.pararRastreamentoGPS = pararRastreamentoGPS;
