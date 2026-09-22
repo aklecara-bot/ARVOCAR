@@ -17,12 +17,10 @@ let urlComprovanteAtual = null;
 // NAVEGAÇÃO ENTRE TELAS E ABAS DO MOBILE
 // =========================================================================
 function switchMobileTab(tab) {
-  // Se chamado para as abas locais de abastecimento
   if (tab === 'novo' || tab === 'historico_abast') {
     trocarAba(tab === 'novo' ? 'novo' : 'historico');
     return;
   }
-  // Se for Iniciar, Finalizar ou Rotas: grava destino e redireciona para a tela de rotas
   localStorage.setItem('arvo_mobile_active_tab', tab);
   window.location.href = `mobile.html?tab=${tab}`;
 }
@@ -60,9 +58,9 @@ function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
 
   const temas = {
     sucesso: { icon: 'ph-check-circle', bg: '#dcfce7', text: '#15803d', btn: '#15803d' },
-    erro:    { icon: 'ph-x-circle',     bg: '#ffe4e6', text: '#e11d48', btn: '#e11d48' },
-    aviso:   { icon: 'ph-warning',      bg: '#fef3c7', text: '#d97706', btn: '#d97706' },
-    info:    { icon: 'ph-info',         bg: '#e0f2fe', text: '#0284c7', btn: '#0284c7' }
+    erro: { icon: 'ph-x-circle', bg: '#ffe4e6', text: '#e11d48', btn: '#e11d48' },
+    aviso: { icon: 'ph-warning', bg: '#fef3c7', text: '#d97706', btn: '#d97706' },
+    info: { icon: 'ph-info', bg: '#e0f2fe', text: '#0284c7', btn: '#0284c7' }
   };
 
   const config = temas[tipo] || temas.aviso;
@@ -348,9 +346,11 @@ async function salvarAbastecimentoMobile(e) {
       }
     }
 
+    // Payload unificado com veiculo_id, placa e uuid_veiculos
     const payload = {
       veiculo_id: veiculo_id,
       placa: placa,
+      uuid_veiculos: uuid_veiculos,
       responsavel: (usuarioLogado && usuarioLogado.email) ? usuarioLogado.email : 'mobile@arvo.tec.br',
       local_posto: local_posto,
       tipo_combustivel: tipo_combustivel,
@@ -375,6 +375,8 @@ async function salvarAbastecimentoMobile(e) {
         queryVeic = queryVeic.eq('uuid_veiculos', uuid_veiculos);
       } else if (idNumerico) {
         queryVeic = queryVeic.eq('id', idNumerico);
+      } else if (placa) {
+        queryVeic = queryVeic.eq('placa', placa);
       } else {
         queryVeic = queryVeic.eq('nome_frota', veiculo_id);
       }
@@ -467,7 +469,6 @@ function renderCardsHistorico(container) {
 
   container.innerHTML = '';
   listaAbastecimentosCache.forEach((a, index) => {
-    // 1. Cruza com a lista de veículos para resgatar os dados do veículo
     const veic = (typeof veiculosAbast !== 'undefined' ? veiculosAbast : []).find(v =>
       String(v.id) === String(a.veiculo_id) ||
       String(v.uuid_veiculos) === String(a.uuid_veiculos || a.veiculo_id) ||
@@ -475,19 +476,16 @@ function renderCardsHistorico(container) {
       String(v.nome_frota) === String(a.veiculo_id)
     );
 
-    // 2. Define o Nome do Veículo e Placa Real
     const nomeExibicao = a.nome_frota || veic?.nome_frota || a.veiculo_id || 'ARVO';
     const placaReal = a.placa || veic?.placa || '';
     const badgePlaca = placaReal ? ` [${placaReal}]` : '';
 
-    // 3. Formatação dos campos e valores
     const combustivelFormatado = a.tipo_combustivel || 'Gasolina Comum';
     const postoFormatado = a.local_posto || 'Posto de Combustível';
     const valorFormatado = Number(a.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const dataFormatada = a.data_hora ? new Date(a.data_hora).toLocaleDateString('pt-BR') : '-';
     const condutorFormatado = (a.responsavel || '').split('@')[0];
 
-    // 4. Criação do Card com o layout da imagem (Bege Claro / Marfim)
     const card = document.createElement('div');
     card.className = "bg-[#FAF7F2] rounded-3xl p-4 shadow-xl border border-[#EFE9DF] text-slate-800 space-y-3 transition hover:shadow-2xl";
 
@@ -505,7 +503,6 @@ function renderCardsHistorico(container) {
             </div>
           </div>
         </div>
-        <!-- Badge de Valor Total -->
         <span class="text-sm font-black font-mono text-[#1E5E3A] bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-xl">
           ${valorFormatado}
         </span>
@@ -576,7 +573,7 @@ function abrirModalAbastecimento(index) {
   if (elKm) elKm.innerText = item.km_atual ? `${Number(item.km_atual).toLocaleString('pt-BR')} km` : 'Não registrado';
   if (elLitrosPreco) elLitrosPreco.innerText = `${item.quantidade_litros || 0} L • R$ ${Number(item.preco_litro || 0).toFixed(2)}/L`;
   if (elTotal) elTotal.innerText = Number(item.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  if (elData) elData.innerText = new Date(item.data_hora).toLocaleString('pt-BR');
+  if (elData) elData.innerText = item.data_hora ? new Date(item.data_hora).toLocaleString('pt-BR') : '-';
 
   const boxComprovante = document.getElementById('modal-box-comprovante');
   const semComprovante = document.getElementById('modal-sem-comprovante');

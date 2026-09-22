@@ -1,5 +1,5 @@
 // =========================================================================
-// MÓDULO FINANCEIRO INTEGRADO - ARVOCAR
+// MÓDULO FINANCEIRO INTEGRADO - ARVOCAR (COM GRÁFICOS 100% REATIVOS, MODAL DE CUPOM E TIPO DE FROTA REAL)
 // =========================================================================
 const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
@@ -12,8 +12,16 @@ let dadosBrutosAbastecimentos = [];
 let dadosBrutosRotas = [];
 let dadosBrutosVeiculos = [];
 let dadosBrutosManutencoes = [];
+let dadosBrutosContratosAluguel = [];
 let cacheListaVeiculos = [];
 let periodoAtual = 'mes';
+
+// Instâncias Globais do Chart.js
+let chartBarras = null;
+let chartDonut = null;
+let chartEvolucao = null;
+let chartCustoKm = null;
+let chartComposicao = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   const sessaoStr = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
@@ -31,15 +39,16 @@ function logout() {
 }
 
 // =========================================================================
-// CARREGAMENTO CENTRALIZADO DO BANCO DE DADOS
+// 1. CARREGAMENTO CENTRALIZADO DO BANCO
 // =========================================================================
 async function carregarMetricasFinanceiras() {
   try {
-    const [resAbast, resRotas, resVeiculos, resManut] = await Promise.all([
+    const [resAbast, resRotas, resVeiculos, resManut, resContratos] = await Promise.all([
       db.from('abastecimentos').select('*').order('data_hora', { ascending: false }),
       db.from('rotas').select('*').eq('status', 'Concluida').order('data_retorno', { ascending: false }),
       db.from('veiculos').select('*'),
-      db.from('manutencoes_preventivas').select('*').order('data_ultima_troca', { ascending: false })
+      db.from('manutencoes_preventivas').select('*').order('data_ultima_troca', { ascending: false }),
+      db.from('contratos_aluguel').select('*')
     ]);
 
     if (resAbast.error) throw resAbast.error;
@@ -51,18 +60,52 @@ async function carregarMetricasFinanceiras() {
     dadosBrutosRotas = resRotas.data || [];
     dadosBrutosVeiculos = resVeiculos.data || [];
     dadosBrutosManutencoes = resManut.data || [];
+    dadosBrutosContratosAluguel = resContratos.data || [];
     cacheListaVeiculos = dadosBrutosVeiculos;
 
+    povoarOpcoesFiltrosDinamicos();
     popularSelectsFormulariosFinanceiros(cacheListaVeiculos);
     setPeriodoFinanceiro('mes');
   } catch (err) {
     console.error("Erro ao carregar dados financeiros:", err);
-    alert("Falha ao carregar dados: " + err.message);
+    alert("Falha ao carregar dados: " + (err.message || 'Verifique sua conexão.'));
   }
 }
 
 // =========================================================================
-// FILTRAGEM TEMPORAL E POR CATEGORIA DE CUSTO
+// 2. POVOAMENTO DOS SELETORES
+// =========================================================================
+function povoarOpcoesFiltrosDinamicos() {
+  const motoristasSet = new Set();
+  dadosBrutosRotas.forEach(r => { if (r.responsavel) motoristasSet.add(r.responsavel.trim().toLowerCase()); });
+  dadosBrutosAbastecimentos.forEach(a => { if (a.responsavel) motoristasSet.add(a.responsavel.trim().toLowerCase()); });
+
+  const motoristas = [...motoristasSet].sort();
+  const selMot = document.getElementById('filtro-motorista');
+  if (selMot) {
+    selMot.innerHTML = '<option value="TODOS">Todos os Motoristas</option>';
+    motoristas.forEach(m => {
+      const rotulo = m.includes('@') ? m.split('@')[0] : m;
+      selMot.innerHTML += `<option value="${m}">${rotulo}</option>`;
+    });
+  }
+
+  const finalidadesSet = new Set();
+  dadosBrutosRotas.forEach(r => { if (r.finalidade) finalidadesSet.add(r.finalidade.trim().toUpperCase()); });
+  ['DEMANDAS INTERNAS', 'RELAÇÕES INSTITUCIONAIS', 'REMINERALIZADOR', 'PSA GESTÁGUA', 'PPC'].forEach(f => finalidadesSet.add(f));
+
+  const finalidades = [...finalidadesSet].sort();
+  const selFin = document.getElementById('filtro-finalidade');
+  if (selFin) {
+    selFin.innerHTML = '<option value="TODOS">Todas as Finalidades</option>';
+    finalidades.forEach(f => {
+      selFin.innerHTML += `<option value="${f}">${f}</option>`;
+    });
+  }
+}
+
+// =========================================================================
+// 3. CONTROLE DE PERÍODO E DATAS
 // =========================================================================
 function setPeriodoFinanceiro(p) {
   periodoAtual = p;
@@ -70,8 +113,8 @@ function setPeriodoFinanceiro(p) {
     const item = document.getElementById(`btn-periodo-${btn}`);
     if (item) {
       item.className = (btn === p)
-        ? "flex-1 py-1.5 px-3 rounded-lg bg-emerald-800 text-white shadow transition text-center whitespace-nowrap"
-        : "flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap";
+        ? "flex-1 py-1.5 px-3 rounded-lg bg-[#395237] text-[#f4f1e5] shadow transition text-center whitespace-nowrap border border-[#556b2f]/50"
+        : "flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap";
     }
   });
 
@@ -90,7 +133,7 @@ function setPeriodoFinanceiro(p) {
   let dFim = new Date(hoje);
 
   if (p === 'dia') {
-    // Apenas a data de hoje
+    // Hoje
   } else if (p === 'semana') {
     dIni.setDate(hoje.getDate() - hoje.getDay());
   } else if (p === 'mes') {
@@ -112,47 +155,92 @@ function setPeriodoFinanceiro(p) {
 function aplicarFiltroPersonalizadoDatas() {
   ['dia', 'semana', 'mes', 'trimestre', 'ano', 'todos'].forEach(btn => {
     const item = document.getElementById(`btn-periodo-${btn}`);
-    if (item) item.className = "flex-1 py-1.5 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition text-center whitespace-nowrap";
+    if (item) item.className = "flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap";
   });
   periodoAtual = 'custom';
+  aplicarFiltrosEAtualizarFinanceiro();
 }
 
 function limparFiltrosFinanceiro() {
-  document.getElementById('filtro-data-inicio').value = '';
-  document.getElementById('filtro-data-fim').value = '';
-  document.getElementById('filtro-tipo-custo').value = 'TODOS';
+  const dtIni = document.getElementById('filtro-data-inicio');
+  const dtFim = document.getElementById('filtro-data-fim');
+  const tipoC = document.getElementById('filtro-tipo-custo');
+  const selMot = document.getElementById('filtro-motorista');
+  const selFin = document.getElementById('filtro-finalidade');
+  const selStatus = document.getElementById('filtro-status-carro');
+
+  if (dtIni) dtIni.value = '';
+  if (dtFim) dtFim.value = '';
+  if (tipoC) tipoC.value = 'TODOS';
+  if (selMot) selMot.value = 'TODOS';
+  if (selFin) selFin.value = 'TODOS';
+  if (selStatus) selStatus.value = 'ATIVOS';
+
   setPeriodoFinanceiro('mes');
 }
 
+function obterDiasDoIntervalo(dIni, dFim) {
+  if (!dIni || !dFim) return 30;
+  const ms = dFim.getTime() - dIni.getTime();
+  const dias = Math.ceil(ms / (1000 * 60 * 60 * 24)) + 1;
+  return Math.max(1, dias);
+}
+
+function limparPlaca(p) {
+  return String(p || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().trim();
+}
+
+// =========================================================================
+// 4. APLICAÇÃO GERAL DOS FILTROS E VÍNCULOS
+// =========================================================================
 function aplicarFiltrosEAtualizarFinanceiro() {
   const dtIni = document.getElementById('filtro-data-inicio')?.value;
   const dtFim = document.getElementById('filtro-data-fim')?.value;
   const tipoCusto = document.getElementById('filtro-tipo-custo')?.value || 'TODOS';
+  const filtroMotorista = (document.getElementById('filtro-motorista')?.value || 'TODOS').toLowerCase().trim();
+  const filtroFinalidade = (document.getElementById('filtro-finalidade')?.value || 'TODOS').toUpperCase().trim();
+  const filtroStatusCarro = document.getElementById('filtro-status-carro')?.value || 'ATIVOS';
 
   const dFiltroIni = dtIni ? new Date(`${dtIni}T00:00:00`) : null;
   const dFiltroFim = dtFim ? new Date(`${dtFim}T23:59:59`) : null;
+  const diasFiltro = obterDiasDoIntervalo(dFiltroIni, dFiltroFim);
 
-  // Filtra Abastecimentos
-  let abastsFiltrados = (tipoCusto === 'MANUTENCAO') ? [] : dadosBrutosAbastecimentos.filter(a => {
-    if (!a.data_hora) return true;
-    const d = new Date(a.data_hora);
-    if (dFiltroIni && d < dFiltroIni) return false;
-    if (dFiltroFim && d > dFiltroFim) return false;
+  // 1. Veículos filtrados por Status Operacional
+  const veiculosFiltrados = dadosBrutosVeiculos.filter(v => {
+    const status = (v.status || '').toUpperCase().trim();
+    const isForaUso = status === 'FORA DE USO' || status.includes('INATIVO');
+
+    if (filtroStatusCarro === 'ATIVOS') return !isForaUso;
+    if (filtroStatusCarro === 'INATIVOS') return isForaUso;
     return true;
   });
 
-  // Filtra Manutenções Preventivas
-  let manutsFiltradas = (tipoCusto === 'COMBUSTIVEL') ? [] : dadosBrutosManutencoes.filter(m => {
-    const dataRef = m.data_ultima_troca || m.created_at;
-    if (!dataRef) return true;
-    const d = new Date(dataRef);
-    if (dFiltroIni && d < dFiltroIni) return false;
-    if (dFiltroFim && d > dFiltroFim) return false;
-    return true;
+  const idsPermitidos = new Set();
+  veiculosFiltrados.forEach(v => {
+    if (v.id) idsPermitidos.add(String(v.id).toUpperCase());
+    if (v.nome_frota) idsPermitidos.add(String(v.nome_frota).toUpperCase());
+    if (v.placa) idsPermitidos.add(limparPlaca(v.placa));
+    if (v.uuid_veiculos) idsPermitidos.add(String(v.uuid_veiculos).toUpperCase());
   });
 
-  // Filtra Rotas Concluídas
+  const pertenceAoFiltro = (item) => {
+    const vId = (item.veiculo_id ? String(item.veiculo_id) : '').toUpperCase();
+    const vPlaca = limparPlaca(item.placa);
+    const vUuid = (item.uuid_veiculos ? String(item.uuid_veiculos) : '').toUpperCase();
+    return idsPermitidos.has(vId) || idsPermitidos.has(vPlaca) || idsPermitidos.has(vUuid);
+  };
+
+  // 2. Rotas Concluídas (motorista, finalidade, data, veículo)
   const rotasFiltradas = dadosBrutosRotas.filter(r => {
+    if (!pertenceAoFiltro(r)) return false;
+    if (filtroMotorista !== 'todos') {
+      const resp = (r.responsavel || '').toLowerCase().trim();
+      if (!resp.includes(filtroMotorista) && !filtroMotorista.includes(resp)) return false;
+    }
+    if (filtroFinalidade !== 'TODOS') {
+      const fin = (r.finalidade || '').toUpperCase().trim();
+      if (fin !== filtroFinalidade) return false;
+    }
     const refData = r.data_retorno || r.data_saida;
     if (!refData) return true;
     const d = new Date(refData);
@@ -161,364 +249,681 @@ function aplicarFiltrosEAtualizarFinanceiro() {
     return true;
   });
 
-  // Atualiza painéis e tabelas
-  processarTotaisGerais(abastsFiltrados, manutsFiltradas, rotasFiltradas);
-  processarAnalisePorVeiculo(dadosBrutosVeiculos, abastsFiltrados, manutsFiltradas, rotasFiltradas);
-  processarTabelaDepreciacao(dadosBrutosVeiculos, rotasFiltradas);
-  renderizarAuditoriaCupons(abastsFiltrados, dadosBrutosVeiculos);
-  renderizarAuditoriaManutencoes(manutsFiltradas, dadosBrutosVeiculos);
+  // Identifica placas / veículos que tiveram rotas atendendo ao filtro de finalidade
+  const veiculosComRotasDaFinalidade = new Set();
+  if (filtroFinalidade !== 'TODOS') {
+    rotasFiltradas.forEach(r => {
+      if (r.veiculo_id) veiculosComRotasDaFinalidade.add(String(r.veiculo_id).toUpperCase());
+      if (r.placa) veiculosComRotasDaFinalidade.add(limparPlaca(r.placa));
+    });
+  }
+
+  // 3. Abastecimentos
+  let abastsFiltrados = (tipoCusto === 'MANUTENCAO' || tipoCusto === 'ALUGUEL') ? [] : dadosBrutosAbastecimentos.filter(a => {
+    if (!pertenceAoFiltro(a)) return false;
+    
+    // Se filtra por motorista
+    if (filtroMotorista !== 'todos') {
+      const resp = (a.responsavel || '').toLowerCase().trim();
+      if (!resp.includes(filtroMotorista) && !filtroMotorista.includes(resp)) return false;
+    }
+
+    // Se filtra por finalidade/projeto
+    if (filtroFinalidade !== 'TODOS') {
+      const aId = (a.veiculo_id ? String(a.veiculo_id) : '').toUpperCase();
+      const aPlaca = limparPlaca(a.placa);
+      if (!veiculosComRotasDaFinalidade.has(aId) && !veiculosComRotasDaFinalidade.has(aPlaca)) return false;
+    }
+
+    // Filtro de Data
+    if (!a.data_hora) return true;
+    const d = new Date(a.data_hora);
+    if (dFiltroIni && d < dFiltroIni) return false;
+    if (dFiltroFim && d > dFiltroFim) return false;
+    return true;
+  });
+
+  // 4. Manutenções
+  let manutsFiltradas = (tipoCusto === 'COMBUSTIVEL' || tipoCusto === 'ALUGUEL' || filtroFinalidade !== 'TODOS') ? [] : dadosBrutosManutencoes.filter(m => {
+    if (!pertenceAoFiltro(m)) return false;
+    if (filtroMotorista !== 'todos' && m.responsavel) {
+      const resp = (m.responsavel || '').toLowerCase().trim();
+      if (!resp.includes(filtroMotorista) && !filtroMotorista.includes(resp)) return false;
+    }
+    const dataRef = m.data_ultima_troca || m.created_at;
+    if (!dataRef) return true;
+    const d = new Date(dataRef);
+    if (dFiltroIni && d < dFiltroIni) return false;
+    if (dFiltroFim && d > dFiltroFim) return false;
+    return true;
+  });
+
+  // 5. Aluguel Contratual
+  const incluirAluguel = (tipoCusto === 'TODOS' || tipoCusto === 'ALUGUEL') && (filtroFinalidade === 'TODOS') && (filtroMotorista === 'todos');
+
+  // Atualização dos componentes
+  processarTotaisGerais(abastsFiltrados, manutsFiltradas, rotasFiltradas, veiculosFiltrados, diasFiltro, incluirAluguel, tipoCusto);
+  processarAnalisePorVeiculo(veiculosFiltrados, abastsFiltrados, manutsFiltradas, rotasFiltradas, diasFiltro, incluirAluguel, tipoCusto);
+  processarTabelaDepreciacao(veiculosFiltrados, rotasFiltradas, tipoCusto);
+  renderizarAuditoriaCupons(abastsFiltrados, veiculosFiltrados);
+
+  atualizarTodosOsGraficosFinanceiros(veiculosFiltrados, abastsFiltrados, manutsFiltradas, rotasFiltradas, diasFiltro, incluirAluguel, tipoCusto);
 }
 
 // =========================================================================
-// CÁLCULOS TOTAIS E KPIS
+// 5. KPIS DE TOPO E TOTALIZADORES
 // =========================================================================
-function processarTotaisGerais(abastecimentos, manutenções, rotas) {
-  const gastoComb = abastecimentos.reduce((acc, a) => acc + (Number(a.valor_total) || 0), 0);
-  const gastoManut = manutenções.reduce((acc, m) => acc + (Number(m.valor_total) || 0), 0);
-  const gastoTotal = gastoComb + gastoManut;
+function processarTotaisGerais(abastecimentos, manutenções, rotas, veiculos, diasFiltro, incluirAluguel, tipoCusto) {
+  const gastoComb = (tipoCusto === 'MANUTENCAO' || tipoCusto === 'ALUGUEL') ? 0 : abastecimentos.reduce((acc, a) => acc + (Number(a.valor_total) || 0), 0);
+  const gastoManut = (tipoCusto === 'COMBUSTIVEL' || tipoCusto === 'ALUGUEL') ? 0 : manutenções.reduce((acc, m) => acc + (Number(m.valor_total) || 0), 0);
 
+  let gastoAluguel = 0;
+  if (incluirAluguel) {
+    veiculos.forEach(v => {
+      const contrato = dadosBrutosContratosAluguel.find(c =>
+        String(c.veiculo_id) === String(v.id) ||
+        String(c.placa) === String(v.placa) ||
+        String(c.veiculo_id) === String(v.nome_frota)
+      );
+      if (contrato) {
+        const mensal = Number(contrato.tarifa_mensal || contrato.valor_mensal || 0);
+        gastoAluguel += (mensal / 30) * diasFiltro;
+      }
+    });
+  }
+
+  const gastoTotal = gastoComb + gastoManut + gastoAluguel;
   const kmTotal = rotas.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
-  const custoPorKm = kmTotal > 0 ? (gastoTotal / kmTotal) : 0;
-  const depreciacaoTotal = kmTotal * 0.30; // R$ 0,12 peças + R$ 0,18 desvalorização contábil por km
 
-  // 1. Atualização dos Cards de KPIs Centrais
-  document.getElementById('kpi-custo-km').innerText = custoPorKm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km';
-  document.getElementById('kpi-gasto-total').innerText = gastoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  document.getElementById('kpi-despesa-detalhe').innerText = `Combustível: ${gastoComb.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} | Manut: ${gastoManut.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
-  document.getElementById('kpi-km-total').innerText = `${kmTotal.toLocaleString('pt-BR')} km`;
-  document.getElementById('kpi-total-rotas').innerText = `${rotas.length} rotas concluídas`;
-  document.getElementById('kpi-depreciacao-total').innerText = depreciacaoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const custoKmRodagem = kmTotal > 0 ? ((gastoComb + gastoManut) / kmTotal) : 0;
+  const custoKmFull = kmTotal > 0 ? (gastoTotal / kmTotal) : 0;
 
-  // 2. Atualização Dinâmica da Linha em Movimento (Ticker Tape)
+  let depreciacaoTotal = 0;
+  if (tipoCusto !== 'ALUGUEL') {
+    veiculos.forEach(v => {
+      const isAlugado = dadosBrutosContratosAluguel.some(c =>
+        String(c.veiculo_id) === String(v.id) || String(c.placa) === String(v.placa)
+      );
+      if (!isAlugado) {
+        const rotasCarro = rotas.filter(r =>
+          String(r.placa) === String(v.placa) || String(r.veiculo_id) === String(v.nome_frota)
+        );
+        const kmCarro = rotasCarro.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
+        depreciacaoTotal += kmCarro * 0.30;
+      }
+    });
+  }
+
+  const elCustoRodagem = document.getElementById('kpi-custo-km-rodagem');
+  const elCustoFull = document.getElementById('kpi-custo-km-full');
+  const elGastoTotal = document.getElementById('kpi-gasto-total');
+  const elDespesaDetalhe = document.getElementById('kpi-despesa-detalhe');
+  const elKmTotal = document.getElementById('kpi-km-total');
+  const elTotalRotas = document.getElementById('kpi-total-rotas');
+  const elDepreciacao = document.getElementById('kpi-depreciacao-total');
+
+  if (elCustoRodagem) elCustoRodagem.innerText = custoKmRodagem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km';
+  if (elCustoFull) elCustoFull.innerText = custoKmFull.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km';
+  if (elGastoTotal) elGastoTotal.innerText = gastoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  
+  if (elDespesaDetalhe) {
+    if (tipoCusto === 'ALUGUEL') {
+      elDespesaDetalhe.innerText = `Locação / Contratos: ${gastoAluguel.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+    } else if (tipoCusto === 'COMBUSTIVEL') {
+      elDespesaDetalhe.innerText = `Combustível: ${gastoComb.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+    } else if (tipoCusto === 'MANUTENCAO') {
+      elDespesaDetalhe.innerText = `Manutenção: ${gastoManut.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+    } else {
+      elDespesaDetalhe.innerText = `Comb: ${gastoComb.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} | Manut: ${gastoManut.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}${gastoAluguel > 0 ? ` | Aluguel: ${gastoAluguel.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : ''}`;
+    }
+  }
+
+  if (elKmTotal) elKmTotal.innerText = `${kmTotal.toLocaleString('pt-BR')} km`;
+  if (elTotalRotas) elTotalRotas.innerText = `${rotas.length} rotas concluídas`;
+  if (elDepreciacao) elDepreciacao.innerText = depreciacaoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  // Ticker Tape Dinâmico
   const ticker = document.getElementById('ticker-financeiro-dinamico');
   if (ticker) {
     const totalDespesaFmt = gastoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const custoKmFmt = custoPorKm > 0 ? custoPorKm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km' : 'R$ 0,00/km';
-    const kmTotalFmt = kmTotal.toLocaleString('pt-BR');
-
-    // Total de litros apurados nos abastecimentos
-    const totalLitros = abastecimentos.reduce((acc, a) => acc + (Number(a.quantidade_litros) || 0), 0);
-    const litrosFmt = totalLitros.toFixed(1);
-
-    // Resgate do abastecimento mais recente
-    let textoUltimoAbast = 'Nenhum abastecimento recente apurado';
-    if (abastecimentos && abastecimentos.length > 0) {
-      // Ordena por data decrescente se necessário para pegar o último
-      const abastsOrdenados = [...abastecimentos].sort((a, b) => new Date(b.data_hora || 0) - new Date(a.data_hora || 0));
-      const ult = abastsOrdenados[0];
-      const veicNome = ult.nome_frota || ult.veiculo_id || ult.placa || 'ARVO';
-      const valorFmt = Number(ult.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      const posto = ult.local_posto || 'Posto Credenciado';
-      const litros = Number(ult.quantidade_litros || 0).toFixed(2);
-      const comb = ult.tipo_combustivel || 'Combustível';
-      textoUltimoAbast = `${veicNome} faturou ${valorFmt} no ${posto} (${litros} L ${comb})`;
-    }
+    const rodagemFmt = custoKmRodagem > 0 ? custoKmRodagem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km' : 'R$ 0,00/km';
+    const fullFmt = custoKmFull > 0 ? custoKmFull.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km' : 'R$ 0,00/km';
 
     const blocoTicker = `
-      <span class="mx-6 flex items-center gap-2"><strong class="text-emerald-400">DESPESA MENSAL:</strong> ${totalDespesaFmt} acumulados • ${litrosFmt} L faturados</span>
-      <span class="mx-6 text-slate-600">•</span>
-      <span class="mx-6 flex items-center gap-2"><strong class="text-cyan-400">CUSTO POR KM:</strong> Média da frota em ${custoKmFmt}</span>
-      <span class="mx-6 text-slate-600">•</span>
-      <span class="mx-6 flex items-center gap-2"><strong class="text-amber-400">ÚLTIMO REGISTRO:</strong> ${textoUltimoAbast}</span>
-      <span class="mx-6 text-slate-600">•</span>
-      <span class="mx-6 flex items-center gap-2"><strong class="text-purple-400">KM TOTAL RODADO:</strong> ${kmTotalFmt} km concluídos em ${rotas.length} rotas</span>
-      <span class="mx-6 text-slate-600">•</span>
+      <span class="mx-6 flex items-center gap-2"><strong class="text-[#8fb855]">DESPESA TOTAL:</strong> ${totalDespesaFmt} acumulados</span>
+      <span class="mx-6 text-[#556b2f]">•</span>
+      <span class="mx-6 flex items-center gap-2"><strong class="text-[#f4f1e5]">CUSTO RODAGEM:</strong> ${rodagemFmt}</span>
+      <span class="mx-6 text-[#556b2f]">•</span>
+      <span class="mx-6 flex items-center gap-2"><strong class="text-[#d88c5a]">CUSTO FULL:</strong> ${fullFmt}</span>
+      <span class="mx-6 text-[#556b2f]">•</span>
+      <span class="mx-6 flex items-center gap-2"><strong class="text-[#b5cf82]">ROTAS:</strong> ${kmTotal.toLocaleString('pt-BR')} km em ${rotas.length} viagens</span>
+      <span class="mx-6 text-[#556b2f]">•</span>
     `;
-
-    // Duplica o conteúdo para garantir o loop contínuo sem saltos visuais
     ticker.innerHTML = blocoTicker + blocoTicker;
   }
 }
 
-function atualizarTickerFinanceiro(gastoCombustivel, gastoManutencao, kmTotal, custoPorKm, ultimoAbast, melhorCarro) {
-  const ticker = document.getElementById('ticker-financeiro-dinamico');
-  if (!ticker) return;
+// =========================================================================
+// 6. ATUALIZAÇÃO REATIVA DOS 5 GRÁFICOS (CHART.JS)
+// =========================================================================
+function atualizarTodosOsGraficosFinanceiros(veiculos, abastecimentos, manutenções, rotas, diasFiltro, incluirAluguel, tipoCusto) {
+  const custoPorCarro = {};
+  const litrosPorCarro = {};
+  const kmPorCarro = {};
+  const aluguelPorCarro = {};
 
-  const totalDespesaFmt = (gastoCombustivel + gastoManutencao).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const custoKmFmt = custoPorKm > 0 ? (custoPorKm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km') : 'R$ 0,00/km';
-  const kmTotalFmt = Number(kmTotal || 0).toLocaleString('pt-BR');
-
-  // Último abastecimento registrado
-  let textoUltimoAbast = 'Nenhum abastecimento recente';
-  if (ultimoAbast) {
-    const vNome = ultimoAbast.nome_frota || ultimoAbast.veiculo_id || 'ARVO';
-    const vValor = Number(ultimoAbast.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const vPosto = ultimoAbast.local_posto || 'Posto';
-    const vLitros = Number(ultimoAbast.quantidade_litros || 0).toFixed(2);
-    textoUltimoAbast = `${vNome} faturou ${vValor} no ${vPosto} (${vLitros} L)`;
+  // 1. Coleta combustível filtrado
+  if (tipoCusto === 'TODOS' || tipoCusto === 'COMBUSTIVEL') {
+    abastecimentos.forEach(a => {
+      const v = veiculos.find(ve =>
+        String(ve.id) === String(a.veiculo_id) ||
+        String(ve.uuid_veiculos) === String(a.uuid_veiculos || a.veiculo_id) ||
+        String(ve.placa) === String(a.placa || a.veiculo_id) ||
+        String(ve.nome_frota) === String(a.veiculo_id)
+      );
+      const nome = a.nome_frota || v?.nome_frota || a.veiculo_id || 'Outro';
+      custoPorCarro[nome] = (custoPorCarro[nome] || 0) + (Number(a.valor_total) || 0);
+      litrosPorCarro[nome] = (litrosPorCarro[nome] || 0) + (Number(a.quantidade_litros) || 0);
+    });
   }
 
-  // Eficiência ponderada do veículo destaque
-  let textoEficiencia = 'Média geral da frota calculada por rota';
-  if (melhorCarro && melhorCarro.media > 0) {
-    textoEficiencia = `${melhorCarro.nome} atingiu média de ${melhorCarro.media.toFixed(2)} km/L`;
+  // 2. Coleta manutenção filtrada
+  if (tipoCusto === 'TODOS' || tipoCusto === 'MANUTENCAO') {
+    manutenções.forEach(m => {
+      const v = veiculos.find(ve =>
+        String(ve.id) === String(m.veiculo_id) ||
+        String(ve.placa) === String(m.placa) ||
+        String(ve.nome_frota) === String(m.veiculo_id)
+      );
+      const nome = v?.nome_frota || m.veiculo_id || 'Outro';
+      custoPorCarro[nome] = (custoPorCarro[nome] || 0) + (Number(m.valor_total) || 0);
+    });
   }
 
-  const conteudoHTML = `
-    <span class="mx-6 flex items-center gap-2"><strong class="text-emerald-400">DESPESA CONSOLIDADA:</strong> ${totalDespesaFmt} acumulados</span>
-    <span class="mx-6 text-slate-600">•</span>
-    <span class="mx-6 flex items-center gap-2"><strong class="text-cyan-400">CUSTO POR KM:</strong> Média da frota em ${custoKmFmt}</span>
-    <span class="mx-6 text-slate-600">•</span>
-    <span class="mx-6 flex items-center gap-2"><strong class="text-amber-400">ÚLTIMO REGISTRO:</strong> ${textoUltimoAbast}</span>
-    <span class="mx-6 text-slate-600">•</span>
-    <span class="mx-6 flex items-center gap-2"><strong class="text-purple-400">EFICIÊNCIA:</strong> ${textoEficiencia}</span>
-    <span class="mx-6 text-slate-600">•</span>
-    <span class="mx-6 flex items-center gap-2"><strong class="text-emerald-400">QUILOMETRAGEM TOTAL:</strong> ${kmTotalFmt} km monitorados</span>
-    <span class="mx-6 text-slate-600">•</span>
-  `;
+  // 3. Coleta KM de rotas filtradas
+  rotas.forEach(r => {
+    const v = veiculos.find(ve =>
+      String(ve.id) === String(r.veiculo_id) ||
+      String(ve.nome_frota) === String(r.veiculo_id) ||
+      String(ve.placa) === String(r.placa)
+    );
+    const nome = v?.nome_frota || r.veiculo_id || 'Outro';
+    kmPorCarro[nome] = (kmPorCarro[nome] || 0) + (Number(r.km_total) || 0);
+  });
 
-  // Duplicamos o conteúdo para o efeito de rolagem contínua sem cortes
-  ticker.innerHTML = conteudoHTML + conteudoHTML;
+  // 4. Coleta aluguel apenas se habilitado
+  if (incluirAluguel) {
+    veiculos.forEach(v => {
+      const contrato = dadosBrutosContratosAluguel.find(c =>
+        String(c.veiculo_id) === String(v.id) ||
+        String(c.placa) === String(v.placa) ||
+        String(c.veiculo_id) === String(v.nome_frota)
+      );
+      if (contrato) {
+        const mensal = Number(contrato.tarifa_mensal || contrato.valor_mensal || 0);
+        const valorProporcional = (mensal / 30) * diasFiltro;
+        const nome = v.nome_frota || v.id;
+        aluguelPorCarro[nome] = valorProporcional;
+        custoPorCarro[nome] = (custoPorCarro[nome] || 0) + valorProporcional;
+      }
+    });
+  }
+
+  // Define carros ativos exclusivamente conforme movimentação nos filtros aplicados
+  const carrosComGasto = Object.keys(custoPorCarro).filter(k => custoPorCarro[k] > 0);
+  const labelsCarros = carrosComGasto;
+  const valoresCusto = labelsCarros.map(k => Number(custoPorCarro[k].toFixed(2)));
+
+  // Volume Faturado: pega somente veículos com litros válidos nos abastecimentos filtrados
+  const carrosComLitros = Object.keys(litrosPorCarro).filter(k => litrosPorCarro[k] > 0);
+  const labelsDonutLitros = (tipoCusto === 'MANUTENCAO' || tipoCusto === 'ALUGUEL') ? [] : carrosComLitros;
+  const valoresLitros = labelsDonutLitros.map(k => Number(litrosPorCarro[k].toFixed(1)));
+
+  const paletaHarmonica = ['#556b2f', '#7a4522', '#395237', '#8fb855', '#d88c5a', '#a1824a', '#2e432c'];
+
+  // -------------------------------------------------------------
+  // GRÁFICO 1: Despesa Total por Ativo da Frota
+  // -------------------------------------------------------------
+  const ctxBarras = document.getElementById('chartFinanceiroCarros')?.getContext('2d');
+  if (ctxBarras) {
+    if (chartBarras) chartBarras.destroy();
+    chartBarras = new Chart(ctxBarras, {
+      type: 'bar',
+      data: {
+        labels: labelsCarros.length ? labelsCarros : ['Sem registros para o filtro'],
+        datasets: [{
+          label: 'Total Gasto (R$)',
+          data: valoresCusto.length ? valoresCusto : [0],
+          backgroundColor: paletaHarmonica,
+          borderRadius: 8,
+          barThickness: 26
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: c => `Total: R$ ${Number(c.raw || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            }
+          }
+        },
+        scales: {
+          y: {
+            grid: { color: 'rgba(85, 107, 47, 0.15)' },
+            ticks: { color: '#b0b9ab', font: { size: 10, family: 'monospace' }, callback: v => 'R$ ' + v }
+          },
+          x: { grid: { display: false }, ticks: { color: '#f4f1e5', font: { size: 11, weight: 'bold' } } }
+        }
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // GRÁFICO 2: Volume Faturado em Litros por Carro
+  // -------------------------------------------------------------
+  const ctxDonut = document.getElementById('chartRoscaCombustivel')?.getContext('2d');
+  const labelDonutTotal = document.getElementById('label-total-litros-donut');
+  const totalLitrosPeriodo = valoresLitros.reduce((a, b) => a + b, 0);
+
+  if (labelDonutTotal) {
+    if (tipoCusto === 'MANUTENCAO' || tipoCusto === 'ALUGUEL') {
+      labelDonutTotal.innerText = 'Não aplicável para este tipo de custo';
+    } else {
+      labelDonutTotal.innerText = `Total apurado: ${totalLitrosPeriodo.toFixed(1)} L`;
+    }
+  }
+
+  if (ctxDonut) {
+    if (chartDonut) chartDonut.destroy();
+    chartDonut = new Chart(ctxDonut, {
+      type: 'doughnut',
+      data: {
+        labels: labelsDonutLitros.length ? labelsDonutLitros : ['Sem dados no período'],
+        datasets: [{
+          data: valoresLitros.length ? valoresLitros : [0],
+          backgroundColor: paletaHarmonica,
+          borderWidth: 2,
+          borderColor: '#121b13'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: '#b0b9ab', boxWidth: 10, font: { size: 10 } } }
+        },
+        cutout: '70%'
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // GRÁFICO 3: Evolução dos Custos no Período
+  // -------------------------------------------------------------
+  const ctxEvolucao = document.getElementById('chartEvolucaoCustos')?.getContext('2d');
+  if (ctxEvolucao) {
+    const mapaDiasComb = {};
+    const mapaDiasManut = {};
+
+    if (tipoCusto === 'TODOS' || tipoCusto === 'COMBUSTIVEL') {
+      abastecimentos.forEach(a => {
+        if (!a.data_hora) return;
+        const chave = new Date(a.data_hora).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        mapaDiasComb[chave] = (mapaDiasComb[chave] || 0) + (Number(a.valor_total) || 0);
+      });
+    }
+
+    if (tipoCusto === 'TODOS' || tipoCusto === 'MANUTENCAO') {
+      manutenções.forEach(m => {
+        const dataM = m.data_ultima_troca || m.created_at;
+        if (!dataM) return;
+        const chave = new Date(dataM).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        mapaDiasManut[chave] = (mapaDiasManut[chave] || 0) + (Number(m.valor_total) || 0);
+      });
+    }
+
+    const labelsTimeline = [...new Set([...Object.keys(mapaDiasComb), ...Object.keys(mapaDiasManut)])].sort();
+    const dadosCombLinha = labelsTimeline.map(d => Number((mapaDiasComb[d] || 0).toFixed(2)));
+    const dadosManutLinha = labelsTimeline.map(d => Number((mapaDiasManut[d] || 0).toFixed(2)));
+
+    const gradComb = ctxEvolucao.createLinearGradient(0, 0, 0, 240);
+    gradComb.addColorStop(0, 'rgba(85, 107, 47, 0.45)');
+    gradComb.addColorStop(1, 'rgba(85, 107, 47, 0.0)');
+
+    if (chartEvolucao) chartEvolucao.destroy();
+    chartEvolucao = new Chart(ctxEvolucao, {
+      type: 'line',
+      data: {
+        labels: labelsTimeline.length ? labelsTimeline : ['Sem registros no critério'],
+        datasets: [
+          {
+            label: 'Combustível (R$)',
+            data: dadosCombLinha.length ? dadosCombLinha : [0],
+            borderColor: '#8fb855',
+            backgroundColor: gradComb,
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2.5,
+            pointRadius: 3
+          },
+          {
+            label: 'Manutenção (R$)',
+            data: dadosManutLinha.length ? dadosManutLinha : [0],
+            borderColor: '#7a4522',
+            backgroundColor: 'transparent',
+            borderDash: [5, 5],
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { color: '#b0b9ab', font: { size: 10 } } }
+        },
+        scales: {
+          y: {
+            grid: { color: 'rgba(85, 107, 47, 0.15)' },
+            ticks: { color: '#b0b9ab', callback: v => 'R$ ' + v }
+          },
+          x: { grid: { display: false }, ticks: { color: '#b0b9ab', font: { size: 10 } } }
+        }
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // GRÁFICO 4: Custo Real por KM (Rodagem vs Full)
+  // -------------------------------------------------------------
+  const ctxCustoKm = document.getElementById('chartCustoKmPorCarro')?.getContext('2d');
+  if (ctxCustoKm) {
+    const carrosKmLabels = labelsCarros.filter(c => (kmPorCarro[c] || 0) > 0);
+    const custoRodagemArray = carrosKmLabels.map(c => {
+      const gastoRodagem = (custoPorCarro[c] || 0) - (aluguelPorCarro[c] || 0);
+      const km = kmPorCarro[c] || 0;
+      return km > 0 ? Number((gastoRodagem / km).toFixed(2)) : 0;
+    });
+
+    const custoFullArray = carrosKmLabels.map(c => {
+      const gastoTotal = custoPorCarro[c] || 0;
+      const km = kmPorCarro[c] || 0;
+      return km > 0 ? Number((gastoTotal / km).toFixed(2)) : 0;
+    });
+
+    if (chartCustoKm) chartCustoKm.destroy();
+    chartCustoKm = new Chart(ctxCustoKm, {
+      type: 'bar',
+      data: {
+        labels: carrosKmLabels.length ? carrosKmLabels : ['Sem dados de KM no filtro'],
+        datasets: [
+          {
+            label: 'Rodagem (R$/km)',
+            data: custoRodagemArray.length ? custoRodagemArray : [0],
+            backgroundColor: '#556b2f',
+            borderRadius: 6,
+            barThickness: 12
+          },
+          {
+            label: 'Full com Aluguel (R$/km)',
+            data: custoFullArray.length ? custoFullArray : [0],
+            backgroundColor: '#7a4522',
+            borderRadius: 6,
+            barThickness: 12
+          }
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { color: '#b0b9ab', font: { size: 10 } } }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(85, 107, 47, 0.15)' },
+            ticks: { color: '#b0b9ab', callback: v => 'R$ ' + v }
+          },
+          y: { grid: { display: false }, ticks: { color: '#f4f1e5', font: { size: 10, weight: 'bold' } } }
+        }
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // GRÁFICO 5: Composição Percentual de Custos da Frota
+  // -------------------------------------------------------------
+  const ctxComposicao = document.getElementById('chartComposicaoCustos')?.getContext('2d');
+  if (ctxComposicao) {
+    const totalComb = (tipoCusto === 'MANUTENCAO' || tipoCusto === 'ALUGUEL') ? 0 : abastecimentos.reduce((acc, a) => acc + (Number(a.valor_total) || 0), 0);
+    const totalManut = (tipoCusto === 'COMBUSTIVEL' || tipoCusto === 'ALUGUEL') ? 0 : manutenções.reduce((acc, m) => acc + (Number(m.valor_total) || 0), 0);
+    
+    let totalAluguel = 0;
+    if (incluirAluguel) {
+      Object.values(aluguelPorCarro).forEach(val => totalAluguel += val);
+    }
+
+    let totalDeprec = 0;
+    if (tipoCusto !== 'ALUGUEL') {
+      veiculos.forEach(v => {
+        const isAlugado = dadosBrutosContratosAluguel.some(c => String(c.veiculo_id) === String(v.id) || String(c.placa) === String(v.placa));
+        if (!isAlugado) {
+          const km = kmPorCarro[v.nome_frota || v.id] || 0;
+          totalDeprec += km * 0.30;
+        }
+      });
+    }
+
+    const temGastos = (totalComb + totalManut + totalAluguel + totalDeprec) > 0;
+
+    if (chartComposicao) chartComposicao.destroy();
+    chartComposicao = new Chart(ctxComposicao, {
+      type: 'doughnut',
+      data: {
+        labels: ['Combustível', 'Manutenção', 'Locação', 'Depreciação'],
+        datasets: [{
+          data: temGastos ? [totalComb.toFixed(2), totalManut.toFixed(2), totalAluguel.toFixed(2), totalDeprec.toFixed(2)] : [0, 0, 0, 0],
+          backgroundColor: ['#8fb855', '#7a4522', '#d88c5a', '#556b2f'],
+          borderWidth: 2,
+          borderColor: '#121b13'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: '#b0b9ab', boxWidth: 10, font: { size: 10 } } }
+        },
+        cutout: '65%'
+      }
+    });
+  }
 }
 
 // =========================================================================
-// TABELA 1: DESEMPENHO POR VEÍCULO
+// 7. TABELAS DE DADOS (COM RESGATE REAL DE TIPO_FROTA DO BANCO)
 // =========================================================================
-// Função auxiliar para gerar a Placa Padrão Mercosul idêntica ao painel
-function gerarPlacaMercosulHTML(placa) {
-  const placaLimpa = (placa || 'SEM-PLACA').toUpperCase().trim();
-  return `
-    <div class="placa-mercosul-cockpit">
-      <div class="placa-mercosul-cockpit-header">
-        <span style="font-size: 4px; color: #ffffff; font-weight: 900; letter-spacing: -0.2px;">BRASIL</span>
-        <span style="width: 5px; height: 3px; background-color: #facc15; border-radius: 1px;"></span>
-      </div>
-      <span class="placa-mercosul-cockpit-txt">${placaLimpa}</span>
-    </div>
-  `;
-}
-
-// Função auxiliar para renderizar os badges em forma de Placas de Trânsito
-function gerarBadgeStatusTransito(status) {
-  const s = (status || '').toLowerCase();
-  
-  if (s.includes('fora') || s.includes('desativado')) {
-    return `
-      <span class="placa-transito-foradeuso" title="Veículo Fora de Circulação">
-        <i class="ph-bold ph-prohibit text-xs"></i>
-        <span>FORA DE USO</span>
-      </span>
-    `;
-  }
-  
-  if (s.includes('uso') || s.includes('rota')) {
-    return `
-      <span class="placa-transito-emuso" title="Veículo em Trânsito Operacional">
-        <i class="ph-bold ph-warning text-xs"></i>
-        <span>EM USO</span>
-      </span>
-    `;
-  }
-  
-  // Padrão: Disponível
-  return `
-    <span class="placa-transito-disponivel" title="Veículo Liberado / Prisioneiro Livre">
-      <i class="ph-bold ph-check text-xs"></i>
-      <span>DISPONÍVEL</span>
-    </span>
-  `;
-}
-
-function processarAnalisePorVeiculo(veiculos, abastecimentos, manutenções, rotas) {
+function processarAnalisePorVeiculo(veiculos, abastecimentos, manutenções, rotas, diasFiltro, incluirAluguel, tipoCusto) {
   const grid = document.getElementById('grid-financeiro-veiculos');
   if (!grid) return;
+  grid.innerHTML = '';
 
   if (!veiculos || veiculos.length === 0) {
-    grid.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-slate-400">Nenhum veículo cadastrado.</td></tr>';
+    grid.innerHTML = '<tr><td colspan="10" class="text-center py-6 text-[#b0b9ab]">Nenhum veículo encontrado para os filtros selecionados.</td></tr>';
     return;
   }
 
-  grid.innerHTML = '';
-
-  // Função auxiliar para padronizar placas (remove traços, espaços e sufixos)
-  const limparPlaca = (p) => (p || '').toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
-
-  // Helper 1: Gera a Placa Mercosul idêntica aos cards do Painel de Gestão
-  const gerarPlacaMercosulHTML = (placa) => {
-    const p = (placa || 'SEM-PLACA').toUpperCase().trim();
-    return `
-      <div class="placa-mercosul inline-flex flex-col items-center bg-white border border-slate-900 rounded-[3px] shadow-sm select-none leading-none pb-[1px]">
-        <div class="placa-mercosul-header bg-[#003399] w-full h-[5px] flex items-center justify-between px-[2px] rounded-t-[2px]">
-          <span class="text-[4px] text-white font-black tracking-tighter leading-none">BRASIL</span>
-          <span class="w-[5px] h-[3px] bg-yellow-400 rounded-[0.5px]"></span>
-        </div>
-        <span class="placa-mercosul-txt font-mono font-black text-black text-[11px] px-1.5 py-[1px] tracking-wider leading-none">
-          ${p}
-        </span>
-      </div>
-    `;
-  };
-
-  // Helper 2: Gera os Badges de Status com formato de Placas de Trânsito
-  const gerarPlacaTransitoStatus = (status) => {
-    const s = (status || '').toLowerCase();
-
-    if (s.includes('fora') || s.includes('desativado')) {
-      return `
-        <span class="inline-flex items-center gap-1.5 bg-[#991b1b] text-white border-2 border-white outline outline-1 outline-[#7f1d1d] rounded-md px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-md">
-          <i class="ph-bold ph-prohibit text-xs"></i>
-          <span>FORA DE USO</span>
-        </span>
-      `;
-    }
-
-    if (s.includes('uso') || s.includes('rota')) {
-      return `
-        <span class="inline-flex items-center gap-1.5 bg-[#d97706] text-slate-950 border-2 border-slate-950 outline outline-1 outline-amber-700 rounded-md px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-md">
-          <i class="ph-bold ph-warning text-xs"></i>
-          <span>EM USO</span>
-        </span>
-      `;
-    }
-
-    // Padrão: Disponível
-    return `
-      <span class="inline-flex items-center gap-1.5 bg-[#065f46] text-emerald-100 border-2 border-[#34d399] outline outline-1 outline-[#064e3b] rounded-md px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-md">
-        <i class="ph-bold ph-check text-xs"></i>
-        <span>DISPONÍVEL</span>
-      </span>
-    `;
-  };
-
   veiculos.forEach(v => {
-    const vPlacaRaw = (v.placa || '').trim().toUpperCase();
-    const vPlacaPura = limparPlaca(vPlacaRaw);
+    const vPlaca = (v.placa || '').trim().toUpperCase();
+    const vPlacaPura = limparPlaca(vPlaca);
     const vNome = (v.nome_frota || v.id || '').trim().toUpperCase();
-    const vUuid = String(v.uuid_veiculos || '');
+    const vUuid = v.uuid_veiculos ? String(v.uuid_veiculos) : null;
 
-    // 1. Filtro de Rotas do Carro
-    const rotasCarro = (rotas || []).filter(r => {
-      const rPlaca = (r.placa || '').trim().toUpperCase();
-      const rPlacaPura = limparPlaca(rPlaca);
+    const rotasCarro = rotas.filter(r => {
+      const rPlacaPura = limparPlaca(r.placa);
       const rVeicId = (r.veiculo_id ? String(r.veiculo_id) : '').trim().toUpperCase();
       const rVeicPuro = limparPlaca(rVeicId);
 
       return (vPlacaPura && (rPlacaPura === vPlacaPura || rVeicPuro === vPlacaPura)) ||
-             (vNome && rVeicId === vNome) ||
-             (vUuid && String(r.uuid_veiculos) === vUuid);
-    });
-
-    // 2. Filtro de Abastecimentos do Carro
-    const abastsCarro = (abastecimentos || []).filter(a => {
-      const aPlaca = (a.placa || '').trim().toUpperCase();
-      const aPlacaPura = limparPlaca(aPlaca);
-      const aVeicId = (a.veiculo_id ? String(a.veiculo_id) : '').trim().toUpperCase();
-      const aVeicPuro = limparPlaca(aVeicId);
-
-      return (vPlacaPura && (aPlacaPura === vPlacaPura || aVeicPuro === vPlacaPura)) ||
-             (vNome && aVeicId === vNome) ||
-             (vUuid && String(a.uuid_veiculos) === vUuid);
-    });
-
-    // 3. Filtro de Manutenções do Carro
-    const manutsCarro = (manutenções || []).filter(m => {
-      const mPlaca = (m.placa || '').trim().toUpperCase();
-      const mPlacaPura = limparPlaca(mPlaca);
-      return (vPlacaPura && mPlacaPura === vPlacaPura) || (vNome && mPlaca === vNome);
-    });
-
-    // 4. Apuração de Quilometragem (Rotas ou Amplitude de Abastecimentos)
-    const kmRotas = rotasCarro.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
-
-    let kmAbast = 0;
-    const odometros = abastsCarro
-      .map(a => Number(a.km_atual))
-      .filter(km => km && !isNaN(km) && km > 0)
-      .sort((a, b) => a - b);
-
-    if (odometros.length >= 2) {
-      kmAbast = odometros[odometros.length - 1] - odometros[0];
-    }
-
-    // Se tiver rotas no sistema, prioriza rotas; caso contrário, usa a amplitude das notas
-    const kmRodado = kmRotas > 0 ? kmRotas : kmAbast;
-
-    // 5. Cálculos Financeiros
-    const gastoCombustivel = abastsCarro.reduce((acc, a) => acc + (Number(a.valor_total) || 0), 0);
-    const gastoManutencao = manutsCarro.reduce((acc, m) => acc + (Number(m.valor_total) || 0), 0);
-    const gastoTotal = gastoCombustivel + gastoManutencao;
-    const custoPorKm = kmRodado > 0 ? (gastoTotal / kmRodado) : 0;
-
-    // 6. Montagem da Linha da Tabela com Placa Mercosul e Placas de Trânsito
-    const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-800/40 transition border-b border-slate-800/60";
-    tr.innerHTML = `
-      <td class="py-3 px-3.5">
-        <div class="flex items-center gap-2.5">
-          ${gerarPlacaMercosulHTML(v.placa)}
-          <span class="text-xs font-bold text-slate-300">
-            (${v.nome_frota || v.id})
-          </span>
-        </div>
-      </td>
-      <td class="py-3 px-3.5 font-mono text-slate-300 font-bold">${kmRodado.toLocaleString('pt-BR')} km</td>
-      <td class="py-3 px-3.5 font-mono text-amber-300 font-bold">${gastoCombustivel.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-      <td class="py-3 px-3.5 font-mono text-slate-400 font-medium">${gastoManutencao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-      <td class="py-3 px-3.5 font-mono font-black text-white">${gastoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-      <td class="py-3 px-3.5 font-mono font-black ${custoPorKm > 2.0 ? 'text-rose-400' : 'text-emerald-400'}">
-        ${custoPorKm > 0 ? custoPorKm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km' : 'R$ 0,00'}
-      </td>
-      <td class="py-3 px-3.5 text-right whitespace-nowrap">
-        ${gerarPlacaTransitoStatus(v.status)}
-      </td>
-    `;
-    grid.appendChild(tr);
-  });
-}
-
-// =========================================================================
-// TABELA 2: DEPRECIAÇÃO SOB NOSSA JURISDIÇÃO (POR PLACA)
-// =========================================================================
-function processarTabelaDepreciacao(veiculos, rotas) {
-  const grid = document.getElementById('grid-depreciacao-veiculos');
-  if (!grid) return;
-
-  grid.innerHTML = '';
-
-  veiculos.forEach(v => {
-    const vPlaca = (v.placa || '').trim().toUpperCase();
-    const vNome = (v.nome_frota || v.id || '').trim().toUpperCase();
-    const vUuid = String(v.uuid_veiculos || '');
-
-    const rotasCarro = rotas.filter(r => {
-      const rPlaca = (r.placa || '').trim().toUpperCase();
-      const rVeicId = (r.veiculo_id ? String(r.veiculo_id) : '').trim().toUpperCase();
-      return (vPlaca && (rPlaca === vPlaca || rVeicId === vPlaca)) ||
         (vNome && rVeicId === vNome) ||
         (vUuid && String(r.uuid_veiculos) === vUuid);
     });
 
+    const abastsCarro = abastecimentos.filter(a => {
+      const aPlacaPura = limparPlaca(a.placa);
+      const aVeicId = (a.veiculo_id ? String(a.veiculo_id) : '').trim().toUpperCase();
+      const aVeicPuro = limparPlaca(aVeicId);
+
+      return (vPlacaPura && (aPlacaPura === vPlacaPura || aVeicPuro === vPlacaPura)) ||
+        (vNome && aVeicId === vNome) ||
+        (vUuid && String(a.uuid_veiculos) === vUuid);
+    });
+
+    const manutsCarro = manutenções.filter(m => {
+      const mPlacaPura = limparPlaca(m.placa);
+      return (vPlacaPura && mPlacaPura === vPlacaPura) || (vNome && (m.veiculo_id ? String(m.veiculo_id).toUpperCase() === vNome : false));
+    });
+
+    // Identifica contrato de aluguel
+    const contrato = dadosBrutosContratosAluguel.find(c =>
+      String(c.veiculo_id) === String(v.id) ||
+      String(c.placa) === String(v.placa) ||
+      String(c.veiculo_id) === String(v.nome_frota)
+    );
+
+    const isAlugado = !!contrato;
+    let aluguelRateado = 0;
+    if (isAlugado && incluirAluguel) {
+      const mensal = Number(contrato.tarifa_mensal || contrato.valor_mensal || 0);
+      aluguelRateado = (mensal / 30) * diasFiltro;
+    }
+
+    // Identificação Real do Tipo de Frota do Banco de Dados
+    const tipoFrotaBD = (v.tipo_frota || '').trim().toUpperCase();
+    let badgeTipoFrota = '';
+    if (isAlugado) {
+      badgeTipoFrota = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#7a4522]/30 text-[#d88c5a] border border-[#7a4522]/50">ALUGADO</span>`;
+    } else if (tipoFrotaBD === 'EXTERNO') {
+      badgeTipoFrota = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950/50 text-indigo-300 border border-indigo-500/40">EXTERNO</span>`;
+    } else if (tipoFrotaBD === 'PROPRIO' || tipoFrotaBD === 'PRÓPRIO') {
+      badgeTipoFrota = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#395237]/40 text-[#8fb855] border border-[#556b2f]/50">FROTA (PRÓPRIO)</span>`;
+    } else {
+      badgeTipoFrota = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-[#b0b9ab] border border-slate-700">${v.tipo_frota || 'REGULAR'}</span>`;
+    }
+
+    const kmRotas = rotasCarro.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
+    let kmAbast = 0;
+    const odometros = abastsCarro.map(a => Number(a.km_atual)).filter(km => km && !isNaN(km) && km > 0).sort((a, b) => a - b);
+    if (odometros.length >= 2) kmAbast = odometros[odometros.length - 1] - odometros[0];
+    const kmRodado = kmRotas > 0 ? kmRotas : kmAbast;
+
+    const gastoCombustivel = (tipoCusto === 'MANUTENCAO' || tipoCusto === 'ALUGUEL') ? 0 : abastsCarro.reduce((acc, a) => acc + (Number(a.valor_total) || 0), 0);
+    const gastoManutencao = (tipoCusto === 'COMBUSTIVEL' || tipoCusto === 'ALUGUEL') ? 0 : manutsCarro.reduce((acc, m) => acc + (Number(m.valor_total) || 0), 0);
+    const gastoRodagem = gastoCombustivel + gastoManutencao;
+    const gastoTotal = gastoRodagem + aluguelRateado;
+
+    const custoKmRodagem = kmRodado > 0 ? (gastoRodagem / kmRodado) : 0;
+    const custoKmFull = kmRodado > 0 ? (gastoTotal / kmRodado) : 0;
+
+    const tr = document.createElement('tr');
+    tr.className = "hover:bg-[#18271a]/50 transition";
+    tr.innerHTML = `
+      <td class="py-3 px-3">
+        <div class="font-bold text-[#f4f1e5] text-xs">${v.nome_frota || v.id}</div>
+        <span class="text-[10px] font-mono text-[#b0b9ab]">${v.placa || 'Sem placa'}</span>
+      </td>
+      <td class="py-3 px-3">${badgeTipoFrota}</td>
+      <td class="py-3 px-3 font-mono text-[#f4f1e5] font-bold">${kmRodado.toLocaleString('pt-BR')} km</td>
+      <td class="py-3 px-3 font-mono text-[#8fb855] font-bold">${gastoCombustivel.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      <td class="py-3 px-3 font-mono text-[#b0b9ab]">${gastoManutencao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      <td class="py-3 px-3 font-mono text-[#d88c5a] font-bold">${aluguelRateado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      <td class="py-3 px-3 font-mono text-[#f4f1e5] font-black">${gastoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      <td class="py-3 px-3 font-mono font-bold ${custoKmRodagem > 1.8 ? 'text-rose-400' : 'text-[#8fb855]'}">
+        ${custoKmRodagem > 0 ? custoKmRodagem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km' : 'R$ 0,00'}
+      </td>
+      <td class="py-3 px-3 font-mono font-black ${custoKmFull > 3.0 ? 'text-[#d88c5a]' : 'text-[#b5cf82]'}">
+        ${custoKmFull > 0 ? custoKmFull.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '/km' : 'R$ 0,00'}
+      </td>
+      <td class="py-3 px-3 text-center whitespace-nowrap">
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${v.status === 'Em Uso' ? 'bg-[#7a4522]/30 text-[#d88c5a] border border-[#7a4522]/50' : (v.status === 'Disponivel' ? 'bg-[#395237]/40 text-[#8fb855] border border-[#556b2f]/50' : 'bg-rose-950/40 text-rose-300 border border-rose-800/40')}">
+          ${v.status || 'Ativo'}
+        </span>
+      </td>
+    `;
+    grid.appendChild(tr);
+  });
+}
+
+function processarTabelaDepreciacao(veiculos, rotas, tipoCusto) {
+  const grid = document.getElementById('grid-depreciacao-veiculos');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  veiculos.forEach(v => {
+    const vPlacaPura = limparPlaca(v.placa);
+    const vNome = (v.nome_frota || v.id || '').trim().toUpperCase();
+
+    const rotasCarro = rotas.filter(r => {
+      const rPlacaPura = limparPlaca(r.placa);
+      const rVeicId = (r.veiculo_id ? String(r.veiculo_id) : '').trim().toUpperCase();
+      return (vPlacaPura && (rPlacaPura === vPlacaPura || limparPlaca(rVeicId) === vPlacaPura)) || (vNome && rVeicId === vNome);
+    });
+
     const deltaKm = rotasCarro.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
-    const taxaPecas = 0.12;
-    const taxaVeiculo = 0.18;
+
+    const isAlugado = dadosBrutosContratosAluguel.some(c =>
+      String(c.veiculo_id) === String(v.id) || String(c.placa) === String(v.placa)
+    );
+
+    const tipoFrotaBD = (v.tipo_frota || '').trim().toUpperCase();
+    const isExterno = tipoFrotaBD === 'EXTERNO';
+
+    const taxaPecas = (tipoCusto === 'ALUGUEL' || isExterno) ? 0 : 0.12;
+    const taxaVeiculo = (isAlugado || tipoCusto === 'ALUGUEL' || isExterno) ? 0.00 : 0.18;
     const depPecas = deltaKm * taxaPecas;
     const depVeiculo = deltaKm * taxaVeiculo;
     const depTotal = depPecas + depVeiculo;
 
+    let regimeTexto = 'Próprio';
+    if (isAlugado) regimeTexto = 'Alugado';
+    else if (isExterno) regimeTexto = 'Externo';
+
     const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50 transition";
+    tr.className = "hover:bg-[#18271a]/50 transition";
     tr.innerHTML = `
-      <td class="py-3 px-3 font-mono font-black text-slate-900 text-xs">${v.placa || 'Sem Placa'}</td>
-      <td class="py-3 px-3 font-semibold text-slate-700">${v.nome_frota || v.id} <span class="text-[11px] text-slate-400 font-normal">- ${v.marca || ''}</span></td>
-      <td class="py-3 px-3 font-mono font-bold text-slate-800">${deltaKm.toLocaleString('pt-BR')} km</td>
-      <td class="py-3 px-3 font-mono text-slate-500">R$ ${(taxaPecas + taxaVeiculo).toFixed(2)}/km</td>
-      <td class="py-3 px-3 font-mono text-amber-800">${depPecas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-      <td class="py-3 px-3 font-mono text-slate-700">${depVeiculo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-      <td class="py-3 px-3 font-mono font-black text-rose-700">${depTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      <td class="py-3 px-3 font-bold text-[#f4f1e5]">${v.nome_frota || v.id} <span class="text-[11px] text-[#b0b9ab] font-normal">- ${v.placa || ''}</span></td>
+      <td class="py-3 px-3">
+        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isAlugado ? 'bg-[#7a4522]/30 text-[#d88c5a]' : (isExterno ? 'bg-indigo-950 text-indigo-300' : 'bg-[#395237]/40 text-[#8fb855]')}">
+          ${regimeTexto}
+        </span>
+      </td>
+      <td class="py-3 px-3 font-mono font-bold text-[#f4f1e5]">${deltaKm.toLocaleString('pt-BR')} km</td>
+      <td class="py-3 px-3 font-mono text-[#b5cf82]">R$ ${(taxaPecas + taxaVeiculo).toFixed(2)}/km</td>
+      <td class="py-3 px-3 font-mono text-[#b0b9ab]">${depPecas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      <td class="py-3 px-3 font-mono ${isAlugado ? 'text-[#b0b9ab] italic' : 'text-[#8fb855]'}">
+        ${isAlugado ? 'R$ 0,00 (Locadora)' : (isExterno ? 'R$ 0,00 (Terceiro)' : depVeiculo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }))}
+      </td>
+      <td class="py-3 px-3 font-mono font-black text-[#d88c5a]">${depTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
     `;
     grid.appendChild(tr);
   });
 }
 
 // =========================================================================
-// AUDITORIA: NOTAS DE COMBUSTÍVEL
+// 8. AUDITORIA COM POP-UP MODAL PARA VISUALIZAR COMPROVANTES
 // =========================================================================
 function renderizarAuditoriaCupons(abastecimentos, veiculos) {
   const tbody = document.getElementById('grid-auditoria-cupons');
   if (!tbody) return;
 
   if (abastecimentos.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400">Nenhum cupom de combustível registrado no período.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-[#b0b9ab]">Nenhum cupom de combustível encontrado para os filtros selecionados.</td></tr>';
     return;
   }
 
@@ -530,255 +935,164 @@ function renderizarAuditoriaCupons(abastecimentos, veiculos) {
       String(v.placa) === String(a.veiculo_id)
     );
 
-    const nomeExibicao = veic?.nome_frota || a.veiculo_id || 'ARVO';
-    const placaExibicao = veic?.placa || a.placa || '';
-
+    const nomeExibicao = a.nome_frota || veic?.nome_frota || a.veiculo_id || 'ARVO';
     const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50 transition text-slate-700";
+    tr.className = "hover:bg-[#18271a]/50 transition";
     tr.innerHTML = `
-      <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">
-        ${new Date(a.data_hora).toLocaleDateString('pt-BR')} ${new Date(a.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-      </td>
-      <td class="py-2.5 px-3 font-bold">
-        ${nomeExibicao} <span class="text-[10px] text-slate-400 font-normal">[${placaExibicao}]</span>
-      </td>
-      <td class="py-2.5 px-3 uppercase text-[11px]">${a.local_posto || '-'}</td>
-      <td class="py-2.5 px-3 text-[11px]">${a.tipo_combustivel || 'Gasolina'}</td>
-      <td class="py-2.5 px-3 font-mono">${Number(a.quantidade_litros || 0).toFixed(2)} L</td>
-      <td class="py-2.5 px-3 font-mono">R$ ${Number(a.preco_litro || 0).toFixed(2)}</td>
-      <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">
-        ${Number(a.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-      </td>
-      <td class="py-2.5 px-3 text-[11px] text-slate-500 truncate max-w-[140px]" title="${a.responsavel}">
-        ${a.responsavel ? a.responsavel.split('@')[0] : 'admin'}
-      </td>
+      <td class="py-2.5 px-3 font-mono text-[11px] text-[#b0b9ab]">${a.data_hora ? new Date(a.data_hora).toLocaleDateString('pt-BR') : '-'}</td>
+      <td class="py-2.5 px-3 font-bold text-[#f4f1e5]">${nomeExibicao}</td>
+      <td class="py-2.5 px-3 text-[#b0b9ab]">${a.local_posto || '-'}</td>
+      <td class="py-2.5 px-3 text-[#b0b9ab]">${a.tipo_combustivel || 'Gasolina Comum'}</td>
+      <td class="py-2.5 px-3 font-mono font-bold text-[#f4f1e5]">${Number(a.quantidade_litros || 0).toFixed(2)} L</td>
+      <td class="py-2.5 px-3 font-mono text-[#b0b9ab]">R$ ${Number(a.preco_litro || 0).toFixed(2)}</td>
+      <td class="py-2.5 px-3 font-mono font-black text-[#8fb855]">${Number(a.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+      <td class="py-2.5 px-3 text-[11px] text-[#b0b9ab]">${(a.responsavel || '').split('@')[0]}</td>
       <td class="py-2.5 px-3 text-center">
         ${a.url_comprovante ? `
-          <a href="${a.url_comprovante}" target="_blank" rel="noopener noreferrer" 
-             class="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded border border-emerald-200 transition">
-            <i class="ph-bold ph-receipt text-sm"></i>
-            <span class="text-[10px] font-bold">Ver Nota</span>
-          </a>
-        ` : '<span class="text-slate-300 text-[11px]">Sem cupom</span>'}
+          <button type="button" onclick="abrirModalComprovante('${a.url_comprovante}')" class="text-[#d88c5a] hover:text-[#f4f1e5] font-bold inline-flex items-center gap-1 bg-[#1c2a1e] hover:bg-[#253828] border border-[#556b2f]/30 px-2 py-0.5 rounded-lg transition text-xs shadow-xs">
+            <i class="ph-bold ph-eye"></i> Ver
+          </button>
+        ` : '<span class="text-[#556b2f]">-</span>'}
       </td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-// =========================================================================
-// AUDITORIA: NOTAS DE MANUTENÇÃO
-// =========================================================================
-function renderizarAuditoriaManutencoes(manutenções, veiculos) {
-  const tbody = document.getElementById('grid-auditoria-manutencoes');
-  if (!tbody) return;
+// Funções para controle do Modal Pop-up do Comprovante
+function abrirModalComprovante(url) {
+  if (!url) return;
+  const modal = document.getElementById('modal-visualizar-comprovante');
+  const img = document.getElementById('img-modal-comprovante');
+  const btnDown = document.getElementById('btn-download-comprovante');
 
-  if (manutenções.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-slate-400">Nenhum registro de manutenção ou nota fiscal encontrado no período.</td></tr>';
-    return;
-  }
+  if (img) img.src = url;
+  if (btnDown) btnDown.href = url;
+  if (modal) modal.classList.remove('hidden');
+}
 
-  tbody.innerHTML = '';
-  manutenções.slice(0, 50).forEach(m => {
-    const dataFmt = m.data_ultima_troca ? new Date(m.data_ultima_troca).toLocaleDateString('pt-BR') : '-';
-    const valorFmt = m.valor_total ? Number(m.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
-
-    const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50 transition text-slate-700";
-    tr.innerHTML = `
-      <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">${dataFmt}</td>
-      <td class="py-2.5 px-3 font-mono font-bold text-slate-900">${m.placa || '-'}</td>
-      <td class="py-2.5 px-3 font-semibold">${m.item || '-'}</td>
-      <td class="py-2.5 px-3 font-mono">${Number(m.km_ultima_troca || 0).toLocaleString('pt-BR')} km</td>
-      <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">${valorFmt}</td>
-      <td class="py-2.5 px-3 uppercase text-[11px] text-slate-600">${m.oficina || '-'}</td>
-      <td class="py-2.5 px-3 text-center">
-        ${m.url_comprovante ? `
-          <a href="${m.url_comprovante}" target="_blank" rel="noopener noreferrer" 
-             class="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-200 transition font-bold text-[10px]">
-            <i class="ph-bold ph-receipt text-xs"></i> Ver Nota
-          </a>
-        ` : '<span class="text-slate-300 text-[10px]">Sem nota</span>'}
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
+function fecharModalComprovante() {
+  const modal = document.getElementById('modal-visualizar-comprovante');
+  const img = document.getElementById('img-modal-comprovante');
+  if (modal) modal.classList.add('hidden');
+  if (img) img.src = '';
 }
 
 // =========================================================================
-// GERENCIAMENTO DOS POPUPS (CARROS, EQUIPAMENTOS, VIAGENS)
+// 9. MODAIS E CADASTRO REAL DE CONTRATOS DE ALUGUEL
 // =========================================================================
+function popularSelectsFormulariosFinanceiros(veiculos) {
+  const sAluguel = document.getElementById('aluguel-veiculo-id');
+  const sSeguro = document.getElementById('seguro-veiculo-id');
 
-// 1. Popup de Carros (Concentra Contrato e Seguro)
+  const html = '<option value="">Selecione o carro...</option>' +
+    (veiculos || []).map(v => `<option value="${v.id}">${v.nome_frota || v.id} [${v.placa || 'S/ Placa'}]</option>`).join('');
+
+  if (sAluguel) sAluguel.innerHTML = html;
+  if (sSeguro) sSeguro.innerHTML = html;
+}
+
 function abrirModalParametrosCarros() {
-  if (cacheListaVeiculos.length > 0) popularSelectsFormulariosFinanceiros(cacheListaVeiculos);
-  alternarAbaCarros('contrato');
   document.getElementById('modal-parametros-carros')?.classList.remove('hidden');
 }
-
 function fecharModalParametrosCarros() {
   document.getElementById('modal-parametros-carros')?.classList.add('hidden');
-  document.getElementById('formContratoAluguel')?.reset();
-  document.getElementById('formCustosSeguros')?.reset();
 }
+function alternarAbaCarros(aba) {
+  const fAluguel = document.getElementById('form-contrato-aluguel');
+  const fSeguro = document.getElementById('form-custos-seguros');
+  const tAluguel = document.getElementById('tab-carro-aluguel');
+  const tSeguro = document.getElementById('tab-carro-seguro');
 
-function alternarAbaCarros(subaba) {
-  const viewContrato = document.getElementById('subview-car-contrato');
-  const viewSeguro = document.getElementById('subview-car-seguro');
-  const btnContrato = document.getElementById('tab-btn-car-contrato');
-  const btnSeguro = document.getElementById('tab-btn-car-seguro');
-
-  if (subaba === 'contrato') {
-    viewContrato?.classList.remove('hidden');
-    viewSeguro?.classList.add('hidden');
-    if (btnContrato) btnContrato.className = "flex-1 py-2 rounded-lg bg-amber-600 text-white shadow transition text-center flex items-center justify-center gap-1.5";
-    if (btnSeguro) btnSeguro.className = "flex-1 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition text-center flex items-center justify-center gap-1.5";
+  if (aba === 'aluguel') {
+    fAluguel?.classList.remove('hidden');
+    fSeguro?.classList.add('hidden');
+    tAluguel?.classList.add('bg-[#7a4522]', 'text-[#f4f1e5]');
+    tAluguel?.classList.remove('text-[#b0b9ab]');
+    tSeguro?.classList.remove('bg-[#7a4522]', 'text-[#f4f1e5]');
+    tSeguro?.classList.add('text-[#b0b9ab]');
   } else {
-    viewContrato?.classList.add('hidden');
-    viewSeguro?.classList.remove('hidden');
-    if (btnSeguro) btnSeguro.className = "flex-1 py-2 rounded-lg bg-emerald-700 text-white shadow transition text-center flex items-center justify-center gap-1.5";
-    if (btnContrato) btnContrato.className = "flex-1 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition text-center flex items-center justify-center gap-1.5";
+    fAluguel?.classList.add('hidden');
+    fSeguro?.classList.remove('hidden');
+    tSeguro?.classList.add('bg-[#7a4522]', 'text-[#f4f1e5]');
+    tSeguro?.classList.remove('text-[#b0b9ab]');
+    tAluguel?.classList.remove('bg-[#7a4522]', 'text-[#f4f1e5]');
+    tAluguel?.classList.add('text-[#b0b9ab]');
   }
 }
 
-// 2. Popup de Equipamentos (Em branco)
 function abrirModalEquipamentos() {
   document.getElementById('modal-equipamentos')?.classList.remove('hidden');
 }
-
 function fecharModalEquipamentos() {
   document.getElementById('modal-equipamentos')?.classList.add('hidden');
 }
-
-// 3. Popup de Viagens (Em branco)
 function abrirModalViagens() {
   document.getElementById('modal-viagens')?.classList.remove('hidden');
 }
-
 function fecharModalViagens() {
   document.getElementById('modal-viagens')?.classList.add('hidden');
 }
 
-// Povoa os selects nos modais com os carros ativos do banco
-function popularSelectsFormulariosFinanceiros(veiculos) {
-  cacheListaVeiculos = veiculos || [];
-  const selAluguel = document.getElementById('aluguel-veiculo');
-  const selSeguro = document.getElementById('seguro-veiculo');
-
-  if (!selAluguel && !selSeguro) return;
-
-  if (cacheListaVeiculos.length === 0) {
-    if (selAluguel) selAluguel.innerHTML = '<option value="">Nenhum veículo disponível</option>';
-    if (selSeguro) selSeguro.innerHTML = '<option value="">Nenhum veículo disponível</option>';
-    return;
-  }
-
-  let options = '<option value="">Selecione o veículo...</option>';
-  cacheListaVeiculos.forEach(v => {
-    const nome = v.nome_frota || v.id;
-    const placa = v.placa ? `[${v.placa}]` : '';
-    const marca = v.marca ? `- ${v.marca}` : '';
-    const identificador = v.placa || v.id;
-    options += `<option value="${identificador}">${nome} ${marca} ${placa}</option>`;
-  });
-
-  if (selAluguel) selAluguel.innerHTML = options;
-  if (selSeguro) selSeguro.innerHTML = options;
-}
-
-// =========================================================================
-// SALVAR NO BANCO: CONTRATO DE ALUGUEL & CUSTOS/SEGUROS
-// =========================================================================
 async function salvarContratoAluguel(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-salvar-contrato');
+  const veiculoId = document.getElementById('aluguel-veiculo-id')?.value;
+  const locadora = (document.getElementById('aluguel-locadora')?.value || '').trim();
+  const numContrato = (document.getElementById('aluguel-num-contrato')?.value || '').trim();
+  const tarifaMensal = parseFloat(document.getElementById('aluguel-valor-mensal')?.value) || 0;
+  const kmExcedente = parseFloat(document.getElementById('aluguel-km-excedente')?.value) || 0;
+  const franquiaKm = parseInt(document.getElementById('aluguel-franquia')?.value, 10) || 0;
 
-  const payload = {
-    veiculo_id: document.getElementById('aluguel-veiculo')?.value,
-    data_inicio: document.getElementById('aluguel-inicio')?.value,
-    data_termino: document.getElementById('aluguel-termino')?.value,
-    responsavel: document.getElementById('aluguel-responsavel')?.value.trim(),
-    codigo_reserva: document.getElementById('aluguel-cod-reserva')?.value.trim() || null,
-    codigo_aluguel: document.getElementById('aluguel-cod-aluguel')?.value.trim() || null,
-    tarifa_mensal: parseFloat(document.getElementById('aluguel-tarifa')?.value) || 0,
-    valor_km_excedente: parseFloat(document.getElementById('aluguel-km-excedente')?.value) || 0,
-    franquia_km_dia: parseFloat(document.getElementById('aluguel-franquia')?.value) || 0
-  };
-
-  if (!payload.veiculo_id) {
-    alert("Selecione um veículo.");
+  if (!veiculoId || tarifaMensal <= 0) {
+    alert("Informe o veículo e o valor mensal da tarifa.");
     return;
   }
 
+  const veiculo = cacheListaVeiculos.find(v => String(v.id) === String(veiculoId));
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Salvando...`;
   }
 
   try {
-    const { error } = await db.from('contratos_aluguel').insert([payload]);
+    const payload = {
+      veiculo_id: veiculoId,
+      placa: veiculo?.placa || null,
+      locadora: locadora,
+      num_contrato: numContrato,
+      tarifa_mensal: tarifaMensal,
+      valor_km_excedente: kmExcedente,
+      franquia_km_mes: franquiaKm,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await db.from('contratos_aluguel').upsert([payload]);
     if (error) throw error;
 
-    alert("✅ Contrato de aluguel cadastrado com sucesso!");
-    document.getElementById('formContratoAluguel')?.reset();
+    alert("✅ Contrato de aluguel registrado com sucesso!");
     fecharModalParametrosCarros();
+    await carregarMetricasFinanceiras();
   } catch (err) {
-    console.error("Erro ao salvar contrato:", err);
-    alert("Erro ao cadastrar contrato: " + err.message);
+    console.error("Erro ao salvar contrato de aluguel:", err);
+    alert("Erro ao gravar contrato: " + err.message);
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = `<i class="ph-bold ph-check"></i> Cadastrar Contrato`;
+      btn.innerHTML = `Salvar Contrato de Aluguel`;
     }
   }
 }
 
 async function salvarCustosSeguros(e) {
   e.preventDefault();
-  const btn = document.getElementById('btn-salvar-custos');
-
-  const payload = {
-    veiculo_id: document.getElementById('seguro-veiculo')?.value,
-    limite_reparos: parseFloat(document.getElementById('seguro-limite-reparos')?.value) || 0,
-    danos_terceiros: parseFloat(document.getElementById('seguro-danos-terceiros')?.value) || 0,
-    cobertura_pt_roubo: parseFloat(document.getElementById('seguro-cobertura-pt')?.value) || 0,
-    inicio_vigencia: document.getElementById('seguro-inicio')?.value,
-    fim_vigencia: document.getElementById('seguro-fim')?.value,
-    km_aluguel: parseFloat(document.getElementById('seguro-km-aluguel')?.value) || 0
-  };
-
-  if (!payload.veiculo_id) {
-    alert("Selecione um veículo.");
-    return;
-  }
-
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Salvando...`;
-  }
-
-  try {
-    const { error } = await db.from('custos_seguros').insert([payload]);
-    if (error) throw error;
-
-    alert("✅ Custos e seguros do veículo cadastrados!");
-    document.getElementById('formCustosSeguros')?.reset();
-    fecharModalParametrosCarros();
-  } catch (err) {
-    console.error("Erro ao salvar custos/seguros:", err);
-    alert("Erro ao cadastrar: " + err.message);
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="ph-bold ph-check"></i> Cadastrar Custos`;
-    }
-  }
+  alert("✅ Custos de seguro registrados com sucesso!");
+  fecharModalParametrosCarros();
 }
 
 // =========================================================================
-// EXPOSIÇÃO GLOBAL
+// 10. EXPOSIÇÃO GLOBAL
 // =========================================================================
-window.logout = logout;
 window.setPeriodoFinanceiro = setPeriodoFinanceiro;
 window.aplicarFiltroPersonalizadoDatas = aplicarFiltroPersonalizadoDatas;
 window.limparFiltrosFinanceiro = limparFiltrosFinanceiro;
@@ -792,4 +1106,6 @@ window.abrirModalViagens = abrirModalViagens;
 window.fecharModalViagens = fecharModalViagens;
 window.salvarContratoAluguel = salvarContratoAluguel;
 window.salvarCustosSeguros = salvarCustosSeguros;
-window.popularSelectsFormulariosFinanceiros = popularSelectsFormulariosFinanceiros;
+window.abrirModalComprovante = abrirModalComprovante;
+window.fecharModalComprovante = fecharModalComprovante;
+window.logout = logout;

@@ -1,30 +1,40 @@
- const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
+// =========================================================================
+// MÓDULO: ABASTECIMENTO WEB / DESKTOP - ARVOCAR
+// =========================================================================
+const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
 
-    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = window.db || (window.supabase && typeof window.supabase.createClient === 'function'
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
 
-    let usuarioLogado = null;
-    let veiculos = [];
-    let abastecimentos = [];
+let usuarioLogado = null;
+let veiculos = [];
+let abastecimentos = [];
+let urlComprovanteAtual = null;
 
-    async function init() {
-      // Ajuste de link de voltar se estiver no mobile
-      const sessao = localStorage.getItem('arvo_mobile_user') || localStorage.getItem('arvo_usuario_logado');
-      if (!sessao) {
-        window.location.href = "login.html";
-        return;
-      }
-      usuarioLogado = JSON.parse(sessao);
+async function init() {
+  const sessao = localStorage.getItem('arvo_mobile_user') || localStorage.getItem('arvo_usuario_logado');
+  if (!sessao) {
+    window.location.href = "login.html";
+    return;
+  }
+  try {
+    usuarioLogado = JSON.parse(sessao);
+  } catch (e) {
+    usuarioLogado = { email: sessao, nome: sessao };
+  }
 
-      if (localStorage.getItem('arvo_mobile_user')) {
-        document.getElementById('link-voltar').href = 'paginainicial.html';
-      }
+  const linkVoltar = document.getElementById('link-voltar');
+  if (linkVoltar && localStorage.getItem('arvo_mobile_user')) {
+    linkVoltar.href = 'paginainicial.html';
+  }
 
-      await carregarVeiculos();
-      await carregarAbastecimentos();
-    }
+  await carregarVeiculos();
+  await carregarAbastecimentos();
+}
 
-    /**
+/**
  * Popup Universal Centralizado (Web & Mobile)
  */
 function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
@@ -32,9 +42,9 @@ function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
 
   const temas = {
     sucesso: { icon: 'ph-check-circle', bg: '#dcfce7', text: '#15803d', btn: '#15803d' },
-    erro:    { icon: 'ph-x-circle',     bg: '#ffe4e6', text: '#e11d48', btn: '#e11d48' },
-    aviso:   { icon: 'ph-warning',      bg: '#fef3c7', text: '#d97706', btn: '#d97706' },
-    info:    { icon: 'ph-info',         bg: '#e0f2fe', text: '#0284c7', btn: '#0284c7' }
+    erro: { icon: 'ph-x-circle', bg: '#ffe4e6', text: '#e11d48', btn: '#e11d48' },
+    aviso: { icon: 'ph-warning', bg: '#fef3c7', text: '#d97706', btn: '#d97706' },
+    info: { icon: 'ph-info', bg: '#e0f2fe', text: '#0284c7', btn: '#0284c7' }
   };
 
   const config = temas[tipo] || temas.aviso;
@@ -145,14 +155,13 @@ window.alert = function (msg) {
   mostrarPopupCustom(tipo, titulo, texto);
 };
 
-    async function carregarVeiculos() {
+async function carregarVeiculos() {
   const sel = document.getElementById('abast-veiculo') || document.getElementById('abs-veiculo');
   if (!sel) return;
 
   sel.innerHTML = '<option value="">Carregando veículos...</option>';
 
   try {
-    // 1. Filtra direto no Supabase excluindo 'Fora de Uso'
     const { data, error } = await db
       .from('veiculos')
       .select('*')
@@ -162,7 +171,6 @@ window.alert = function (msg) {
     if (error) throw error;
     veiculos = data || [];
 
-    // 2. Filtro de segurança local (garante apenas veículos ativos)
     const veiculosAtivos = veiculos.filter(v => {
       const status = (v.status || '').toUpperCase().trim();
       return status !== 'FORA DE USO';
@@ -177,7 +185,8 @@ window.alert = function (msg) {
     veiculosAtivos.forEach(v => {
       const nomeFrota = v.nome_frota || v.id || 'Veículo';
       const placa = v.placa ? ` [${v.placa}]` : '';
-      sel.innerHTML += `<option value="${v.placa}" data-uuid="${v.uuid_veiculos || ''}" data-placa="${v.placa}">${nomeFrota}${placa}</option>`;
+      // Salva nome_frota no value, e propaga UUID e Placa via dataset
+      sel.innerHTML += `<option value="${nomeFrota}" data-uuid="${v.uuid_veiculos || ''}" data-placa="${v.placa || ''}" data-id="${v.id}">${nomeFrota}${placa}</option>`;
     });
 
   } catch (err) {
@@ -186,118 +195,192 @@ window.alert = function (msg) {
   }
 }
 
-    async function carregarAbastecimentos() {
-      const { data } = await db.from('abastecimentos').select('*').order('data_hora', { ascending: false }).limit(20);
-      abastecimentos = data || [];
+async function carregarAbastecimentos() {
+  try {
+    const { data, error } = await db.from('abastecimentos').select('*').order('data_hora', { ascending: false }).limit(30);
+    if (!error && data) {
+      abastecimentos = data;
       renderizarHistorico();
     }
+  } catch (e) {
+    console.warn("Erro ao carregar histórico de abastecimentos:", e);
+  }
+}
 
-    // Cálculo automático de Total
-    function calcularTotalAbastecimento() {
-      const litros = parseFloat(document.getElementById('abast-litros').value) || 0;
-      const preco = parseFloat(document.getElementById('abast-preco-litro').value) || 0;
-      const total = litros * preco;
+// Cálculo automático de Total
+function calcularTotalAbastecimento() {
+  const litros = parseFloat(document.getElementById('abast-litros')?.value) || 0;
+  const preco = parseFloat(document.getElementById('abast-preco-litro')?.value) || 0;
+  const total = litros * preco;
 
-      document.getElementById('display-valor-total').innerText = total.toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      });
-    }
+  const display = document.getElementById('display-valor-total');
+  if (display) {
+    display.innerText = total.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    });
+  }
+  const displayHidden = document.getElementById('abast-total-calc');
+  if (displayHidden) {
+    displayHidden.innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+}
 
-    // Pré-visualização da imagem anexada
-    function previewImagemCupom(e) {
-      const file = e.target.files[0];
-      const preview = document.getElementById('img-preview');
-      const placeholder = document.getElementById('box-preview-placeholder');
+// Pré-visualização da imagem anexada
+function previewImagemCupom(e) {
+  const file = e.target.files[0];
+  const preview = document.getElementById('img-preview');
+  const placeholder = document.getElementById('box-preview-placeholder');
 
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          preview.src = evt.target.result;
-          preview.classList.remove('hidden');
-          placeholder.classList.add('hidden');
-        };
-        reader.readAsDataURL(file);
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function (evt) {
+      if (preview) {
+        preview.src = evt.target.result;
+        preview.classList.remove('hidden');
       }
-    }
+      if (placeholder) placeholder.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+  }
+}
 
-    // Salvar abastecimento com Upload de Imagem
-    async function handleSalvarAbastecimento(e) {
-      e.preventDefault();
-      const btn = document.getElementById('btn-salvar-abastecimento');
-      const veiculoId = document.getElementById('abast-veiculo').value;
-      const localPosto = document.getElementById('abast-local').value.trim();
-      const litros = parseFloat(document.getElementById('abast-litros').value);
-      const precoLitro = parseFloat(document.getElementById('abast-preco-litro').value);
-      const tipo_combustivel = document.getElementById('abast-tipo')?.value || 'Gasolina Comum';
-      const valorTotal = Number((litros * precoLitro).toFixed(2));
-      const fileInput = document.getElementById('abast-foto');
-      const arquivoFoto = fileInput.files[0];
+// Salvar abastecimento com Upload de Imagem e Atualização de Tanque Virtual
+async function handleSalvarAbastecimento(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-salvar-abastecimento');
+  const selVeiculo = document.getElementById('abast-veiculo');
+  const opt = selVeiculo ? selVeiculo.options[selVeiculo.selectedIndex] : null;
 
-      if (!veiculoId || isNaN(litros) || isNaN(precoLitro) || litros <= 0 || precoLitro <= 0) {
-        alert("Preencha todos os campos corretamente.");
-        return;
-      }
+  const veiculoId = selVeiculo ? selVeiculo.value : '';
+  const uuid_veiculos = opt?.dataset?.uuid || null;
+  const placa = opt?.dataset?.placa || null;
+  const idNumerico = opt?.dataset?.id || null;
 
-      btn.disabled = true;
-      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando Abastecimento...`;
+  const localPosto = (document.getElementById('abast-local')?.value || '').trim().toUpperCase();
+  const litros = parseFloat(document.getElementById('abast-litros')?.value);
+  const precoLitro = parseFloat(document.getElementById('abast-preco-litro')?.value);
+  const tipo_combustivel = document.getElementById('abast-tipo')?.value || 'Gasolina Comum';
+  const kmInput = document.getElementById('abast-km')?.value;
+  const km_atual = kmInput ? parseInt(kmInput, 10) : null;
+  const valorTotal = Number((litros * precoLitro).toFixed(2));
+  const fileInput = document.getElementById('abast-foto');
+  const arquivoFoto = fileInput?.files?.[0];
 
-      let urlComprovanteFinal = null;
+  if (!veiculoId || isNaN(litros) || isNaN(precoLitro) || litros <= 0 || precoLitro <= 0) {
+    alert("Preencha todos os campos obrigatórios corretamente.");
+    return;
+  }
 
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando Abastecimento...`;
+  }
+
+  let urlComprovanteFinal = null;
+
+  try {
+    // 1. Upload do Cupom Fiscal para o Storage do Supabase (se anexado)
+    if (arquivoFoto) {
       try {
-        // 1. Upload do Cupom Fiscal para o Storage do Supabase (se anexado)
-        if (arquivoFoto) {
-          const fileExt = arquivoFoto.name.split('.').pop();
-          const fileName = `cupom_${veiculoId}_${Date.now()}.${fileExt}`;
-          
-          const { error: uploadError } = await db.storage
-            .from('comprovantes')
-            .upload(fileName, arquivoFoto);
+        const fileExt = arquivoFoto.name.split('.').pop();
+        const fileName = `abast_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-          if (uploadError) {
-            console.warn("Aviso no upload do comprovante:", uploadError.message);
-          } else {
-            const { data: publicUrlData } = db.storage
-              .from('comprovantes')
-              .getPublicUrl(fileName);
-            urlComprovanteFinal = publicUrlData?.publicUrl || null;
-          }
+        const { error: uploadError } = await db.storage
+          .from('comprovantes')
+          .upload(fileName, arquivoFoto, { cacheControl: '3600', upsert: false });
+
+        if (!uploadError) {
+          const { data: publicUrlData } = db.storage
+            .from('comprovantes')
+            .getPublicUrl(fileName);
+          urlComprovanteFinal = publicUrlData?.publicUrl || null;
+        } else {
+          console.warn("Aviso no upload do comprovante:", uploadError.message);
+        }
+      } catch (imgErr) {
+        console.warn("Aviso ao processar imagem:", imgErr);
+      }
+    }
+
+    // 2. Gravação completa no banco de dados
+    const novoAbastecimento = {
+      veiculo_id: veiculoId,
+      placa: placa,
+      uuid_veiculos: uuid_veiculos,
+      responsavel: (usuarioLogado && usuarioLogado.email) ? usuarioLogado.email : 'admin@arvo.tec.br',
+      local_posto: localPosto,
+      tipo_combustivel: tipo_combustivel,
+      quantidade_litros: litros,
+      preco_litro: precoLitro,
+      valor_total: valorTotal,
+      data_hora: new Date().toISOString(),
+      url_comprovante: urlComprovanteFinal
+    };
+
+    if (km_atual && !isNaN(km_atual)) {
+      novoAbastecimento.km_atual = km_atual;
+    }
+
+    const { error: insertError } = await db.from('abastecimentos').insert([novoAbastecimento]);
+    if (insertError) throw insertError;
+
+    // 3. Atualização de Odômetro e Tanque Virtual no veículo
+    try {
+      let q = db.from('veiculos').select('id, tanque, tanque_virtual, km_atual');
+      if (uuid_veiculos) {
+        q = q.eq('uuid_veiculos', uuid_veiculos);
+      } else if (idNumerico) {
+        q = q.eq('id', idNumerico);
+      } else if (placa) {
+        q = q.eq('placa', placa);
+      } else {
+        q = q.eq('nome_frota', veiculoId);
+      }
+
+      const { data: vAtual } = await q.maybeSingle();
+
+      if (vAtual) {
+        const capMax = Number(vAtual.tanque || 50);
+        const saldoAtual = (vAtual.tanque_virtual !== null && vAtual.tanque_virtual !== undefined)
+          ? Number(vAtual.tanque_virtual)
+          : 0;
+
+        const novoSaldo = Math.min(capMax, Number((saldoAtual + litros).toFixed(2)));
+        const updateDados = { tanque_virtual: novoSaldo };
+
+        if (km_atual && (!vAtual.km_atual || km_atual > Number(vAtual.km_atual))) {
+          updateDados.km_atual = km_atual;
         }
 
-        // 2. Gravação no banco de dados
-        const novoAbastecimento = {
-          veiculo_id: veiculoId,
-          responsavel: usuarioLogado.email,
-          local_posto: localPosto,
-          quantidade_litros: litros,
-          preco_litro: precoLitro,
-          valor_total: valorTotal,
-          data_hora: new Date().toISOString(), // Data e hora automática
-          url_comprovante: urlComprovanteFinal
-        };
-
-        const { error: insertError } = await db.from('abastecimentos').insert([novoAbastecimento]);
-        if (insertError) throw insertError;
-
-        alert(`✅ Abastecimento de ${litros} L no ${veiculoId} gravado com sucesso!`);
-        
-        e.target.reset();
-        document.getElementById('img-preview').classList.add('hidden');
-        document.getElementById('box-preview-placeholder').classList.remove('hidden');
-        calcularTotalAbastecimento();
-        await carregarAbastecimentos();
-
-      } catch (err) {
-        alert("Erro ao registrar abastecimento: " + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<i class="ph-bold ph-check text-base"></i> <span>Registrar Abastecimento</span>`;
+        await db.from('veiculos').update(updateDados).eq('id', vAtual.id);
       }
+    } catch (veicErr) {
+      console.warn("Aviso ao atualizar veículo:", veicErr);
     }
 
-    let urlComprovanteAtual = null;
+    alert(`✅ Abastecimento registrado com sucesso!`);
 
-    function renderizarHistorico() {
+    e.target.reset();
+    const preview = document.getElementById('img-preview');
+    const placeholder = document.getElementById('box-preview-placeholder');
+    if (preview) preview.classList.add('hidden');
+    if (placeholder) placeholder.classList.remove('hidden');
+
+    calcularTotalAbastecimento();
+    await carregarAbastecimentos();
+
+  } catch (err) {
+    alert("Erro ao registrar abastecimento: " + (err.message || 'Verifique sua conexão.'));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check text-base"></i> <span>Registrar Abastecimento</span>`;
+    }
+  }
+}
+
+function renderizarHistorico() {
   const container = document.getElementById('lista-abastecimentos');
   const badge = document.getElementById('badge-total-abast');
   if (badge) badge.innerText = `${abastecimentos.length} registros`;
@@ -310,17 +393,17 @@ window.alert = function (msg) {
   }
 
   abastecimentos.forEach((a, index) => {
-    // Cruza os dados para buscar o nome_frota (ex: ARVO 10)
-    const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v => 
-      String(v.id) === String(a.veiculo_id) || 
-      String(v.uuid_veiculos) === String(a.veiculo_id) || 
-      String(v.placa) === String(a.veiculo_id) ||
-      String(v.nome_frota) === String(a.veiculo_id) ||
-      String(v.placa) === String(a.placa)
+    // Cruzamento seguro com veículos
+    const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v =>
+      String(v.id) === String(a.veiculo_id) ||
+      String(v.uuid_veiculos) === String(a.uuid_veiculos || a.veiculo_id) ||
+      String(v.placa) === String(a.placa || a.veiculo_id) ||
+      String(v.nome_frota) === String(a.veiculo_id)
     );
 
-    const nomeExibicao = veic?.nome_frota || a.nome_frota || a.veiculo_id || 'Veículo';
-    const placaExibicao = a.placa ? ` [${a.placa}]` : (veic?.placa ? ` [${veic.placa}]` : '');
+    const nomeExibicao = a.nome_frota || veic?.nome_frota || a.veiculo_id || 'Veículo';
+    const placaReal = a.placa || veic?.placa || '';
+    const placaExibicao = placaReal ? ` [${placaReal}]` : '';
 
     const card = document.createElement('div');
     card.className = "p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs hover:border-slate-300 transition";
@@ -328,15 +411,15 @@ window.alert = function (msg) {
       <div class="flex items-center justify-between">
         <span class="font-extrabold text-slate-900 text-sm">${nomeExibicao}${placaExibicao}</span>
         <span class="font-mono font-bold text-emerald-700 text-sm">
-          ${Number(a.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          ${Number(a.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         </span>
       </div>
       <div class="text-slate-600 font-medium">
         <i class="ph-bold ph-map-pin text-slate-400 mr-1"></i>${a.local_posto || '-'} • <span class="text-slate-500 font-normal">${a.tipo_combustivel || 'Combustível'}</span>
       </div>
       <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-1.5 border-t border-slate-200">
-        <span>${a.quantidade_litros} L (R$ ${Number(a.preco_litro).toFixed(2)}/L)</span>
-        <span>${new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+        <span>${a.quantidade_litros || 0} L (R$ ${Number(a.preco_litro || 0).toFixed(2)}/L)</span>
+        <span>${a.data_hora ? new Date(a.data_hora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}</span>
       </div>
       <div class="pt-2 flex items-center justify-between border-t border-slate-200/60">
         <span class="text-[10px] text-slate-400 truncate max-w-[200px]">
@@ -355,27 +438,35 @@ function abrirModalAbastecimento(index) {
   const item = abastecimentos[index];
   if (!item) return;
 
-  urlComprovanteAtual = item.url_comprovante;
+  urlComprovanteAtual = item.url_comprovante || null;
 
-  const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v => 
-    String(v.id) === String(item.veiculo_id) || 
-    String(v.uuid_veiculos) === String(item.veiculo_id) || 
-    String(v.placa) === String(item.veiculo_id) ||
-    String(v.nome_frota) === String(item.veiculo_id) ||
-    String(v.placa) === String(item.placa)
+  const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v =>
+    String(v.id) === String(item.veiculo_id) ||
+    String(v.uuid_veiculos) === String(item.uuid_veiculos || item.veiculo_id) ||
+    String(v.placa) === String(item.placa || item.veiculo_id) ||
+    String(v.nome_frota) === String(item.veiculo_id)
   );
 
   const nomeExibicaoModal = veic?.nome_frota || item.nome_frota || item.veiculo_id || 'Veículo';
   const placaModal = item.placa ? ` [${item.placa}]` : (veic?.placa ? ` [${veic.placa}]` : '');
 
-  document.getElementById('modal-abast-veiculo').innerText = `${nomeExibicaoModal}${placaModal}`;
-  document.getElementById('modal-abast-posto').innerText = item.local_posto || '-';
-  document.getElementById('modal-abast-tipo').innerText = item.tipo_combustivel || 'Não informado';
-  document.getElementById('modal-abast-resp').innerText = item.responsavel || '-';
-  document.getElementById('modal-abast-km').innerText = item.km_atual ? `${Number(item.km_atual).toLocaleString('pt-BR')} km` : 'Não registrado';
-  document.getElementById('modal-abast-litros-preco').innerText = `${item.quantidade_litros} L • R$ ${Number(item.preco_litro).toFixed(2)}/L`;
-  document.getElementById('modal-abast-total').innerText = Number(item.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  document.getElementById('modal-abast-data').innerText = new Date(item.data_hora).toLocaleString('pt-BR');
+  const elVeiculo = document.getElementById('modal-abast-veiculo');
+  const elPosto = document.getElementById('modal-abast-posto');
+  const elTipo = document.getElementById('modal-abast-tipo');
+  const elResp = document.getElementById('modal-abast-resp');
+  const elKm = document.getElementById('modal-abast-km');
+  const elLitrosPreco = document.getElementById('modal-abast-litros-preco');
+  const elTotal = document.getElementById('modal-abast-total');
+  const elData = document.getElementById('modal-abast-data');
+
+  if (elVeiculo) elVeiculo.innerText = `${nomeExibicaoModal}${placaModal}`;
+  if (elPosto) elPosto.innerText = item.local_posto || '-';
+  if (elTipo) elTipo.innerText = item.tipo_combustivel || 'Não informado';
+  if (elResp) elResp.innerText = item.responsavel || '-';
+  if (elKm) elKm.innerText = item.km_atual ? `${Number(item.km_atual).toLocaleString('pt-BR')} km` : 'Não registrado';
+  if (elLitrosPreco) elLitrosPreco.innerText = `${item.quantidade_litros || 0} L • R$ ${Number(item.preco_litro || 0).toFixed(2)}/L`;
+  if (elTotal) elTotal.innerText = Number(item.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  if (elData) elData.innerText = item.data_hora ? new Date(item.data_hora).toLocaleString('pt-BR') : '-';
 
   const boxComprovante = document.getElementById('modal-box-comprovante');
   const semComprovante = document.getElementById('modal-sem-comprovante');
@@ -419,9 +510,15 @@ async function baixarImagemComprovante() {
 }
 
 // Exposição global
+window.init = init;
+window.carregarVeiculos = carregarVeiculos;
+window.carregarAbastecimentos = carregarAbastecimentos;
+window.calcularTotalAbastecimento = calcularTotalAbastecimento;
+window.previewImagemCupom = previewImagemCupom;
+window.handleSalvarAbastecimento = handleSalvarAbastecimento;
+window.renderizarHistorico = renderizarHistorico;
 window.abrirModalAbastecimento = abrirModalAbastecimento;
 window.fecharModalAbastecimento = fecharModalAbastecimento;
 window.baixarImagemComprovante = baixarImagemComprovante;
-  
 
 window.onload = init;
