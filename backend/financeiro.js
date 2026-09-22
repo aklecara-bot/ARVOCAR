@@ -249,7 +249,7 @@ function aplicarFiltrosEAtualizarFinanceiro() {
     return true;
   });
 
-  // Identifica placas / veículos que tiveram rotas atendendo ao filtro de finalidade
+  // Identifica veículos com rotas atendendo ao filtro
   const veiculosComRotasDaFinalidade = new Set();
   if (filtroFinalidade !== 'TODOS') {
     rotasFiltradas.forEach(r => {
@@ -262,20 +262,17 @@ function aplicarFiltrosEAtualizarFinanceiro() {
   let abastsFiltrados = (tipoCusto === 'MANUTENCAO' || tipoCusto === 'ALUGUEL') ? [] : dadosBrutosAbastecimentos.filter(a => {
     if (!pertenceAoFiltro(a)) return false;
     
-    // Se filtra por motorista
     if (filtroMotorista !== 'todos') {
       const resp = (a.responsavel || '').toLowerCase().trim();
       if (!resp.includes(filtroMotorista) && !filtroMotorista.includes(resp)) return false;
     }
 
-    // Se filtra por finalidade/projeto
     if (filtroFinalidade !== 'TODOS') {
       const aId = (a.veiculo_id ? String(a.veiculo_id) : '').toUpperCase();
       const aPlaca = limparPlaca(a.placa);
       if (!veiculosComRotasDaFinalidade.has(aId) && !veiculosComRotasDaFinalidade.has(aPlaca)) return false;
     }
 
-    // Filtro de Data
     if (!a.data_hora) return true;
     const d = new Date(a.data_hora);
     if (dFiltroIni && d < dFiltroIni) return false;
@@ -301,7 +298,6 @@ function aplicarFiltrosEAtualizarFinanceiro() {
   // 5. Aluguel Contratual
   const incluirAluguel = (tipoCusto === 'TODOS' || tipoCusto === 'ALUGUEL') && (filtroFinalidade === 'TODOS') && (filtroMotorista === 'todos');
 
-  // Atualização dos componentes
   processarTotaisGerais(abastsFiltrados, manutsFiltradas, rotasFiltradas, veiculosFiltrados, diasFiltro, incluirAluguel, tipoCusto);
   processarAnalisePorVeiculo(veiculosFiltrados, abastsFiltrados, manutsFiltradas, rotasFiltradas, diasFiltro, incluirAluguel, tipoCusto);
   processarTabelaDepreciacao(veiculosFiltrados, rotasFiltradas, tipoCusto);
@@ -412,7 +408,6 @@ function atualizarTodosOsGraficosFinanceiros(veiculos, abastecimentos, manutenç
   const kmPorCarro = {};
   const aluguelPorCarro = {};
 
-  // 1. Coleta combustível filtrado
   if (tipoCusto === 'TODOS' || tipoCusto === 'COMBUSTIVEL') {
     abastecimentos.forEach(a => {
       const v = veiculos.find(ve =>
@@ -427,7 +422,6 @@ function atualizarTodosOsGraficosFinanceiros(veiculos, abastecimentos, manutenç
     });
   }
 
-  // 2. Coleta manutenção filtrada
   if (tipoCusto === 'TODOS' || tipoCusto === 'MANUTENCAO') {
     manutenções.forEach(m => {
       const v = veiculos.find(ve =>
@@ -440,7 +434,6 @@ function atualizarTodosOsGraficosFinanceiros(veiculos, abastecimentos, manutenç
     });
   }
 
-  // 3. Coleta KM de rotas filtradas
   rotas.forEach(r => {
     const v = veiculos.find(ve =>
       String(ve.id) === String(r.veiculo_id) ||
@@ -451,7 +444,6 @@ function atualizarTodosOsGraficosFinanceiros(veiculos, abastecimentos, manutenç
     kmPorCarro[nome] = (kmPorCarro[nome] || 0) + (Number(r.km_total) || 0);
   });
 
-  // 4. Coleta aluguel apenas se habilitado
   if (incluirAluguel) {
     veiculos.forEach(v => {
       const contrato = dadosBrutosContratosAluguel.find(c =>
@@ -469,21 +461,17 @@ function atualizarTodosOsGraficosFinanceiros(veiculos, abastecimentos, manutenç
     });
   }
 
-  // Define carros ativos exclusivamente conforme movimentação nos filtros aplicados
   const carrosComGasto = Object.keys(custoPorCarro).filter(k => custoPorCarro[k] > 0);
   const labelsCarros = carrosComGasto;
   const valoresCusto = labelsCarros.map(k => Number(custoPorCarro[k].toFixed(2)));
 
-  // Volume Faturado: pega somente veículos com litros válidos nos abastecimentos filtrados
   const carrosComLitros = Object.keys(litrosPorCarro).filter(k => litrosPorCarro[k] > 0);
   const labelsDonutLitros = (tipoCusto === 'MANUTENCAO' || tipoCusto === 'ALUGUEL') ? [] : carrosComLitros;
   const valoresLitros = labelsDonutLitros.map(k => Number(litrosPorCarro[k].toFixed(1)));
 
   const paletaHarmonica = ['#556b2f', '#7a4522', '#395237', '#8fb855', '#d88c5a', '#a1824a', '#2e432c'];
 
-  // -------------------------------------------------------------
-  // GRÁFICO 1: Despesa Total por Ativo da Frota
-  // -------------------------------------------------------------
+  // Gráfico 1: Despesa Total por Ativo
   const ctxBarras = document.getElementById('chartFinanceiroCarros')?.getContext('2d');
   if (ctxBarras) {
     if (chartBarras) chartBarras.destroy();
@@ -521,9 +509,7 @@ function atualizarTodosOsGraficosFinanceiros(veiculos, abastecimentos, manutenç
     });
   }
 
-  // -------------------------------------------------------------
-  // GRÁFICO 2: Volume Faturado em Litros por Carro
-  // -------------------------------------------------------------
+  // Gráfico 2: Volume Faturado em Litros
   const ctxDonut = document.getElementById('chartRoscaCombustivel')?.getContext('2d');
   const labelDonutTotal = document.getElementById('label-total-litros-donut');
   const totalLitrosPeriodo = valoresLitros.reduce((a, b) => a + b, 0);
@@ -560,9 +546,7 @@ function atualizarTodosOsGraficosFinanceiros(veiculos, abastecimentos, manutenç
     });
   }
 
-  // -------------------------------------------------------------
-  // GRÁFICO 3: Evolução dos Custos no Período
-  // -------------------------------------------------------------
+  // Gráfico 3: Evolução dos Custos
   const ctxEvolucao = document.getElementById('chartEvolucaoCustos')?.getContext('2d');
   if (ctxEvolucao) {
     const mapaDiasComb = {};
@@ -638,9 +622,7 @@ function atualizarTodosOsGraficosFinanceiros(veiculos, abastecimentos, manutenç
     });
   }
 
-  // -------------------------------------------------------------
-  // GRÁFICO 4: Custo Real por KM (Rodagem vs Full)
-  // -------------------------------------------------------------
+  // Gráfico 4: Custo Real por KM
   const ctxCustoKm = document.getElementById('chartCustoKmPorCarro')?.getContext('2d');
   if (ctxCustoKm) {
     const carrosKmLabels = labelsCarros.filter(c => (kmPorCarro[c] || 0) > 0);
@@ -696,9 +678,7 @@ function atualizarTodosOsGraficosFinanceiros(veiculos, abastecimentos, manutenç
     });
   }
 
-  // -------------------------------------------------------------
-  // GRÁFICO 5: Composição Percentual de Custos da Frota
-  // -------------------------------------------------------------
+  // Gráfico 5: Composição Percentual de Custos
   const ctxComposicao = document.getElementById('chartComposicaoCustos')?.getContext('2d');
   if (ctxComposicao) {
     const totalComb = (tipoCusto === 'MANUTENCAO' || tipoCusto === 'ALUGUEL') ? 0 : abastecimentos.reduce((acc, a) => acc + (Number(a.valor_total) || 0), 0);
@@ -790,7 +770,6 @@ function processarAnalisePorVeiculo(veiculos, abastecimentos, manutenções, rot
       return (vPlacaPura && mPlacaPura === vPlacaPura) || (vNome && (m.veiculo_id ? String(m.veiculo_id).toUpperCase() === vNome : false));
     });
 
-    // Identifica contrato de aluguel
     const contrato = dadosBrutosContratosAluguel.find(c =>
       String(c.veiculo_id) === String(v.id) ||
       String(c.placa) === String(v.placa) ||
@@ -804,7 +783,6 @@ function processarAnalisePorVeiculo(veiculos, abastecimentos, manutenções, rot
       aluguelRateado = (mensal / 30) * diasFiltro;
     }
 
-    // Identificação Real do Tipo de Frota do Banco de Dados
     const tipoFrotaBD = (v.tipo_frota || '').trim().toUpperCase();
     let badgeTipoFrota = '';
     if (isAlugado) {
@@ -959,7 +937,6 @@ function renderizarAuditoriaCupons(abastecimentos, veiculos) {
   });
 }
 
-// Funções para controle do Modal Pop-up do Comprovante
 function abrirModalComprovante(url) {
   if (!url) return;
   const modal = document.getElementById('modal-visualizar-comprovante');
@@ -1034,6 +1011,9 @@ function fecharModalViagens() {
   document.getElementById('modal-viagens')?.classList.add('hidden');
 }
 
+// -------------------------------------------------------------
+// GRAVAÇÃO COMPATIBILIZADA DE CONTRATO DE ALUGUEL
+// -------------------------------------------------------------
 async function salvarContratoAluguel(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-salvar-contrato');
@@ -1049,33 +1029,63 @@ async function salvarContratoAluguel(e) {
     return;
   }
 
-  const veiculo = cacheListaVeiculos.find(v => String(v.id) === String(veiculoId));
+  // Resgata o usuário logado para preencher 'responsavel'
+  let emailResponsavel = 'financeiro@arvo.tec.br';
+  try {
+    const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+    if (rawSessao) {
+      const parsed = JSON.parse(rawSessao);
+      emailResponsavel = parsed.email || parsed.nome || emailResponsavel;
+    }
+  } catch (err) {
+    console.warn("Não foi possível obter email da sessão:", err);
+  }
+  
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Salvando...`;
   }
 
   try {
+    // Objeto contendo APENAS colunas confirmadas no Supabase
     const payload = {
-      veiculo_id: veiculoId,
-      placa: veiculo?.placa || null,
+      veiculo_id: String(veiculoId),
       locadora: locadora,
-      num_contrato: numContrato,
+      codigo_aluguel: numContrato,
       tarifa_mensal: tarifaMensal,
       valor_km_excedente: kmExcedente,
       franquia_km_mes: franquiaKm,
+      data_inicio: new Date().toISOString().split('T')[0], // Envia YYYY-MM-DD para satisfazer colunas do tipo date
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await db.from('contratos_aluguel').upsert([payload]);
-    if (error) throw error;
+    // Verifica se já existe um contrato cadastrado para este carro
+    const contratoExistente = dadosBrutosContratosAluguel.find(c => String(c.veiculo_id) === String(veiculoId));
+
+    let erroGravacao = null;
+    if (contratoExistente && contratoExistente.id) {
+      const { error } = await db.from('contratos_aluguel').update(payload).eq('id', contratoExistente.id);
+      erroGravacao = error;
+    } else {
+      const { error } = await db.from('contratos_aluguel').insert([payload]);
+      erroGravacao = error;
+    }
+
+    if (erroGravacao) throw erroGravacao;
+
+    // Atualiza status do veículo para ALUGADO
+    try {
+      await db.from('veiculos').update({ tipo_frota: 'ALUGADO' }).eq('id', veiculoId);
+    } catch (veicErr) {
+      console.warn("Aviso ao definir frota como ALUGADO:", veicErr);
+    }
 
     alert("✅ Contrato de aluguel registrado com sucesso!");
     fecharModalParametrosCarros();
     await carregarMetricasFinanceiras();
   } catch (err) {
     console.error("Erro ao salvar contrato de aluguel:", err);
-    alert("Erro ao gravar contrato: " + err.message);
+    alert("Erro ao gravar contrato: " + (err.message || 'Erro inesperado.'));
   } finally {
     if (btn) {
       btn.disabled = false;

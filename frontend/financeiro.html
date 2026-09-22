@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,34 +15,67 @@
 
   <style>
     @keyframes tickerSlide {
-      0% { transform: translate3d(0, 0, 0); }
-      100% { transform: translate3d(-50%, 0, 0); }
+      0% {
+        transform: translate3d(0, 0, 0);
+      }
+
+      100% {
+        transform: translate3d(-50%, 0, 0);
+      }
     }
+
     .animate-ticker {
       display: inline-flex;
       white-space: nowrap;
       animation: tickerSlide 35s linear infinite;
     }
+
     .animate-ticker:hover {
       animation-play-state: paused;
     }
 
-    .glow-primary-cockpit { box-shadow: 0 0 25px -5px rgba(57, 82, 55, 0.45); }
-    .glow-olive-cockpit { box-shadow: 0 0 25px -5px rgba(85, 107, 47, 0.35); }
-    .glow-terra-cockpit { box-shadow: 0 0 25px -5px rgba(122, 69, 34, 0.35); }
+    .glow-primary-cockpit {
+      box-shadow: 0 0 25px -5px rgba(57, 82, 55, 0.45);
+    }
 
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: #0b110c; }
-    ::-webkit-scrollbar-thumb { background: #1c2b1e; border-radius: 4px; border: 1px solid rgba(85, 107, 47, 0.3); }
-    ::-webkit-scrollbar-thumb:hover { background: #395237; }
+    .glow-olive-cockpit {
+      box-shadow: 0 0 25px -5px rgba(85, 107, 47, 0.35);
+    }
+
+    .glow-terra-cockpit {
+      box-shadow: 0 0 25px -5px rgba(122, 69, 34, 0.35);
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0b110c;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #1c2b1e;
+      border-radius: 4px;
+      border: 1px solid rgba(85, 107, 47, 0.3);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #395237;
+    }
   </style>
 </head>
-<body class="bg-[#0b110c] text-[#f4f1e5] font-sans min-h-screen flex flex-col antialiased selection:bg-[#556b2f] selection:text-[#0b110c]">
+
+<body
+  class="bg-[#0b110c] text-[#f4f1e5] font-sans min-h-screen flex flex-col antialiased selection:bg-[#556b2f] selection:text-[#0b110c]">
 
   <!-- ================= 1. HEADER INSTITUCIONAL ================= -->
-  <header class="bg-[#121b13]/90 px-6 py-3.5 flex items-center justify-between border-b border-[#556b2f]/30 shadow-2xl text-white sticky top-0 z-40 backdrop-blur-md">
+  <header
+    class="bg-[#121b13]/90 px-6 py-3.5 flex items-center justify-between border-b border-[#556b2f]/30 shadow-2xl text-white sticky top-0 z-40 backdrop-blur-md">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl border border-[#556b2f]/50 bg-[#1c2a1e] flex items-center justify-center font-bold text-xs shadow-inner text-[#f4f1e5]">
+      <div
+        class="w-9 h-9 rounded-xl border border-[#556b2f]/50 bg-[#1c2a1e] flex items-center justify-center font-bold text-xs shadow-inner text-[#f4f1e5]">
         <i class="ph-bold ph-currency-circle-dollar text-lg text-[#8fb855]"></i>
       </div>
       <div class="flex items-baseline gap-2">
@@ -52,11 +86,13 @@
 
     <!-- Navegação Superior -->
     <div class="flex items-center gap-2.5">
-      <a href="paginainicial.html" id="link-voltar" class="bg-[#1c2a1e]/80 hover:bg-[#253828] text-[#f4f1e5] px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-[#556b2f]/30 shadow-xs">
+      <a href="paginainicial.html" id="link-voltar"
+        class="bg-[#1c2a1e]/80 hover:bg-[#253828] text-[#f4f1e5] px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-[#556b2f]/30 shadow-xs">
         <i class="ph-bold ph-arrow-left text-sm text-[#8fb855]"></i>
         <span>Voltar ao Painel</span>
       </a>
-      <button onclick="logout()" class="bg-[#7a4522] hover:bg-[#63371b] text-[#f4f1e5] font-bold px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 text-xs shadow-lg shadow-black/40 border border-[#7a4522]/40">
+      <button onclick="logout()"
+        class="bg-[#7a4522] hover:bg-[#63371b] text-[#f4f1e5] font-bold px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 text-xs shadow-lg shadow-black/40 border border-[#7a4522]/40">
         <i class="ph-bold ph-sign-out text-sm"></i>
         <span>Sair</span>
       </button>
@@ -64,20 +100,25 @@
   </header>
 
   <!-- ================= 2. LETREIRO DINÂMICO FINANCEIRO ================= -->
-  <div class="bg-[#0e160f]/95 border-b border-[#556b2f]/25 overflow-hidden py-2 px-4 relative z-30 shadow-inner backdrop-blur-md">
+  <div
+    class="bg-[#0e160f]/95 border-b border-[#556b2f]/25 overflow-hidden py-2 px-4 relative z-30 shadow-inner backdrop-blur-md">
     <div class="flex items-center">
-      <div class="bg-[#1c2a1e] text-[#8fb855] border border-[#556b2f]/50 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md flex items-center gap-1.5 tracking-wider shrink-0 mr-3">
+      <div
+        class="bg-[#1c2a1e] text-[#8fb855] border border-[#556b2f]/50 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md flex items-center gap-1.5 tracking-wider shrink-0 mr-3">
         <span class="w-2 h-2 rounded-full bg-[#8fb855] animate-ping"></span>
         Auditoria Live
       </div>
 
       <div class="overflow-hidden w-full">
         <div id="ticker-financeiro-dinamico" class="animate-ticker text-xs font-mono font-medium text-[#b0b9ab]">
-          <span class="mx-6 flex items-center gap-2"><strong class="text-[#8fb855]">DESPESA CONSOLIDADA:</strong> Monitoramento de combustível, oficina e contratos de locação</span>
+          <span class="mx-6 flex items-center gap-2"><strong class="text-[#8fb855]">DESPESA CONSOLIDADA:</strong>
+            Monitoramento de combustível, oficina e contratos de locação</span>
           <span class="mx-6 text-[#556b2f]">•</span>
-          <span class="mx-6 flex items-center gap-2"><strong class="text-[#f4f1e5]">CUSTO / KM:</strong> Média apurada da frota sem distorções contratuais</span>
+          <span class="mx-6 flex items-center gap-2"><strong class="text-[#f4f1e5]">CUSTO / KM:</strong> Média apurada
+            da frota sem distorções contratuais</span>
           <span class="mx-6 text-[#556b2f]">•</span>
-          <span class="mx-6 flex items-center gap-2"><strong class="text-[#d88c5a]">LOCAÇÃO:</strong> Apropriação proporcional de mensalidades</span>
+          <span class="mx-6 flex items-center gap-2"><strong class="text-[#d88c5a]">LOCAÇÃO:</strong> Apropriação
+            proporcional de mensalidades</span>
           <span class="mx-6 text-[#556b2f]">•</span>
         </div>
       </div>
@@ -88,43 +129,58 @@
   <main class="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 space-y-6">
 
     <!-- BARRA DE CONTROLE: FILTROS DINÂMICOS CONSOLIDADOS -->
-    <div class="bg-gradient-to-b from-[#141f15] to-[#0f1710] border border-[#556b2f]/30 rounded-3xl p-5 shadow-2xl backdrop-blur-md space-y-4">
+    <div
+      class="bg-gradient-to-b from-[#141f15] to-[#0f1710] border border-[#556b2f]/30 rounded-3xl p-5 shadow-2xl backdrop-blur-md space-y-4">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-[#556b2f]/20">
         <div>
-          <span class="text-[10px] font-black uppercase tracking-wider text-[#8fb855] block">Filtros Dinâmicos & Período</span>
+          <span class="text-[10px] font-black uppercase tracking-wider text-[#8fb855] block">Filtros Dinâmicos &
+            Período</span>
           <p class="text-xs text-[#b0b9ab]">Filtre por condutores, projetos, status, tipo de custo e escala de datas</p>
         </div>
 
         <!-- Atalhos Rápidos de Período -->
-        <div class="flex bg-[#0b110c] p-1 rounded-xl border border-[#556b2f]/30 text-xs font-bold gap-1 overflow-x-auto">
-          <button type="button" id="btn-periodo-dia" onclick="setPeriodoFinanceiro('dia')" class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap">Dia</button>
-          <button type="button" id="btn-periodo-semana" onclick="setPeriodoFinanceiro('semana')" class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap">Semana</button>
-          <button type="button" id="btn-periodo-mes" onclick="setPeriodoFinanceiro('mes')" class="flex-1 py-1.5 px-3 rounded-lg bg-[#395237] text-[#f4f1e5] shadow transition text-center whitespace-nowrap border border-[#556b2f]/50">Mês</button>
-          <button type="button" id="btn-periodo-trimestre" onclick="setPeriodoFinanceiro('trimestre')" class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap">Trimestre</button>
-          <button type="button" id="btn-periodo-ano" onclick="setPeriodoFinanceiro('ano')" class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap">Ano</button>
-          <button type="button" id="btn-periodo-todos" onclick="setPeriodoFinanceiro('todos')" class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap">Tudo</button>
+        <div
+          class="flex bg-[#0b110c] p-1 rounded-xl border border-[#556b2f]/30 text-xs font-bold gap-1 overflow-x-auto">
+          <button type="button" id="btn-periodo-dia" onclick="setPeriodoFinanceiro('dia')"
+            class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap">Dia</button>
+          <button type="button" id="btn-periodo-semana" onclick="setPeriodoFinanceiro('semana')"
+            class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap">Semana</button>
+          <button type="button" id="btn-periodo-mes" onclick="setPeriodoFinanceiro('mes')"
+            class="flex-1 py-1.5 px-3 rounded-lg bg-[#395237] text-[#f4f1e5] shadow transition text-center whitespace-nowrap border border-[#556b2f]/50">Mês</button>
+          <button type="button" id="btn-periodo-trimestre" onclick="setPeriodoFinanceiro('trimestre')"
+            class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap">Trimestre</button>
+          <button type="button" id="btn-periodo-ano" onclick="setPeriodoFinanceiro('ano')"
+            class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap">Ano</button>
+          <button type="button" id="btn-periodo-todos" onclick="setPeriodoFinanceiro('todos')"
+            class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5] transition text-center whitespace-nowrap">Tudo</button>
         </div>
       </div>
 
       <!-- LINHA 1 DE FILTROS -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
-          <label class="block text-[10px] font-black uppercase tracking-wider text-[#b0b9ab] mb-1">Motorista / Responsável</label>
-          <select id="filtro-motorista" onchange="aplicarFiltrosEAtualizarFinanceiro()" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-bold outline-none focus:border-[#8fb855]">
+          <label class="block text-[10px] font-black uppercase tracking-wider text-[#b0b9ab] mb-1">Motorista /
+            Responsável</label>
+          <select id="filtro-motorista" onchange="aplicarFiltrosEAtualizarFinanceiro()"
+            class="w-full bg-[#2e432c] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-mono outline-none focus:border-amber-500 [color-scheme:dark]">
             <option value="TODOS">Todos os Motoristas</option>
           </select>
         </div>
 
         <div>
-          <label class="block text-[10px] font-black uppercase tracking-wider text-[#b0b9ab] mb-1">Finalidade / Projeto</label>
-          <select id="filtro-finalidade" onchange="aplicarFiltrosEAtualizarFinanceiro()" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-bold outline-none focus:border-[#8fb855]">
+          <label class="block text-[10px] font-black uppercase tracking-wider text-[#b0b9ab] mb-1">Finalidade /
+            Projeto</label>
+          <select id="filtro-finalidade" onchange="aplicarFiltrosEAtualizarFinanceiro()"
+            class="w-full bg-[#2e432c] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-mono outline-none focus:border-amber-500 [color-scheme:dark]">
             <option value="TODOS">Todas as Finalidades</option>
           </select>
         </div>
 
         <div>
-          <label class="block text-[10px] font-black uppercase tracking-wider text-[#b0b9ab] mb-1">Status da Frota</label>
-          <select id="filtro-status-carro" onchange="aplicarFiltrosEAtualizarFinanceiro()" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-bold outline-none focus:border-[#8fb855]">
+          <label class="block text-[10px] font-black uppercase tracking-wider text-[#b0b9ab] mb-1">Status da
+            Frota</label>
+          <select id="filtro-status-carro" onchange="aplicarFiltrosEAtualizarFinanceiro()"
+            class="w-full bg-[#2e432c] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-mono outline-none focus:border-amber-500 [color-scheme:dark]">
             <option value="TODOS">Todos os Veículos</option>
             <option value="ATIVOS" selected>Apenas Carros Ativos</option>
             <option value="INATIVOS">Apenas Inativos (Fora de Uso)</option>
@@ -133,7 +189,8 @@
 
         <div>
           <label class="block text-[10px] font-black uppercase tracking-wider text-[#b0b9ab] mb-1">Tipo de Custo</label>
-          <select id="filtro-tipo-custo" onchange="aplicarFiltrosEAtualizarFinanceiro()" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-bold outline-none focus:border-[#8fb855]">
+          <select id="filtro-tipo-custo" onchange="aplicarFiltrosEAtualizarFinanceiro()"
+            class="w-full bg-[#2e432c] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-mono outline-none focus:border-amber-500 [color-scheme:dark]">
             <option value="TODOS" selected>Todos os Custos (Full)</option>
             <option value="COMBUSTIVEL">Apenas Combustível</option>
             <option value="MANUTENCAO">Apenas Manutenção Preventiva</option>
@@ -146,20 +203,25 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pt-2 border-t border-[#556b2f]/20 items-end">
         <div class="lg:col-span-4">
           <label class="block text-[10px] font-black uppercase tracking-wider text-[#b0b9ab] mb-1">Data Início</label>
-          <input type="date" id="filtro-data-inicio" onchange="aplicarFiltroPersonalizadoDatas()" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
+          <input type="date" id="filtro-data-inicio" onchange="aplicarFiltroPersonalizadoDatas()"
+            class="w-full bg-[#2e432c] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-mono outline-none focus:border-amber-500 [color-scheme:dark]" />
         </div>
 
         <div class="lg:col-span-4">
           <label class="block text-[10px] font-black uppercase tracking-wider text-[#b0b9ab] mb-1">Data Fim</label>
-          <input type="date" id="filtro-data-fim" onchange="aplicarFiltroPersonalizadoDatas()" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
+          <input type="date" id="filtro-data-fim" onchange="aplicarFiltroPersonalizadoDatas()"
+            class="w-full bg-[#2e432c] border border-amber-100/60 text-xs text-amber-100 rounded-xl px-3 py-2 font-mono outline-none focus:border-amber-500 [color-scheme:dark]" />
         </div>
 
         <div class="lg:col-span-4 flex gap-2">
-          <button type="button" onclick="aplicarFiltrosEAtualizarFinanceiro()" class="flex-1 bg-[#395237] hover:bg-[#4a6b47] text-[#f4f1e5] py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg border border-[#556b2f]/50">
+          <button type="button" onclick="aplicarFiltrosEAtualizarFinanceiro()"
+            class="flex-1 bg-[#395237] hover:bg-[#4a6b47] text-[#f4f1e5] py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg border border-[#556b2f]/50">
             <i class="ph-bold ph-arrows-clockwise text-sm"></i>
             <span>Atualizar Indicadores</span>
           </button>
-          <button type="button" onclick="limparFiltrosFinanceiro()" class="bg-[#1c2a1e] hover:bg-[#253828] text-[#b0b9ab] py-2 px-3 rounded-xl text-xs font-bold transition border border-[#556b2f]/30 flex items-center gap-1.5" title="Limpar Filtros">
+          <button type="button" onclick="limparFiltrosFinanceiro()"
+            class="bg-[#1c2a1e] hover:bg-[#253828] text-[#b0b9ab] py-2 px-3 rounded-xl text-xs font-bold transition border border-[#556b2f]/30 flex items-center gap-1.5"
+            title="Limpar Filtros">
             <i class="ph-bold ph-arrows-counter-clockwise text-sm"></i>
             <span>Limpar</span>
           </button>
@@ -169,21 +231,26 @@
 
     <!-- ================= 5 KPIS FINANCEIROS ================= -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      <div class="bg-gradient-to-br from-[#152317] to-[#0d170e] rounded-2xl p-4 border border-[#556b2f]/40 glow-primary-cockpit transition hover:-translate-y-1">
+      <div
+        class="bg-gradient-to-br from-[#152317] to-[#0d170e] rounded-2xl p-4 border border-[#556b2f]/40 glow-primary-cockpit transition hover:-translate-y-1">
         <div class="flex justify-between items-start">
           <span class="text-[9px] font-black uppercase tracking-wider text-[#8fb855]">Custo KM Rodagem</span>
-          <div class="w-7 h-7 rounded-lg bg-[#1c2e1f] border border-[#556b2f]/40 flex items-center justify-center text-[#8fb855]">
+          <div
+            class="w-7 h-7 rounded-lg bg-[#1c2e1f] border border-[#556b2f]/40 flex items-center justify-center text-[#8fb855]">
             <i class="ph-bold ph-gas-pump text-sm"></i>
           </div>
         </div>
         <div class="text-2xl font-black font-mono text-[#f4f1e5] mt-1.5" id="kpi-custo-km-rodagem">R$ 0,00</div>
-        <p class="text-[10px] text-[#8fb855]/90 mt-1 font-medium truncate" id="kpi-sub-custo-rodagem">Combustível + Oficina / KM</p>
+        <p class="text-[10px] text-[#8fb855]/90 mt-1 font-medium truncate" id="kpi-sub-custo-rodagem">Combustível +
+          Oficina / KM</p>
       </div>
 
-      <div class="bg-gradient-to-br from-[#1d1b15] to-[#100f0b] rounded-2xl p-4 border border-[#d88c5a]/40 transition hover:-translate-y-1">
+      <div
+        class="bg-gradient-to-br from-[#1d1b15] to-[#100f0b] rounded-2xl p-4 border border-[#d88c5a]/40 transition hover:-translate-y-1">
         <div class="flex justify-between items-start">
           <span class="text-[9px] font-black uppercase tracking-wider text-[#d88c5a]">Custo KM Total (Full)</span>
-          <div class="w-7 h-7 rounded-lg bg-[#2e2616] border border-[#d88c5a]/40 flex items-center justify-center text-[#d88c5a]">
+          <div
+            class="w-7 h-7 rounded-lg bg-[#2e2616] border border-[#d88c5a]/40 flex items-center justify-center text-[#d88c5a]">
             <i class="ph-bold ph-trend-down text-sm"></i>
           </div>
         </div>
@@ -191,21 +258,26 @@
         <p class="text-[10px] text-[#d88c5a]/90 mt-1 font-medium truncate">Rodagem + Aluguel / KM</p>
       </div>
 
-      <div class="bg-gradient-to-br from-[#241710] to-[#140c07] rounded-2xl p-4 border border-[#7a4522]/50 glow-terra-cockpit transition hover:-translate-y-1">
+      <div
+        class="bg-gradient-to-br from-[#241710] to-[#140c07] rounded-2xl p-4 border border-[#7a4522]/50 glow-terra-cockpit transition hover:-translate-y-1">
         <div class="flex justify-between items-start">
           <span class="text-[9px] font-black uppercase tracking-wider text-[#d88c5a]">Despesa Total</span>
-          <div class="w-7 h-7 rounded-lg bg-[#381f11] border border-[#7a4522]/50 flex items-center justify-center text-[#d88c5a]">
+          <div
+            class="w-7 h-7 rounded-lg bg-[#381f11] border border-[#7a4522]/50 flex items-center justify-center text-[#d88c5a]">
             <i class="ph-bold ph-receipt text-sm"></i>
           </div>
         </div>
         <div class="text-2xl font-black font-mono text-[#f4f1e5] mt-1.5" id="kpi-gasto-total">R$ 0,00</div>
-        <p class="text-[10px] text-[#d88c5a]/90 mt-1 font-medium truncate" id="kpi-despesa-detalhe">Comb + Manut + Locação</p>
+        <p class="text-[10px] text-[#d88c5a]/90 mt-1 font-medium truncate" id="kpi-despesa-detalhe">Comb + Manut +
+          Locação</p>
       </div>
 
-      <div class="bg-gradient-to-br from-[#1a291c] to-[#0f1911] rounded-2xl p-4 border border-[#556b2f]/40 glow-olive-cockpit transition hover:-translate-y-1">
+      <div
+        class="bg-gradient-to-br from-[#1a291c] to-[#0f1911] rounded-2xl p-4 border border-[#556b2f]/40 glow-olive-cockpit transition hover:-translate-y-1">
         <div class="flex justify-between items-start">
           <span class="text-[9px] font-black uppercase tracking-wider text-[#b5cf82]">KM Total Rodado</span>
-          <div class="w-7 h-7 rounded-lg bg-[#253a27] border border-[#556b2f]/40 flex items-center justify-center text-[#b5cf82]">
+          <div
+            class="w-7 h-7 rounded-lg bg-[#253a27] border border-[#556b2f]/40 flex items-center justify-center text-[#b5cf82]">
             <i class="ph-bold ph-road-horizon text-sm"></i>
           </div>
         </div>
@@ -213,10 +285,12 @@
         <p class="text-[10px] text-[#b5cf82]/90 mt-1 font-medium truncate" id="kpi-total-rotas">0 rotas concluídas</p>
       </div>
 
-      <div class="bg-gradient-to-br from-[#121c13] to-[#0a110b] rounded-2xl p-4 border border-[#8fb855]/30 transition hover:-translate-y-1">
+      <div
+        class="bg-gradient-to-br from-[#121c13] to-[#0a110b] rounded-2xl p-4 border border-[#8fb855]/30 transition hover:-translate-y-1">
         <div class="flex justify-between items-start">
           <span class="text-[9px] font-black uppercase tracking-wider text-[#b5cf82]">Depreciação Operacional</span>
-          <div class="w-7 h-7 rounded-lg bg-[#18271a] border border-[#8fb855]/30 flex items-center justify-center text-[#b5cf82]">
+          <div
+            class="w-7 h-7 rounded-lg bg-[#18271a] border border-[#8fb855]/30 flex items-center justify-center text-[#b5cf82]">
             <i class="ph-bold ph-gauge text-sm"></i>
           </div>
         </div>
@@ -226,21 +300,26 @@
     </div>
 
     <!-- ================= BARRA DE PARÂMETROS FINANCEIROS ================= -->
-    <div class="bg-[#121b13]/80 border border-[#556b2f]/30 rounded-3xl p-4 shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
+    <div
+      class="bg-[#121b13]/80 border border-[#556b2f]/30 rounded-3xl p-4 shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2">
-        <span class="text-xs font-black uppercase text-[#d88c5a] tracking-wider">🗂 Contratos e Parâmetros Financeiros:</span>
+        <span class="text-xs font-black uppercase text-[#d88c5a] tracking-wider">🗂 Contratos e Parâmetros
+          Financeiros:</span>
         <span class="text-[11px] text-[#b0b9ab]">Gerencie contratos de locação, valores mensais e franquias</span>
       </div>
       <div class="flex items-center gap-2">
-        <button type="button" onclick="abrirModalParametrosCarros()" class="bg-[#7a4522] hover:bg-[#63371b] text-[#f4f1e5] font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-2 shadow-md border border-[#7a4522]/50">
+        <button type="button" onclick="abrirModalParametrosCarros()"
+          class="bg-[#7a4522] hover:bg-[#63371b] text-[#f4f1e5] font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-2 shadow-md border border-[#7a4522]/50">
           <i class="ph-bold ph-car text-base"></i>
           <span>Carros & Locação</span>
         </button>
-        <button type="button" onclick="abrirModalEquipamentos()" class="bg-[#395237] hover:bg-[#4a6b47] text-[#f4f1e5] font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-2 shadow-md border border-[#556b2f]/50">
+        <button type="button" onclick="abrirModalEquipamentos()"
+          class="bg-[#395237] hover:bg-[#4a6b47] text-[#f4f1e5] font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-2 shadow-md border border-[#556b2f]/50">
           <i class="ph-bold ph-wrench text-base"></i>
           <span>Equipamentos</span>
         </button>
-        <button type="button" onclick="abrirModalViagens()" class="bg-[#556b2f] hover:bg-[#688339] text-[#f4f1e5] font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-2 shadow-md border border-[#8fb855]/30">
+        <button type="button" onclick="abrirModalViagens()"
+          class="bg-[#556b2f] hover:bg-[#688339] text-[#f4f1e5] font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-2 shadow-md border border-[#8fb855]/30">
           <i class="ph-bold ph-airplane-tilt text-base"></i>
           <span>Viagens</span>
         </button>
@@ -249,20 +328,25 @@
 
     <!-- ================= SEÇÃO DE GRÁFICOS ANALÍTICOS ================= -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div class="lg:col-span-8 bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-6 border border-[#556b2f]/30 shadow-2xl relative overflow-hidden">
+      <div
+        class="lg:col-span-8 bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-6 border border-[#556b2f]/30 shadow-2xl relative overflow-hidden">
         <div class="flex justify-between items-center mb-4">
           <div>
-            <span class="text-[10px] font-black uppercase tracking-widest text-[#8fb855] block">Distribuição de Custo Total</span>
+            <span class="text-[10px] font-black uppercase tracking-widest text-[#8fb855] block">Distribuição de Custo
+              Total</span>
             <h3 class="text-base font-black text-[#f4f1e5]">Consumo Financeiro por Ativo da Frota</h3>
           </div>
-          <span class="text-xs text-[#8fb855] font-mono font-bold bg-[#1c2a1e] border border-[#556b2f]/40 px-2.5 py-1 rounded-lg">R$ Total / Carro</span>
+          <span
+            class="text-xs text-[#8fb855] font-mono font-bold bg-[#1c2a1e] border border-[#556b2f]/40 px-2.5 py-1 rounded-lg">R$
+            Total / Carro</span>
         </div>
         <div class="h-64">
           <canvas id="chartFinanceiroCarros"></canvas>
         </div>
       </div>
 
-      <div class="lg:col-span-4 bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-6 border border-[#556b2f]/30 shadow-2xl relative overflow-hidden flex flex-col justify-between">
+      <div
+        class="lg:col-span-4 bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-6 border border-[#556b2f]/30 shadow-2xl relative overflow-hidden flex flex-col justify-between">
         <div>
           <span class="text-[10px] font-black uppercase tracking-widest text-[#d88c5a] block">Volume Faturado</span>
           <h3 class="text-base font-black text-[#f4f1e5]">Litros por Carro</h3>
@@ -278,35 +362,45 @@
 
     <!-- LINHA 2: EVOLUÇÃO, CUSTO/KM COMPARATIVO E COMPOSIÇÃO DE CUSTOS -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div class="lg:col-span-12 bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-6 border border-[#556b2f]/30 shadow-2xl relative overflow-hidden">
+      <div
+        class="lg:col-span-12 bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-6 border border-[#556b2f]/30 shadow-2xl relative overflow-hidden">
         <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
           <div>
             <span class="text-[10px] font-black uppercase tracking-widest text-[#8fb855] block">Fluxo Cronológico</span>
-            <h3 class="text-base font-black text-[#f4f1e5]">Evolução dos Custos no Período (Combustível vs. Manutenção)</h3>
+            <h3 class="text-base font-black text-[#f4f1e5]">Evolução dos Custos no Período (Combustível vs. Manutenção)
+            </h3>
           </div>
-          <span class="text-xs text-[#8fb855] font-mono font-bold bg-[#1c2a1e] border border-[#556b2f]/40 px-2.5 py-1 rounded-lg">R$ / Linha do Tempo</span>
+          <span
+            class="text-xs text-[#8fb855] font-mono font-bold bg-[#1c2a1e] border border-[#556b2f]/40 px-2.5 py-1 rounded-lg">R$
+            / Linha do Tempo</span>
         </div>
         <div class="h-64">
           <canvas id="chartEvolucaoCustos"></canvas>
         </div>
       </div>
 
-      <div class="lg:col-span-7 bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-6 border border-[#556b2f]/30 shadow-2xl relative overflow-hidden">
+      <div
+        class="lg:col-span-7 bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-6 border border-[#556b2f]/30 shadow-2xl relative overflow-hidden">
         <div class="flex justify-between items-center mb-4">
           <div>
-            <span class="text-[10px] font-black uppercase tracking-widest text-[#b5cf82] block">Eficiência de Rodagem vs Full</span>
+            <span class="text-[10px] font-black uppercase tracking-widest text-[#b5cf82] block">Eficiência de Rodagem vs
+              Full</span>
             <h3 class="text-base font-black text-[#f4f1e5]">Custo Real por KM (Rodagem vs Full)</h3>
           </div>
-          <span class="text-xs text-[#b5cf82] font-mono font-bold bg-[#1c2a1e] border border-[#556b2f]/40 px-2.5 py-1 rounded-lg">R$ / KM</span>
+          <span
+            class="text-xs text-[#b5cf82] font-mono font-bold bg-[#1c2a1e] border border-[#556b2f]/40 px-2.5 py-1 rounded-lg">R$
+            / KM</span>
         </div>
         <div class="h-60">
           <canvas id="chartCustoKmPorCarro"></canvas>
         </div>
       </div>
 
-      <div class="lg:col-span-5 bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-6 border border-[#556b2f]/30 shadow-2xl relative overflow-hidden flex flex-col justify-between">
+      <div
+        class="lg:col-span-5 bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-6 border border-[#556b2f]/30 shadow-2xl relative overflow-hidden flex flex-col justify-between">
         <div>
-          <span class="text-[10px] font-black uppercase tracking-widest text-[#d88c5a] block">Estrutura Global de Gastos</span>
+          <span class="text-[10px] font-black uppercase tracking-widest text-[#d88c5a] block">Estrutura Global de
+            Gastos</span>
           <h3 class="text-base font-black text-[#f4f1e5]">Composição de Custos</h3>
         </div>
         <div class="h-52 flex items-center justify-center my-2">
@@ -325,14 +419,16 @@
           <h3 class="text-sm font-black text-[#f4f1e5] uppercase tracking-wider flex items-center gap-2">
             <i class="ph-bold ph-chart-bar text-[#8fb855]"></i> Desempenho Financeiro por Veículo
           </h3>
-          <p class="text-xs text-[#b0b9ab]">Combustível, manutenções, aluguel rateado no período e custo por km (rodagem vs full)</p>
+          <p class="text-xs text-[#b0b9ab]">Combustível, manutenções, aluguel rateado no período e custo por km (rodagem
+            vs full)</p>
         </div>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs border-collapse">
           <thead>
-            <tr class="border-b border-[#556b2f]/30 text-[10px] font-black text-[#b0b9ab] uppercase tracking-widest bg-[#0b110c]/60">
+            <tr
+              class="border-b border-[#556b2f]/30 text-[10px] font-black text-[#b0b9ab] uppercase tracking-widest bg-[#0b110c]/60">
               <th class="py-3 px-3">Placa / Veículo</th>
               <th class="py-3 px-3">Tipo Frota</th>
               <th class="py-3 px-3">KM Rodado</th>
@@ -347,7 +443,8 @@
           </thead>
           <tbody id="grid-financeiro-veiculos" class="divide-y divide-[#556b2f]/15 font-medium">
             <tr>
-              <td colspan="10" class="text-center py-8 text-[#b0b9ab] text-xs">Carregando dados financeiros dos veículos...</td>
+              <td colspan="10" class="text-center py-8 text-[#b0b9ab] text-xs">Carregando dados financeiros dos
+                veículos...</td>
             </tr>
           </tbody>
         </table>
@@ -360,13 +457,15 @@
         <h3 class="text-sm font-black text-[#f4f1e5] uppercase tracking-wider flex items-center gap-2">
           <i class="ph-bold ph-gauge text-[#b5cf82]"></i> Auditoria de Desgaste e Depreciação Mecânica
         </h3>
-        <p class="text-xs text-[#b0b9ab]">Depreciação de veículos aplicada exclusivamente a carros próprios; veículos alugados têm depreciação zerada</p>
+        <p class="text-xs text-[#b0b9ab]">Depreciação de veículos aplicada exclusivamente a carros próprios; veículos
+          alugados têm depreciação zerada</p>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs border-collapse">
           <thead>
-            <tr class="border-b border-[#556b2f]/30 text-[10px] font-black text-[#b0b9ab] uppercase tracking-widest bg-[#0b110c]/60">
+            <tr
+              class="border-b border-[#556b2f]/30 text-[10px] font-black text-[#b0b9ab] uppercase tracking-widest bg-[#0b110c]/60">
               <th class="py-3 px-3">Veículo</th>
               <th class="py-3 px-3">Regime</th>
               <th class="py-3 px-3">KM Período</th>
@@ -399,7 +498,8 @@
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs border-collapse">
           <thead>
-            <tr class="border-b border-[#556b2f]/30 text-[10px] font-black text-[#b0b9ab] uppercase tracking-widest bg-[#0b110c]/60">
+            <tr
+              class="border-b border-[#556b2f]/30 text-[10px] font-black text-[#b0b9ab] uppercase tracking-widest bg-[#0b110c]/60">
               <th class="py-2.5 px-3">Data</th>
               <th class="py-2.5 px-3">Veículo</th>
               <th class="py-2.5 px-3">Posto / Local</th>
@@ -423,28 +523,35 @@
   </main>
 
   <!-- ================= 4. MODAL POP-UP PARA VISUALIZAR COMPROVANTE (SEM ABRIR NOVA GUIA) ================= -->
-  <div id="modal-visualizar-comprovante" class="hidden fixed inset-0 z-50 bg-[#0b110c]/90 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-[#121b13] w-full max-w-lg rounded-3xl border border-[#556b2f]/40 p-5 space-y-3.5 shadow-2xl relative flex flex-col">
+  <div id="modal-visualizar-comprovante"
+    class="hidden fixed inset-0 z-50 bg-[#0b110c]/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div
+      class="bg-[#121b13] w-full max-w-lg rounded-3xl border border-[#556b2f]/40 p-5 space-y-3.5 shadow-2xl relative flex flex-col">
       <div class="flex items-center justify-between pb-3 border-b border-[#556b2f]/20">
         <div class="flex items-center gap-2">
           <i class="ph-bold ph-receipt text-[#d88c5a] text-lg"></i>
           <h3 class="text-sm font-black text-[#f4f1e5] uppercase tracking-wider">Comprovante Fiscal Anexado</h3>
         </div>
-        <button type="button" onclick="fecharModalComprovante()" class="w-8 h-8 rounded-full bg-[#1c2a1e] hover:bg-[#253828] text-[#b0b9ab] hover:text-[#f4f1e5] flex items-center justify-center transition">
+        <button type="button" onclick="fecharModalComprovante()"
+          class="w-8 h-8 rounded-full bg-[#1c2a1e] hover:bg-[#253828] text-[#b0b9ab] hover:text-[#f4f1e5] flex items-center justify-center transition">
           <i class="ph-bold ph-x text-sm"></i>
         </button>
       </div>
 
-      <div class="bg-[#0b110c] rounded-2xl p-2 border border-[#556b2f]/30 flex items-center justify-center max-h-[70vh] overflow-hidden">
-        <img id="img-modal-comprovante" src="" alt="Comprovante Fiscal" class="max-h-[65vh] w-auto max-w-full object-contain rounded-xl shadow-md" />
+      <div
+        class="bg-[#0b110c] rounded-2xl p-2 border border-[#556b2f]/30 flex items-center justify-center max-h-[70vh] overflow-hidden">
+        <img id="img-modal-comprovante" src="" alt="Comprovante Fiscal"
+          class="max-h-[65vh] w-auto max-w-full object-contain rounded-xl shadow-md" />
       </div>
 
       <div class="flex items-center justify-between pt-2">
-        <a id="btn-download-comprovante" href="#" download class="px-4 py-2 bg-[#395237] hover:bg-[#4a6b47] text-[#f4f1e5] font-bold text-xs rounded-xl transition flex items-center gap-1.5 border border-[#556b2f]/40">
+        <a id="btn-download-comprovante" href="#" download
+          class="px-4 py-2 bg-[#395237] hover:bg-[#4a6b47] text-[#f4f1e5] font-bold text-xs rounded-xl transition flex items-center gap-1.5 border border-[#556b2f]/40">
           <i class="ph-bold ph-download-simple"></i>
           <span>Baixar Imagem</span>
         </a>
-        <button type="button" onclick="fecharModalComprovante()" class="px-4 py-2 bg-[#1c2a1e] hover:bg-[#253828] text-[#b0b9ab] hover:text-[#f4f1e5] font-bold text-xs rounded-xl transition border border-[#556b2f]/20">
+        <button type="button" onclick="fecharModalComprovante()"
+          class="px-4 py-2 bg-[#1c2a1e] hover:bg-[#253828] text-[#b0b9ab] hover:text-[#f4f1e5] font-bold text-xs rounded-xl transition border border-[#556b2f]/20">
           Fechar
         </button>
       </div>
@@ -452,7 +559,8 @@
   </div>
 
   <!-- ================= MODAL DE PARÂMETROS DE CARROS E ALUGUEL ================= -->
-  <div id="modal-parametros-carros" class="hidden fixed inset-0 z-50 bg-[#0b110c]/85 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="modal-parametros-carros"
+    class="hidden fixed inset-0 z-50 bg-[#0b110c]/85 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-[#121b13] w-full max-w-xl rounded-3xl border border-[#556b2f]/40 p-6 space-y-4 shadow-2xl">
       <div class="flex justify-between items-center pb-3 border-b border-[#556b2f]/20">
         <h3 class="text-sm font-black text-[#f4f1e5] uppercase tracking-wider flex items-center gap-2">
@@ -462,98 +570,122 @@
           <i class="ph-bold ph-x text-lg"></i>
         </button>
       </div>
-      
+
       <div class="flex bg-[#0b110c] p-1 rounded-xl border border-[#556b2f]/30 text-xs font-bold gap-1">
-        <button type="button" onclick="alternarAbaCarros('aluguel')" id="tab-carro-aluguel" class="flex-1 py-1.5 px-3 rounded-lg bg-[#7a4522] text-[#f4f1e5] shadow">Locação</button>
-        <button type="button" onclick="alternarAbaCarros('seguro')" id="tab-carro-seguro" class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5]">Seguros</button>
+        <button type="button" onclick="alternarAbaCarros('aluguel')" id="tab-carro-aluguel"
+          class="flex-1 py-1.5 px-3 rounded-lg bg-[#7a4522] text-[#f4f1e5] shadow">Locação</button>
+        <button type="button" onclick="alternarAbaCarros('seguro')" id="tab-carro-seguro"
+          class="flex-1 py-1.5 px-3 rounded-lg text-[#b0b9ab] hover:text-[#f4f1e5]">Seguros</button>
       </div>
 
       <form id="form-contrato-aluguel" onsubmit="salvarContratoAluguel(event)" class="space-y-3">
         <div>
           <label class="block text-[11px] font-bold text-[#b0b9ab] uppercase mb-1">Veículo *</label>
-          <select id="aluguel-veiculo-id" required class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 outline-none focus:border-[#8fb855]">
+          <select id="aluguel-veiculo-id" required
+            class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 outline-none focus:border-[#8fb855]">
             <option value="">Selecione o carro...</option>
           </select>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[11px] font-bold text-[#b0b9ab] uppercase mb-1">Locadora / Empresa</label>
-            <input type="text" id="aluguel-locadora" placeholder="Ex: Localiza, Movida" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 outline-none focus:border-[#8fb855]" />
+            <input type="text" id="aluguel-locadora" placeholder="Ex: Localiza, Movida"
+              class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 outline-none focus:border-[#8fb855]" />
           </div>
           <div>
             <label class="block text-[11px] font-bold text-[#b0b9ab] uppercase mb-1">Nº do Contrato</label>
-            <input type="text" id="aluguel-num-contrato" placeholder="Ex: LOC-2026-44" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 outline-none focus:border-[#8fb855]" />
+            <input type="text" id="aluguel-num-contrato" placeholder="Ex: LOC-2026-44"
+              class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 outline-none focus:border-[#8fb855]" />
           </div>
         </div>
         <div class="grid grid-cols-3 gap-2">
           <div>
             <label class="block text-[11px] font-bold text-[#b0b9ab] uppercase mb-1">Tarifa Mensal (R$) *</label>
-            <input type="number" step="0.01" id="aluguel-valor-mensal" required placeholder="0,00" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
+            <input type="number" step="0.01" id="aluguel-valor-mensal" required placeholder="0,00"
+              class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
           </div>
           <div>
             <label class="block text-[11px] font-bold text-[#b0b9ab] uppercase mb-1">KM Excedente (R$)</label>
-            <input type="number" step="0.01" id="aluguel-km-excedente" placeholder="0,65" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
+            <input type="number" step="0.01" id="aluguel-km-excedente" placeholder="0,65"
+              class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
           </div>
           <div>
             <label class="block text-[11px] font-bold text-[#b0b9ab] uppercase mb-1">Franquia KM/Mês</label>
-            <input type="number" id="aluguel-franquia" placeholder="3000" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
+            <input type="number" id="aluguel-franquia" placeholder="3000"
+              class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
           </div>
         </div>
         <div class="flex gap-2 pt-2 border-t border-[#556b2f]/20">
-          <button type="submit" id="btn-salvar-contrato" class="flex-1 bg-[#395237] hover:bg-[#4a6b47] text-[#f4f1e5] font-bold py-2 rounded-xl text-xs border border-[#556b2f]/50">Salvar Contrato de Aluguel</button>
-          <button type="button" onclick="fecharModalParametrosCarros()" class="bg-[#1c2a1e] text-[#b0b9ab] py-2 px-4 rounded-xl text-xs">Fechar</button>
+          <button type="submit" id="btn-salvar-contrato"
+            class="flex-1 bg-[#395237] hover:bg-[#4a6b47] text-[#f4f1e5] font-bold py-2 rounded-xl text-xs border border-[#556b2f]/50">Salvar
+            Contrato de Aluguel</button>
+          <button type="button" onclick="fecharModalParametrosCarros()"
+            class="bg-[#1c2a1e] text-[#b0b9ab] py-2 px-4 rounded-xl text-xs">Fechar</button>
         </div>
       </form>
 
       <form id="form-custos-seguros" onsubmit="salvarCustosSeguros(event)" class="space-y-3 hidden">
         <div>
           <label class="block text-[11px] font-bold text-[#b0b9ab] uppercase mb-1">Veículo *</label>
-          <select id="seguro-veiculo-id" required class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 outline-none focus:border-[#8fb855]">
+          <select id="seguro-veiculo-id" required
+            class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 outline-none focus:border-[#8fb855]">
             <option value="">Selecione o carro...</option>
           </select>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[11px] font-bold text-[#b0b9ab] uppercase mb-1">Franquia (R$)</label>
-            <input type="number" step="0.01" id="seguro-franquia" placeholder="0,00" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
+            <input type="number" step="0.01" id="seguro-franquia" placeholder="0,00"
+              class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
           </div>
           <div>
             <label class="block text-[11px] font-bold text-[#b0b9ab] uppercase mb-1">Valor Prêmio (R$)</label>
-            <input type="number" step="0.01" id="seguro-premio" placeholder="0,00" class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
+            <input type="number" step="0.01" id="seguro-premio" placeholder="0,00"
+              class="w-full bg-[#0b110c] border border-[#556b2f]/40 text-xs text-[#f4f1e5] rounded-xl px-3 py-2 font-mono outline-none focus:border-[#8fb855]" />
           </div>
         </div>
         <div class="flex gap-2 pt-2 border-t border-[#556b2f]/20">
-          <button type="submit" class="flex-1 bg-[#395237] hover:bg-[#4a6b47] text-[#f4f1e5] font-bold py-2 rounded-xl text-xs border border-[#556b2f]/50">Salvar Seguro</button>
-          <button type="button" onclick="fecharModalParametrosCarros()" class="bg-[#1c2a1e] text-[#b0b9ab] py-2 px-4 rounded-xl text-xs">Fechar</button>
+          <button type="submit"
+            class="flex-1 bg-[#395237] hover:bg-[#4a6b47] text-[#f4f1e5] font-bold py-2 rounded-xl text-xs border border-[#556b2f]/50">Salvar
+            Seguro</button>
+          <button type="button" onclick="fecharModalParametrosCarros()"
+            class="bg-[#1c2a1e] text-[#b0b9ab] py-2 px-4 rounded-xl text-xs">Fechar</button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- Modais Auxiliares -->
-  <div id="modal-equipamentos" class="hidden fixed inset-0 z-50 bg-[#0b110c]/85 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="modal-equipamentos"
+    class="hidden fixed inset-0 z-50 bg-[#0b110c]/85 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-[#121b13] w-full max-w-md rounded-3xl border border-[#556b2f]/40 p-6 space-y-4 text-center">
-      <div class="w-12 h-12 rounded-2xl bg-[#1c2a1e] border border-[#556b2f]/50 text-[#8fb855] flex items-center justify-center mx-auto text-2xl">
+      <div
+        class="w-12 h-12 rounded-2xl bg-[#1c2a1e] border border-[#556b2f]/50 text-[#8fb855] flex items-center justify-center mx-auto text-2xl">
         <i class="ph-bold ph-wrench"></i>
       </div>
       <h3 class="text-sm font-black text-[#f4f1e5] uppercase">Gestão de Equipamentos</h3>
       <p class="text-xs text-slate-400">Módulo de controle de parâmetros e locação de ferramentas em estruturação.</p>
-      <button type="button" onclick="fecharModalEquipamentos()" class="w-full bg-[#1c2a1e] hover:bg-[#253828] text-[#f4f1e5] font-bold py-2 rounded-xl text-xs border border-[#556b2f]/30">Entendido</button>
+      <button type="button" onclick="fecharModalEquipamentos()"
+        class="w-full bg-[#1c2a1e] hover:bg-[#253828] text-[#f4f1e5] font-bold py-2 rounded-xl text-xs border border-[#556b2f]/30">Entendido</button>
     </div>
   </div>
 
-  <div id="modal-viagens" class="hidden fixed inset-0 z-50 bg-[#0b110c]/85 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="modal-viagens"
+    class="hidden fixed inset-0 z-50 bg-[#0b110c]/85 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-[#121b13] w-full max-w-md rounded-3xl border border-[#556b2f]/40 p-6 space-y-4 text-center">
-      <div class="w-12 h-12 rounded-2xl bg-[#1c2a1e] border border-[#556b2f]/50 text-[#8fb855] flex items-center justify-center mx-auto text-2xl">
+      <div
+        class="w-12 h-12 rounded-2xl bg-[#1c2a1e] border border-[#556b2f]/50 text-[#8fb855] flex items-center justify-center mx-auto text-2xl">
         <i class="ph-bold ph-airplane-tilt"></i>
       </div>
       <h3 class="text-sm font-black text-[#f4f1e5] uppercase">Diárias e Viagens</h3>
       <p class="text-xs text-slate-400">Controle contábil de diárias, alimentação e hospedagem em estruturação.</p>
-      <button type="button" onclick="fecharModalViagens()" class="w-full bg-[#1c2a1e] hover:bg-[#253828] text-[#f4f1e5] font-bold py-2 rounded-xl text-xs border border-[#556b2f]/30">Entendido</button>
+      <button type="button" onclick="fecharModalViagens()"
+        class="w-full bg-[#1c2a1e] hover:bg-[#253828] text-[#f4f1e5] font-bold py-2 rounded-xl text-xs border border-[#556b2f]/30">Entendido</button>
     </div>
   </div>
 
   <!-- Lógica Financeira Principal -->
-  <script src="/backend/financeiro.js"></script>
+  <script src="/backend/financeiro.js?v=2"></script>
 </body>
+
 </html>
