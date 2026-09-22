@@ -765,24 +765,26 @@ async function cancelarReservaMobile(reservaId, responsavel) {
     return;
   }
 
-  if (confirm("Tem certeza de que deseja liberar este agendamento?")) {
-    if (!navigator.onLine || String(reservaId).startsWith('temp_')) {
-      listaReservas = listaReservas.filter(r => String(r.id) !== String(reservaId));
-      localStorage.setItem('arvo_cache_reservas', JSON.stringify(listaReservas));
-      renderHistoricoCards();
-      alert("Agendamento cancelado localmente!");
-      return;
-    }
+  if (!confirm("Deseja realmente cancelar esta reserva?")) return;
 
-    try {
-      const { error } = await db.from('reservas').update({ status: 'CANCELADA' }).eq('id', reservaId);
-      if (error) throw error;
+  const emailUsuarioAtual = (usuarioLogado?.email || 'mobile_user').toLowerCase().trim();
 
-      alert("Agendamento cancelado com sucesso!");
-      await carregarHistoricoReservas();
-    } catch (err) {
-      alert("Erro ao cancelar reserva: " + err.message);
-    }
+  try {
+    const { error } = await db
+      .from('reservas')
+      .update({
+        status: 'CANCELADA',
+        updated_at: new Date().toISOString(),
+        updated_by: emailUsuarioAtual
+      })
+      .eq('id', reservaId);
+
+    if (error) throw error;
+
+    alert("Reserva cancelada com sucesso!");
+    await carregarHistoricoReservas();
+  } catch (err) {
+    alert("Erro ao cancelar reserva: " + err.message);
   }
 }
 

@@ -489,14 +489,26 @@ async function cancelarReserva(reservaId, responsavel) {
     return;
   }
 
-  if (confirm(`Deseja cancelar esta reserva do veículo?`)) {
-    const { error } = await db.from('reservas').update({ status: 'CANCELADA' }).eq('id', reservaId);
-    if (error) {
-      alert("Erro ao cancelar: " + error.message);
-    } else {
-      alert("Reserva cancelada com sucesso!");
-      await carregarReservas();
-    }
+  if (!confirm("Deseja realmente cancelar este agendamento?")) return;
+
+  const emailUsuarioAtual = (usuarioLogado?.email || ADMIN_EMAIL).toLowerCase().trim();
+
+  try {
+    const { error } = await db
+      .from('reservas')
+      .update({
+        status: 'CANCELADA',
+        updated_at: new Date().toISOString(),
+        updated_by: emailUsuarioAtual
+      })
+      .eq('id', reservaId);
+
+    if (error) throw error;
+
+    alert("Reserva cancelada com sucesso!");
+    await carregarReservas();
+  } catch (err) {
+    alert("Erro ao cancelar reserva: " + err.message);
   }
 }
 

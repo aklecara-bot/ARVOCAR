@@ -1189,12 +1189,16 @@ async function handleMobileFimRota(e) {
     }
 
     try {
-      await db.from('reservas').update({ status: 'CONCLUIDA' })
+      await db.from('reservas').update({ 
+        status: 'CONCLUIDA',
+        updated_at: new Date().toISOString(),
+        updated_by: (emailUsuario || rota.responsavel).toLowerCase().trim()
+      })
         .eq('veiculo_id', rota.veiculo_id)
         .eq('responsavel', rota.responsavel)
         .eq('status', 'CONFIRMADA');
-    } catch (resErr) {
-      console.warn("Aviso ao atualizar reservas pendentes:", resErr);
+    } catch (errRes) {
+      console.warn("Aviso ao atualizar reservas pendentes no mobile:", errRes);
     }
 
     alert(`✅ Rota concluída!\nConsumo estimado: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L`);

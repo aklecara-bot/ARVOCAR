@@ -880,7 +880,11 @@ async function handleFimRota(e) {
     }
 
     try {
-      await db.from('reservas').update({ status: 'CONCLUIDA' })
+      await db.from('reservas').update({ 
+        status: 'CONCLUIDA',
+        updated_at: new Date().toISOString(),
+        updated_by: (sessao?.email || rota.responsavel).toLowerCase().trim()
+      })
         .eq('veiculo_id', rota.veiculo_id)
         .eq('responsavel', rota.responsavel)
         .eq('status', 'CONFIRMADA');
