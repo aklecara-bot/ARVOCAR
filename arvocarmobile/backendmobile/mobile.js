@@ -1019,7 +1019,7 @@ async function handleMobileFimRota(e) {
   }
 
   // 1. Encerra o rastreamento e consolida todas as coordenadas coletadas
-  const pontosRastreamento = pararRastreamentoGPS() || [];
+  const pontosRastreamento = (typeof pararRastreamentoGPS === 'function' ? pararRastreamentoGPS() : []) || [];
   
   let pontosCache = [];
   try {
@@ -1050,7 +1050,9 @@ async function handleMobileFimRota(e) {
     } catch (errGps) {}
   }
 
-  destruirMapaMobile(rota.id);
+  if (typeof destruirMapaMobile === 'function') {
+    destruirMapaMobile(rota.id);
+  }
 
   const selectDestino = document.getElementById('m-fim-destino')?.value;
   const outroDestino = document.getElementById('m-fim-destino-outro')?.value?.trim();
@@ -1114,6 +1116,18 @@ async function handleMobileFimRota(e) {
     anomalia: anomaliaMarcada ? (relatorioAnomalia || 'Anomalia sem detalhes') : null
   };
 
+  // Resolução segura do usuário logado
+  const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+  let emailUsuario = rota.responsavel;
+  if (rawSessao) {
+    try {
+      const parsed = JSON.parse(rawSessao);
+      emailUsuario = parsed.email || parsed.nome || emailUsuario;
+    } catch {
+      emailUsuario = String(rawSessao);
+    }
+  }
+
   // Encerramento Offline ou com Rota Temporária
   if (!navigator.onLine || String(rota.id).startsWith('temp_')) {
     salvarNaFilaRotas({
@@ -1142,10 +1156,10 @@ async function handleMobileFimRota(e) {
     salvarCachesLocais();
     alert(`📶 Rota encerrada Offline!\nConsumo: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nSerá sincronizada quando houver sinal.`);
     e.target.reset();
-    renderizarHistoricoMobile();
-    renderizarOpcoesRotasAtivas();
-    renderizarOpcoesVeiculos();
-    switchMobileTab('historico');
+    if (typeof renderizarHistoricoMobile === 'function') renderizarHistoricoMobile();
+    if (typeof renderizarOpcoesRotasAtivas === 'function') renderizarOpcoesRotasAtivas();
+    if (typeof renderizarOpcoesVeiculos === 'function') renderizarOpcoesVeiculos();
+    if (typeof switchMobileTab === 'function') switchMobileTab('historico');
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = `<i class="ph-bold ph-check text-base"></i> Finalizar Rota`;
@@ -1188,26 +1202,46 @@ async function handleMobileFimRota(e) {
       await db.from('veiculos').update(payloadVeiculo).or(condicoesVeiculo.join(','));
     }
 
+    // --- ENCERRAMENTO INTELIGENTE DE RESERVAS COM PROTEÇÃO DE DATA ---
     try {
-      await db.from('reservas').update({ 
-        status: 'CONCLUIDA',
-        updated_at: new Date().toISOString(),
-        updated_by: (emailUsuario || rota.responsavel).toLowerCase().trim()
-      })
-        .eq('veiculo_id', rota.veiculo_id)
+      const condicoesReserva = [];
+      if (rota.veiculo_id) condicoesReserva.push(`veiculo_id.eq.${rota.veiculo_id}`);
+      if (veiculoAlvo.nome_frota) condicoesReserva.push(`veiculo_id.eq.${veiculoAlvo.nome_frota}`);
+      if (rota.placa) condicoesReserva.push(`placa.eq.${rota.placa}`);
+      if (veiculoAlvo.placa) condicoesReserva.push(`placa.eq.${veiculoAlvo.placa}`);
+      if (rota.uuid_veiculos) condicoesReserva.push(`uuid_veiculos.eq.${rota.uuid_veiculos}`);
+      if (veiculoAlvo.uuid_veiculos) condicoesReserva.push(`uuid_veiculos.eq.${veiculoAlvo.uuid_veiculos}`);
+
+      // Janela com tolerância de até 4 horas após o término previsto
+      const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
+
+      let queryReservas = db.from('reservas')
+        .update({ 
+          status: 'CONCLUIDA',
+          updated_at: dataRetornoIso,
+          updated_by: String(emailUsuario).toLowerCase().trim()
+        })
         .eq('responsavel', rota.responsavel)
-        .eq('status', 'CONFIRMADA');
+        .eq('status', 'CONFIRMADA')
+        .lte('data_inicio', dataRetornoIso) // Reserva já iniciou
+        .gte('data_fim', limiteToleranciaFim); // Está no prazo vigente ou recém-finalizada
+
+      if (condicoesReserva.length > 0) {
+        queryReservas = queryReservas.or(condicoesReserva.join(','));
+      }
+
+      await queryReservas;
     } catch (errRes) {
       console.warn("Aviso ao atualizar reservas pendentes no mobile:", errRes);
     }
 
     alert(`✅ Rota concluída!\nConsumo estimado: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L`);
     e.target.reset();
-    toggleOutroDestinoMobile('');
-    toggleAnomaliaMobile(false);
+    if (typeof toggleOutroDestinoMobile === 'function') toggleOutroDestinoMobile('');
+    if (typeof toggleAnomaliaMobile === 'function') toggleAnomaliaMobile(false);
     document.getElementById('m-detalhes-viagem')?.classList.add('hidden');
-    await carregarDadosMobile();
-    switchMobileTab('historico');
+    if (typeof carregarDadosMobile === 'function') await carregarDadosMobile();
+    if (typeof switchMobileTab === 'function') switchMobileTab('historico');
   } catch (err) {
     console.warn("Salvando encerramento na fila offline devido a erro:", err);
     salvarNaFilaRotas({
@@ -1224,7 +1258,7 @@ async function handleMobileFimRota(e) {
     rota.coordenadas = coordenadasFinais;
     salvarCachesLocais();
     alert(`📶 Finalização salva localmente.`);
-    switchMobileTab('historico');
+    if (typeof switchMobileTab === 'function') switchMobileTab('historico');
   } finally {
     if (btn) {
       btn.disabled = false;

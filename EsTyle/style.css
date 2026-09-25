@@ -44,6 +44,157 @@
 
 }
 
+/* =========================================================================
+   PALETA DARK FINANCEIRO - MOBILE COCKPIT
+   ========================================================================= */
+
+/* Fundo da tela inteira do App Mobile */
+body.mobile-dark, 
+.mobile-app-body {
+  background-color: #0b110c !important;
+  color: #f4f1e5 !important;
+  min-height: 100vh;
+}
+
+/* Container do Mobile Shell */
+.mobile-shell, .mobile-content {
+  background-color: transparent;
+  color: #f4f1e5;
+}
+
+/* Header Superior Mobile */
+.mobile-header-dark {
+  background-color: #0b110c !important;
+  border-bottom: 1px solid rgba(85, 107, 47, 0.35);
+  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.6);
+}
+
+/* Sub-abas Superiores Mobile (Novo Registro / Histórico / Calendário) */
+.mobile-subtabs-dark {
+  background-color: #121b13 !important;
+  border-bottom: 1px solid rgba(85, 107, 47, 0.3) !important;
+}
+
+.mobile-subtab-btn-dark {
+  color: #b0b9ab !important;
+  transition: all 0.2s ease-in-out;
+  border-bottom: 2px solid transparent !important;
+}
+
+.mobile-subtab-btn-dark.active {
+  color: #8fb855 !important;
+  border-bottom: 2px solid #8fb855 !important;
+  font-weight: 800 !important;
+}
+
+/* Card Principal / Formulário Mobile */
+.mobile-card-dark {
+  background: linear-gradient(180deg, #141f15 0%, #0f1710 100%) !important;
+  border: 1px solid rgba(85, 107, 47, 0.35) !important;
+  border-radius: 1.5rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px -5px rgba(57, 82, 55, 0.25) !important;
+  color: #f4f1e5 !important;
+}
+
+/* Inputs, Selects e Textareas Mobile */
+.mobile-input-dark {
+  background-color: #0b110c !important;
+  border: 1px solid rgba(85, 107, 47, 0.45) !important;
+  color: #f4f1e5 !important;
+  border-radius: 0.85rem !important;
+  font-size: 0.8125rem !important;
+  outline: none !important;
+  color-scheme: dark !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.mobile-input-dark:focus {
+  border-color: #8fb855 !important;
+  box-shadow: 0 0 0 2px rgba(143, 184, 85, 0.2) !important;
+}
+
+.mobile-input-dark::placeholder {
+  color: #6e7a6b !important;
+}
+
+/* Labels e Rótulos */
+.mobile-label-dark {
+  color: #b0b9ab !important;
+  font-size: 0.6875rem !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Box de Destaque / Totalizador (ex: Valor Previsto, Resumos) */
+.mobile-box-resumo-dark {
+  background-color: #1a291c !important;
+  border: 1px solid rgba(143, 184, 85, 0.3) !important;
+  border-radius: 1rem !important;
+  color: #f4f1e5 !important;
+}
+
+.mobile-box-resumo-amber-dark {
+  background-color: #241710 !important;
+  border: 1px solid rgba(216, 140, 90, 0.4) !important;
+  border-radius: 1rem !important;
+  color: #f4f1e5 !important;
+}
+
+/* Dropzone de Upload Mobile (Comprovante Fiscal) */
+.mobile-dropzone-dark {
+  background-color: #0b110c !important;
+  border: 1px dashed rgba(85, 107, 47, 0.5) !important;
+  border-radius: 1rem !important;
+  color: #b0b9ab !important;
+  transition: all 0.2s ease;
+}
+
+.mobile-dropzone-dark:hover {
+  border-color: #8fb855 !important;
+  background-color: #121c13 !important;
+  color: #f4f1e5 !important;
+}
+
+/* Botão de Ação Primária Mobile (Registrar / Iniciar / Salvar) */
+.btn-mobile-primary-dark {
+  background-color: #395237 !important;
+  border: 1px solid rgba(85, 107, 47, 0.5) !important;
+  color: #f4f1e5 !important;
+  font-weight: 800 !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.4), 0 0 15px -2px rgba(57, 82, 55, 0.35) !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.btn-mobile-primary-dark:hover {
+  background-color: #4a6b47 !important;
+}
+
+.btn-mobile-primary-dark:active {
+  transform: scale(0.97) !important;
+}
+
+/* Barra de Navegação Inferior (Bottom Nav) */
+.mobile-bottom-nav-dark {
+  background-color: #121b13 !important;
+  border-top: 1px solid rgba(85, 107, 47, 0.3) !important;
+  box-shadow: 0 -10px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+.mobile-nav-item-dark {
+  color: #6e7a6b !important;
+}
+
+.mobile-nav-item-dark.active {
+  color: #8fb855 !important;
+  font-weight: 800 !important;
+}
+
+.mobile-nav-item-dark:hover {
+  color: #b0b9ab !important;
+}
+
 body.app-bodyDark,
 bodyD {
   background-color: var(--dark-bg);

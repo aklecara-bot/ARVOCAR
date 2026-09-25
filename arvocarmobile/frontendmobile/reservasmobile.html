@@ -8,7 +8,7 @@
 
   <!-- PWA & Tags Mobile -->
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#111827" />
+  <meta name="theme-color" content="#0b110c" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -25,6 +25,7 @@
   <style>
     body {
       -webkit-tap-highlight-color: transparent;
+      background-color: #0b110c;
     }
 
     .pb-safe {
@@ -33,7 +34,7 @@
 
     /* Chevron customizado e limpo para selects no mobile */
     select {
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23395237' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
       background-position: right 0.75rem center;
       background-repeat: no-repeat;
       background-size: 1.25em 1.25em;
@@ -43,7 +44,7 @@
       appearance: none;
     }
 
-    /* CUSTOMIZAÇÕES DO FULLCALENDAR NO TEMA DARK COCKPIT */
+    /* CUSTOMIZAÇÕES DO FULLCALENDAR NO TEMA DARK COCKPIT FLORESTA */
     .fc {
       font-family: inherit;
     }
@@ -53,108 +54,116 @@
     .fc .fc-toolbar-title {
       font-size: 0.85rem !important;
       font-weight: 900 !important;
-      color: #ffffff !important;
+      color: #f4f1e5 !important;
       text-transform: capitalize;
     }
     .fc .fc-button-primary {
-      background-color: #1E293B !important;
-      border-color: #334155 !important;
+      background-color: #1a291c !important;
+      border-color: rgba(85, 107, 47, 0.45) !important;
       font-size: 0.7rem !important;
       font-weight: 800 !important;
-      padding: 0.3rem 0.6rem !important;
-      border-radius: 0.5rem !important;
-      color: #cbd5e1 !important;
+      padding: 0.35rem 0.65rem !important;
+      border-radius: 0.65rem !important;
+      color: #b0b9ab !important;
+      transition: all 0.2s ease;
     }
     .fc .fc-button-primary:hover {
-      background-color: #334155 !important;
-      color: #ffffff !important;
+      background-color: #253828 !important;
+      color: #f4f1e5 !important;
+      border-color: #8fb855 !important;
     }
     .fc .fc-button-active {
-      background-color: #1E5E3A !important;
-      border-color: #164E2E !important;
-      color: #ffffff !important;
+      background-color: #395237 !important;
+      border-color: #556b2f !important;
+      color: #f4f1e5 !important;
+      box-shadow: 0 0 10px rgba(57, 82, 55, 0.4) !important;
     }
     .fc .fc-col-header-cell {
-      background-color: #17212D !important;
-      color: #94a3b8 !important;
+      background-color: #0b110c !important;
+      color: #8fb855 !important;
       font-size: 9px !important;
       font-weight: 900 !important;
       text-transform: uppercase;
       padding: 5px 0 !important;
-      border-color: #334155 !important;
+      border-color: rgba(85, 107, 47, 0.25) !important;
     }
     .fc .fc-daygrid-day {
-      border-color: #334155 !important;
-      background-color: #1E293B;
+      border-color: rgba(85, 107, 47, 0.25) !important;
+      background-color: #121b13;
       height: 4rem !important;
     }
     .fc .fc-daygrid-day-number {
       font-size: 0.7rem !important;
-      color: #cbd5e1 !important;
+      color: #b0b9ab !important;
       font-weight: 600;
       padding: 3px !important;
     }
     .fc .fc-day-other .fc-daygrid-day-number {
       color: #475569 !important;
+      opacity: 0.6;
     }
     
     /* Destaque do dia de hoje */
     .fc .fc-daygrid-day.fc-day-today {
-      background-color: #ffffff !important;
-      outline: 2px solid #10b981 !important;
+      background-color: #1a2a1d !important;
+      outline: 2px solid #8fb855 !important;
       border-radius: 8px;
     }
     .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
-      color: #000000 !important;
+      color: #8fb855 !important;
       font-weight: 900 !important;
     }
     .fc-event {
       font-size: 0.62rem !important;
       font-weight: 800 !important;
-      padding: 1px 3px !important;
+      padding: 1px 4px !important;
       border-radius: 4px !important;
       cursor: pointer;
+      background-color: #395237 !important;
+      border-color: #556b2f !important;
+      color: #f4f1e5 !important;
     }
   </style>
 </head>
 
-<body class="bg-[#1E293B] text-slate-100 font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-[#1E5E3A] selection:text-white pb-safe">
+<body class="bg-[#0b110c] text-[#f4f1e5] font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-[#395237] selection:text-[#f4f1e5] pb-safe">
 
-  <!-- ==================== 1. HEADER MOBILE GRAFITE TRANSLÚCIDO & SUB-ABAS ==================== -->
-  <header class="bg-[#111827]/95 backdrop-blur-md text-white sticky top-0 z-40 border-b border-slate-700/60 shadow-lg">
+  <!-- ==================== 1. HEADER MOBILE COCKPIT & SUB-ABAS ==================== -->
+  <header class="bg-[#0b110c]/95 backdrop-blur-md text-[#f4f1e5] sticky top-0 z-40 border-b border-[#556b2f]/30 shadow-2xl">
     <!-- Linha Principal do Header -->
     <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center space-x-2.5">
-        <div class="w-8 h-8 rounded-full border border-slate-600 bg-slate-800/90 flex items-center justify-center text-emerald-400 shadow-inner">
+        <div class="w-8 h-8 rounded-xl border border-[#556b2f]/40 bg-[#1c2e1f] flex items-center justify-center text-[#8fb855] shadow-inner">
           <i class="ph-bold ph-calendar-check text-base"></i>
         </div>
         <div>
-          <h1 class="text-sm font-black tracking-tight leading-none text-white">Reservas</h1>
-          <span id="user-display" class="text-[11px] text-slate-300 font-medium block leading-tight truncate max-w-[190px]">
+          <h1 class="text-sm font-black tracking-tight leading-none text-[#f4f1e5]">Reservas</h1>
+          <span id="user-display" class="text-[11px] text-[#b0b9ab] font-medium block leading-tight truncate max-w-[190px]">
             Carregando...
           </span>
           <span id="m-top-username" class="hidden"></span>
         </div>
       </div>
 
+      <!-- Botão Sair Âmbar/Terra Queimada Padronizado -->
       <button onclick="if(typeof handleMobileLogout === 'function') { handleMobileLogout(); } else { localStorage.clear(); window.location.href = 'mobile.html'; }" 
               title="Sair" 
-              class="text-xs bg-rose-600/80 hover:bg-rose-600 text-white px-2.5 py-1.5 rounded-lg border border-rose-500/30 transition flex items-center gap-1 shadow-sm active:scale-95">
+              class="text-xs bg-[#7a4522] hover:bg-[#63371b] text-[#f4f1e5] px-3 py-1.5 rounded-xl border border-[#7a4522]/40 transition flex items-center gap-1.5 shadow-md shadow-black/40 active:scale-95 font-bold">
         <i class="ph-bold ph-sign-out text-sm"></i>
-        <span class="font-bold">Sair</span>
+        <span>Sair</span>
       </button>
     </div>
 
     <!-- Sub-abas: Novo Agendamento vs Calendário & Lista -->
-    <div class="max-w-md mx-auto px-4 flex items-center border-t border-slate-800/80 text-xs font-bold">
+    <div class="max-w-md mx-auto px-4 flex items-center border-t border-[#556b2f]/20 bg-[#121b13]/60 text-xs font-bold">
       <button type="button" id="tab-btn-novo" onclick="trocarAba('novo')"
-              class="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-amber-300 border-b-2 border-amber-300 transition">
+              class="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[#8fb855] border-b-2 border-[#8fb855] transition">
         <i class="ph-bold ph-plus-circle text-sm"></i>
         <span>Novo Agendamento</span>
       </button>
 
       <button type="button" id="tab-btn-calendario" onclick="trocarAba('calendario')"
-              class="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-slate-400 hover:text-white border-b-2 border-transparent transition">
+              class="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[#b0b9ab] hover:text-[#f4f1e5] border-b-2 border-transparent transition">
         <i class="ph-bold ph-calendar text-sm"></i>
         <span>Calendário & Lista</span>
       </button>
@@ -164,13 +173,13 @@
   <!-- ==================== 2. CONTEÚDO PRINCIPAL ==================== -->
   <main class="flex-1 p-4 pb-24 max-w-md mx-auto w-full space-y-4">
 
-    <!-- ==================== ABA 1: NOVO AGENDAMENTO (CARD BEGE CLARO) ==================== -->
+    <!-- ==================== ABA 1: NOVO AGENDAMENTO (CARD BEGE CLARO PRESERVADO) ==================== -->
     <section id="view-novo" class="space-y-4">
-      <div class="bg-[#FAF7F2] rounded-3xl p-5 shadow-xl border border-[#EFE9DF] text-slate-800 space-y-4">
+      <div class="bg-[#FAF7F2] rounded-3xl p-5 shadow-[0_12px_30px_-5px_rgba(0,0,0,0.7)] border border-[#EFE9DF] text-slate-800 space-y-4">
 
         <!-- Cabeçalho do Card -->
         <div class="flex items-center gap-3 pb-3 border-b border-[#EAE3D6]">
-          <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-[#1E5E3A] shadow-inner font-bold">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-[#395237] shadow-inner font-bold">
             <i class="ph-bold ph-calendar-plus text-xl"></i>
           </div>
           <div>
@@ -184,14 +193,14 @@
           <!-- Veículo -->
           <div>
             <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-              Veículo <span class="text-[#1E5E3A]">*</span>
+              Veículo <span class="text-[#395237]">*</span>
             </label>
             <div class="relative">
               <span class="absolute left-3.5 top-2.5 text-slate-400">
                 <i class="ph-bold ph-car text-base"></i>
               </span>
               <select id="res-veiculo" required
-                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] font-semibold outline-none transition cursor-pointer shadow-xs">
+                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] font-semibold outline-none transition cursor-pointer shadow-xs">
                 <option value="">Carregando veículos...</option>
               </select>
             </div>
@@ -200,14 +209,14 @@
           <!-- Modalidade da Reserva -->
           <div>
             <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-              Modalidade da Reserva <span class="text-[#1E5E3A]">*</span>
+              Modalidade da Reserva <span class="text-[#395237]">*</span>
             </label>
             <div class="relative">
               <span class="absolute left-3.5 top-2.5 text-slate-400">
                 <i class="ph-bold ph-clock text-base"></i>
               </span>
               <select id="res-tipo" onchange="ajustarCamposModalidade(this.value)" required
-                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] font-semibold outline-none transition cursor-pointer shadow-xs">
+                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] font-semibold outline-none transition cursor-pointer shadow-xs">
                 <option value="DIAS" selected>Por Dia / Dias</option>
                 <option value="TURNO">Por Turno</option>
                 <option value="HORAS">Por Horas (Mesmo dia)</option>
@@ -222,12 +231,12 @@
             <div>
               <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">Hora Início</label>
               <input type="time" id="res-hora-inicio" value="08:00"
-                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-[#1E5E3A] outline-none" />
+                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-[#395237] outline-none" />
             </div>
             <div>
               <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">Hora Fim</label>
               <input type="time" id="res-hora-fim" value="12:00"
-                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-[#1E5E3A] outline-none" />
+                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-[#395237] outline-none" />
             </div>
           </div>
 
@@ -235,7 +244,7 @@
           <div id="box-turno" class="hidden">
             <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">Turno Desejado</label>
             <select id="res-turno-sel"
-                    class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] outline-none cursor-pointer">
+                    class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] outline-none cursor-pointer">
               <option value="MANHA">Manhã (07:00 às 12:00)</option>
               <option value="TARDE">Tarde (13:00 às 18:00)</option>
               <option value="NOITE">Noite / Integral (18:00 às 06:00)</option>
@@ -246,32 +255,32 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-                Data Início <span class="text-[#1E5E3A]">*</span>
+                Data Início <span class="text-[#395237]">*</span>
               </label>
               <input type="date" id="res-data-inicio" required
-                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-medium rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] outline-none transition shadow-xs" />
+                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-medium rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] outline-none transition shadow-xs" />
             </div>
 
             <div id="box-data-fim">
               <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-                Data Fim <span class="text-[#1E5E3A]">*</span>
+                Data Fim <span class="text-[#395237]">*</span>
               </label>
               <input type="date" id="res-data-fim" required
-                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-medium rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] outline-none transition shadow-xs" />
+                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-medium rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] outline-none transition shadow-xs" />
             </div>
           </div>
 
           <!-- Finalidade / Projeto -->
           <div>
             <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-              Finalidade / Projeto <span class="text-[#1E5E3A]">*</span>
+              Finalidade / Projeto <span class="text-[#395237]">*</span>
             </label>
             <div class="relative">
               <span class="absolute left-3.5 top-2.5 text-slate-400">
                 <i class="ph-bold ph-briefcase text-base"></i>
               </span>
               <select id="res-finalidade" required
-                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] font-semibold outline-none transition cursor-pointer shadow-xs">
+                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] font-semibold outline-none transition cursor-pointer shadow-xs">
                 <option value="">Selecione...</option>
                 <option value="DEMANDAS INTERNAS" selected>DEMANDAS INTERNAS</option>
                 <option value="REFLORESTAR">REFLORESTAR</option>
@@ -292,14 +301,14 @@
               Observações (Opcional)
             </label>
             <textarea id="res-obs" rows="3" placeholder="Ex: Viagem para Anutiba..."
-                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 placeholder:text-slate-400 rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] font-medium outline-none transition resize-none shadow-xs"></textarea>
+                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 placeholder:text-slate-400 rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] font-medium outline-none transition resize-none shadow-xs"></textarea>
           </div>
 
           <!-- Botão Confirmar Agendamento -->
           <div class="pt-2">
             <button type="submit" id="btn-submit"
-                    class="w-full bg-[#1E5E3A] hover:bg-[#164E2E] active:scale-[0.99] text-white font-bold text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-950/20 transition flex items-center justify-center gap-2">
-              <i class="ph-bold ph-check-circle text-base"></i>
+                    class="w-full bg-[#395237] hover:bg-[#2e432c] active:scale-[0.98] text-[#f4f1e5] font-black text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl shadow-lg shadow-black/50 transition flex items-center justify-center gap-2 border border-[#556b2f]/40">
+              <i class="ph-bold ph-check-circle text-base text-[#8fb855]"></i>
               <span>Confirmar Agendamento</span>
             </button>
           </div>
@@ -313,25 +322,25 @@
     <section id="view-calendario" class="hidden space-y-4">
       
       <!-- Container do Calendário Dark Cockpit -->
-      <div class="bg-[#273549] rounded-3xl p-4 shadow-2xl border border-slate-700/80 space-y-3.5">
+      <div class="bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-4 shadow-2xl border border-[#556b2f]/30 space-y-3.5">
         <div id="calendar" class="min-h-[350px]"></div>
       </div>
 
       <!-- Próximos Agendamentos -->
-      <div class="bg-[#273549] rounded-3xl p-4 shadow-xl border border-slate-700/80 space-y-3">
-        <div class="flex items-center justify-between pb-2 border-b border-slate-700/60">
-          <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">
+      <div class="bg-gradient-to-b from-[#141f15] to-[#0f1710] rounded-3xl p-4 shadow-2xl border border-[#556b2f]/30 space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-[#556b2f]/20">
+          <h3 class="text-xs font-black uppercase tracking-wider text-[#f4f1e5]">
             Próximos Agendamentos
           </h3>
-          <span id="badge-total-reservas" class="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold px-2.5 py-0.5 rounded-full">
+          <span id="badge-total-reservas" class="text-[11px] bg-[#1c2e1f] text-[#8fb855] border border-[#556b2f]/40 font-mono font-bold px-2.5 py-0.5 rounded-full">
             0 reservas
           </span>
         </div>
 
         <!-- Lista dinâmica consumida pelo reservasmobile.js -->
         <div id="lista-reservas" class="space-y-2.5">
-          <div class="text-center py-6 text-slate-400 text-xs">
-            <i class="ph-bold ph-spinner animate-spin text-base"></i>
+          <div class="text-center py-6 text-[#b0b9ab] text-xs">
+            <i class="ph-bold ph-spinner animate-spin text-base text-[#8fb855]"></i>
             <p class="mt-1">Carregando agendamentos...</p>
           </div>
         </div>
@@ -342,29 +351,30 @@
   </main>
 
   <!-- ==================== 3. BARRA DE NAVEGAÇÃO INFERIOR ==================== -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-[#111827]/95 backdrop-blur-md border-t border-slate-700/60 px-4 py-2 flex justify-around items-center z-40 shadow-2xl pb-safe max-w-md mx-auto">
+  <nav class="fixed bottom-0 left-0 right-0 bg-[#0b110c]/95 backdrop-blur-md border-t border-[#556b2f]/30 px-4 py-2 flex justify-around items-center z-40 shadow-[0_-8px_20px_rgba(0,0,0,0.6)] pb-safe max-w-md mx-auto">
     
-    <a href="mobile.html?tab=iniciar" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+    <a href="mobile.html?tab=iniciar" class="flex flex-col items-center gap-0.5 text-[#6e7a6b] font-medium hover:text-[#b0b9ab] transition">
       <i class="ph-bold ph-key text-lg"></i>
       <span class="text-[10px]">Iniciar</span>
     </a>
 
-    <a href="mobile.html?tab=finalizar" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+    <a href="mobile.html?tab=finalizar" class="flex flex-col items-center gap-0.5 text-[#6e7a6b] font-medium hover:text-[#b0b9ab] transition">
       <i class="ph-bold ph-map-pin text-lg"></i>
       <span class="text-[10px]">Finalizar</span>
     </a>
 
-    <a href="mobile.html?tab=historico" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+    <a href="mobile.html?tab=historico" class="flex flex-col items-center gap-0.5 text-[#6e7a6b] font-medium hover:text-[#b0b9ab] transition">
       <i class="ph-bold ph-clock-counter-clockwise text-lg"></i>
       <span class="text-[10px]">Rotas</span>
     </a>
 
-    <button type="button" onclick="trocarAba('novo')" class="flex flex-col items-center gap-0.5 text-emerald-400 font-bold transition">
+    <!-- Botão Reservas Ativo com Verde Luminoso #8fb855 -->
+    <button type="button" onclick="trocarAba('novo')" class="flex flex-col items-center gap-0.5 text-[#8fb855] font-bold transition">
       <i class="ph-bold ph-calendar-check text-lg"></i>
       <span class="text-[10px]">Reservas</span>
     </button>
 
-    <a href="abastecimentomobile.html" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+    <a href="abastecimentomobile.html" class="flex flex-col items-center gap-0.5 text-[#6e7a6b] font-medium hover:text-[#b0b9ab] transition">
       <i class="ph-bold ph-gas-pump text-lg"></i>
       <span class="text-[10px]">Abastecer</span>
     </a>

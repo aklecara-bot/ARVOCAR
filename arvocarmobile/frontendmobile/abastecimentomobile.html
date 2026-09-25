@@ -8,7 +8,7 @@
 
   <!-- PWA & Tags Mobile -->
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#111827" />
+  <meta name="theme-color" content="#0b110c" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -24,6 +24,7 @@
   <style>
     body {
       -webkit-tap-highlight-color: transparent;
+      background-color: #0b110c;
     }
 
     .pb-safe {
@@ -32,7 +33,7 @@
 
     /* Chevron customizado e limpo para selects no mobile */
     select {
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23395237' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
       background-position: right 0.75rem center;
       background-repeat: no-repeat;
       background-size: 1.25em 1.25em;
@@ -89,42 +90,43 @@
   </style>
 </head>
 
-<body class="bg-[#1E293B] text-slate-100 font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-[#1E5E3A] selection:text-white pb-safe">
+<body class="bg-[#0b110c] text-[#f4f1e5] font-sans min-h-screen flex flex-col justify-between antialiased selection:bg-[#395237] selection:text-[#f4f1e5] pb-safe">
 
-  <!-- ==================== 1. HEADER MOBILE GRAFITE TRANSLÚCIDO & SUB-ABAS ==================== -->
-  <header class="bg-[#111827]/95 backdrop-blur-md text-white sticky top-0 z-40 border-b border-slate-700/60 shadow-lg">
+  <!-- ==================== 1. HEADER MOBILE COCKPIT & SUB-ABAS ==================== -->
+  <header class="bg-[#0b110c]/95 backdrop-blur-md text-[#f4f1e5] sticky top-0 z-40 border-b border-[#556b2f]/30 shadow-2xl">
     <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center space-x-2.5">
-        <div class="w-8 h-8 rounded-full border border-slate-600 bg-slate-800/90 flex items-center justify-center text-emerald-400 shadow-inner">
+        <div class="w-8 h-8 rounded-xl border border-[#556b2f]/40 bg-[#1c2e1f] flex items-center justify-center text-[#8fb855] shadow-inner">
           <i class="ph-bold ph-gas-pump text-base"></i>
         </div>
         <div>
-          <h1 class="text-sm font-black tracking-tight leading-none text-white">Abastecimento</h1>
-          <span id="user-display" class="text-[11px] text-slate-300 font-medium block leading-tight truncate max-w-[190px]">
+          <h1 class="text-sm font-black tracking-tight leading-none text-[#f4f1e5]">Abastecimento</h1>
+          <span id="user-display" class="text-[11px] text-[#b0b9ab] font-medium block leading-tight truncate max-w-[190px]">
             Carregando...
           </span>
           <span id="m-top-username" class="hidden"></span>
         </div>
       </div>
 
+      <!-- Botão Sair Âmbar/Terra Queimada Padronizado -->
       <button onclick="if(typeof handleMobileLogout === 'function') { handleMobileLogout(); } else { localStorage.clear(); window.location.href = 'mobile.html'; }" 
               title="Sair" 
-              class="text-xs bg-rose-600/80 hover:bg-rose-600 text-white px-2.5 py-1.5 rounded-lg border border-rose-500/30 transition flex items-center gap-1 shadow-sm active:scale-95">
+              class="text-xs bg-[#7a4522] hover:bg-[#63371b] text-[#f4f1e5] px-3 py-1.5 rounded-xl border border-[#7a4522]/40 transition flex items-center gap-1.5 shadow-md shadow-black/40 active:scale-95 font-bold">
         <i class="ph-bold ph-sign-out text-sm"></i>
-        <span class="font-bold">Sair</span>
+        <span>Sair</span>
       </button>
     </div>
 
     <!-- Sub-abas: Novo Registro vs Histórico -->
-    <div class="max-w-md mx-auto px-4 flex items-center border-t border-slate-800/80 text-xs font-bold">
+    <div class="max-w-md mx-auto px-4 flex items-center border-t border-[#556b2f]/20 bg-[#121b13]/60 text-xs font-bold">
       <button type="button" id="tab-btn-novo" onclick="trocarAba('novo')"
-              class="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-amber-300 border-b-2 border-amber-300 transition">
+              class="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[#8fb855] border-b-2 border-[#8fb855] transition">
         <i class="ph-bold ph-plus-circle text-sm"></i>
         <span>Novo Registro</span>
       </button>
 
       <button type="button" id="tab-btn-historico" onclick="trocarAba('historico')"
-              class="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-slate-400 hover:text-white border-b-2 border-transparent transition">
+              class="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[#b0b9ab] hover:text-[#f4f1e5] border-b-2 border-transparent transition">
         <i class="ph-bold ph-clock-counter-clockwise text-sm"></i>
         <span>Histórico</span>
       </button>
@@ -134,13 +136,13 @@
   <!-- ==================== 2. CONTEÚDO PRINCIPAL ==================== -->
   <main class="flex-1 p-4 pb-24 max-w-md mx-auto w-full space-y-4">
 
-    <!-- ==================== ABA 1: FORMULÁRIO (CARD BEGE CLARO) ==================== -->
+    <!-- ==================== ABA 1: FORMULÁRIO (CARD BEGE CLARO PRESERVADO) ==================== -->
     <section id="view-novo" class="space-y-4">
-      <div class="bg-[#FAF7F2] rounded-3xl p-5 shadow-xl border border-[#EFE9DF] text-slate-800 space-y-4">
+      <div class="bg-[#FAF7F2] rounded-3xl p-5 shadow-[0_12px_30px_-5px_rgba(0,0,0,0.7)] border border-[#EFE9DF] text-slate-800 space-y-4">
 
         <!-- Cabeçalho do Card -->
         <div class="flex items-center gap-3 pb-3 border-b border-[#EAE3D6]">
-          <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-[#1E5E3A] shadow-inner font-bold">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-[#395237] shadow-inner font-bold">
             <i class="ph-bold ph-gas-pump text-xl"></i>
           </div>
           <div>
@@ -154,14 +156,14 @@
           <!-- Veículo -->
           <div>
             <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-              Veículo <span class="text-[#1E5E3A]">*</span>
+              Veículo <span class="text-[#395237]">*</span>
             </label>
             <div class="relative">
               <span class="absolute left-3.5 top-2.5 text-slate-400">
                 <i class="ph-bold ph-car text-base"></i>
               </span>
               <select id="abs-veiculo" required
-                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] font-semibold outline-none transition cursor-pointer shadow-xs">
+                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] font-semibold outline-none transition cursor-pointer shadow-xs">
                 <option value="">Selecione o veículo...</option>
               </select>
             </div>
@@ -170,28 +172,28 @@
           <!-- Posto / Local -->
           <div>
             <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-              Posto / Local <span class="text-[#1E5E3A]">*</span>
+              Posto / Local <span class="text-[#395237]">*</span>
             </label>
             <div class="relative">
               <span class="absolute left-3.5 top-2.5 text-slate-400">
                 <i class="ph-bold ph-storefront text-base"></i>
               </span>
               <input type="text" id="abs-posto" required placeholder="Ex: Posto Ipiranga Centro"
-                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-3 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] font-medium outline-none transition shadow-xs" />
+                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-3 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] font-medium outline-none transition shadow-xs" />
             </div>
           </div>
 
           <!-- Tipo de Combustível -->
           <div>
             <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-              Combustível <span class="text-[#1E5E3A]">*</span>
+              Combustível <span class="text-[#395237]">*</span>
             </label>
             <div class="relative">
               <span class="absolute left-3.5 top-2.5 text-slate-400">
                 <i class="ph-bold ph-drop text-base"></i>
               </span>
               <select id="abs-tipo" required
-                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] font-semibold outline-none transition cursor-pointer shadow-xs">
+                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 rounded-xl pl-10 pr-8 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] font-semibold outline-none transition cursor-pointer shadow-xs">
                 <option value="Gasolina Comum" selected>Gasolina Comum</option>
                 <option value="Gasolina Aditivada">Gasolina Aditivada</option>
                 <option value="Etanol">Etanol</option>
@@ -204,14 +206,14 @@
           <!-- KM Hodômetro -->
           <div>
             <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-              KM Hodômetro <span class="text-[#1E5E3A]">*</span>
+              KM Hodômetro <span class="text-[#395237]">*</span>
             </label>
             <div class="relative">
               <span class="absolute left-3.5 top-2.5 text-slate-400">
                 <i class="ph-bold ph-gauge text-base"></i>
               </span>
               <input type="number" id="abs-km" required placeholder="Ex: 45230"
-                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-bold rounded-xl pl-10 pr-3 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] outline-none transition shadow-xs" />
+                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-bold rounded-xl pl-10 pr-3 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] outline-none transition shadow-xs" />
             </div>
           </div>
 
@@ -219,18 +221,18 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-                Litros (L) <span class="text-[#1E5E3A]">*</span>
+                Litros (L) <span class="text-[#395237]">*</span>
               </label>
               <input type="number" step="0.001" id="abs-litros" oninput="calcularTotal()" required placeholder="0.00"
-                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-bold rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] outline-none transition shadow-xs" />
+                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-bold rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] outline-none transition shadow-xs" />
             </div>
 
             <div>
               <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
-                Preço / Litro (R$) <span class="text-[#1E5E3A]">*</span>
+                Preço / Litro (R$) <span class="text-[#395237]">*</span>
               </label>
               <input type="number" step="0.01" id="abs-preco-litro" oninput="calcularTotal()" required placeholder="0.00"
-                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-bold rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#1E5E3A] focus:border-[#1E5E3A] outline-none transition shadow-xs" />
+                     class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-bold rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] outline-none transition shadow-xs" />
             </div>
           </div>
 
@@ -246,7 +248,7 @@
             <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
               Foto do Cupom / Comprovante
             </label>
-            <label for="abs-foto" class="w-full bg-white/95 border-2 border-dashed border-[#DDD8CE] hover:border-[#1E5E3A] rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition text-center shadow-xs">
+            <label for="abs-foto" class="w-full bg-white/95 border-2 border-dashed border-[#DDD8CE] hover:border-[#395237] rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition text-center shadow-xs">
               <i class="ph-bold ph-camera text-2xl text-slate-400"></i>
               <span id="comprovante-nome" class="text-xs text-slate-500 font-medium">Tirar foto ou anexar arquivo</span>
               <span id="abs-comprovante-txt" class="hidden">Tirar foto ou anexar arquivo</span>
@@ -257,8 +259,8 @@
           <!-- Botão Registrar Abastecimento -->
           <div class="pt-2">
             <button type="submit" id="btn-submit"
-                    class="w-full bg-[#1E5E3A] hover:bg-[#164E2E] active:scale-[0.99] text-white font-bold text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-950/20 transition flex items-center justify-center gap-2">
-              <i class="ph-bold ph-check-circle text-base"></i>
+                    class="w-full bg-[#395237] hover:bg-[#2e432c] active:scale-[0.98] text-[#f4f1e5] font-black text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl shadow-lg shadow-black/50 transition flex items-center justify-center gap-2 border border-[#556b2f]/40">
+              <i class="ph-bold ph-check-circle text-base text-[#8fb855]"></i>
               <span>Registrar Abastecimento</span>
             </button>
           </div>
@@ -273,10 +275,10 @@
       
       <!-- Topo da Lista com Botão de Atualizar -->
       <div class="flex items-center justify-between px-1">
-        <h2 class="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+        <h2 class="text-xs font-black uppercase tracking-wider text-[#f4f1e5] flex items-center gap-1.5">
           <span>Lançamentos Recentes</span>
         </h2>
-        <button onclick="carregarHistoricoAbastecimento()" class="text-[11px] text-slate-400 hover:text-emerald-400 font-bold flex items-center gap-1 transition">
+        <button onclick="carregarHistoricoAbastecimento()" class="text-[11px] text-[#b0b9ab] hover:text-[#8fb855] font-bold flex items-center gap-1 transition">
           <i class="ph-bold ph-arrows-clockwise text-xs"></i>
           <span>Atualizar</span>
         </button>
@@ -284,8 +286,8 @@
 
       <!-- Container dinâmico consumido pelo script -->
       <div id="lista-abastecimentos" class="space-y-3">
-        <div class="text-center py-6 text-slate-400 text-xs font-medium">
-          <i class="ph-bold ph-spinner animate-spin text-lg"></i>
+        <div class="text-center py-6 text-[#b0b9ab] text-xs font-medium">
+          <i class="ph-bold ph-spinner animate-spin text-lg text-[#8fb855]"></i>
           <p class="mt-1">Carregando histórico...</p>
         </div>
       </div>
@@ -296,8 +298,8 @@
   </main>
 
   <!-- ==================== 3. MODAL DE DETALHES COM PLACA MERCOSUL ==================== -->
-  <div id="modal-detalhes-abast" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-[#FAF7F2] w-full max-w-sm rounded-[28px] shadow-[0_25px_60px_rgba(15,23,42,0.3)] border border-white/90 p-5 space-y-4 text-slate-800 relative max-h-[90vh] overflow-y-auto">
+  <div id="modal-detalhes-abast" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#FAF7F2] w-full max-w-sm rounded-[28px] shadow-[0_25px_60px_rgba(0,0,0,0.7)] border border-[#EFE9DF] p-5 space-y-4 text-slate-800 relative max-h-[90vh] overflow-y-auto">
       
       <!-- Topo: Identificação do Veículo com Placa Mercosul e Botão Fechar -->
       <div class="flex items-start justify-between pb-3 border-b border-[#EAE3D6]">
@@ -368,8 +370,8 @@
 
         <!-- Total Pago em Destaque -->
         <div class="pt-2 border-t border-slate-100 flex justify-between items-center">
-          <span class="text-[11px] font-black uppercase tracking-wider text-[#1E5E3A]">Valor Total Pago:</span>
-          <span id="modal-abast-total" class="text-base font-black font-mono text-[#1E5E3A] bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl shadow-xs">
+          <span class="text-[11px] font-black uppercase tracking-wider text-[#395237]">Valor Total Pago:</span>
+          <span id="modal-abast-total" class="text-base font-black font-mono text-[#395237] bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl shadow-xs">
             R$ 0,00
           </span>
         </div>
@@ -403,7 +405,7 @@
         </a>
 
         <button type="button" id="btn-baixar-imagem" onclick="baixarImagemComprovante()"
-                class="w-full bg-[#1E5E3A] hover:bg-[#164E2E] active:scale-[0.99] text-white font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-1.5">
+                class="w-full bg-[#395237] hover:bg-[#2e432c] active:scale-[0.99] text-[#f4f1e5] font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 border border-[#556b2f]/40">
           <i class="ph-bold ph-download-simple text-sm"></i>
           <span>Baixar Arquivo</span>
         </button>
@@ -412,31 +414,31 @@
     </div>
   </div>
 
-  <!-- ==================== 4. BOTTOM BAR FIXA GRAFITE TRANSLÚCIDA ==================== -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-[#111827]/95 backdrop-blur-md border-t border-slate-700/60 px-4 py-2 flex justify-around items-center z-40 shadow-2xl pb-safe max-w-md mx-auto">
+  <!-- ==================== 4. BOTTOM BAR FIXA COCKPIT ==================== -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-[#0b110c]/95 backdrop-blur-md border-t border-[#556b2f]/30 px-4 py-2 flex justify-around items-center z-40 shadow-[0_-8px_20px_rgba(0,0,0,0.6)] pb-safe max-w-md mx-auto">
     
-    <a href="mobile.html?tab=iniciar" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+    <a href="mobile.html?tab=iniciar" class="flex flex-col items-center gap-0.5 text-[#6e7a6b] font-medium hover:text-[#b0b9ab] transition">
       <i class="ph-bold ph-key text-lg"></i>
       <span class="text-[10px]">Iniciar</span>
     </a>
 
-    <a href="mobile.html?tab=finalizar" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+    <a href="mobile.html?tab=finalizar" class="flex flex-col items-center gap-0.5 text-[#6e7a6b] font-medium hover:text-[#b0b9ab] transition">
       <i class="ph-bold ph-map-pin text-lg"></i>
       <span class="text-[10px]">Finalizar</span>
     </a>
 
-    <a href="mobile.html?tab=historico" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+    <a href="mobile.html?tab=historico" class="flex flex-col items-center gap-0.5 text-[#6e7a6b] font-medium hover:text-[#b0b9ab] transition">
       <i class="ph-bold ph-clock-counter-clockwise text-lg"></i>
       <span class="text-[10px]">Rotas</span>
     </a>
 
-    <a href="reservasmobile.html" class="flex flex-col items-center gap-0.5 text-slate-400 font-medium hover:text-slate-200 transition">
+    <a href="reservasmobile.html" class="flex flex-col items-center gap-0.5 text-[#6e7a6b] font-medium hover:text-[#b0b9ab] transition">
       <i class="ph-bold ph-calendar text-lg"></i>
       <span class="text-[10px]">Reservas</span>
     </a>
 
-    <!-- Abastecer Ativo em Verde Esmeralda -->
-    <button type="button" onclick="trocarAba('novo')" class="flex flex-col items-center gap-0.5 text-emerald-400 font-bold transition">
+    <!-- Abastecer Ativo com Verde Luminoso #8fb855 -->
+    <button type="button" onclick="trocarAba('novo')" class="flex flex-col items-center gap-0.5 text-[#8fb855] font-bold transition">
       <i class="ph-bold ph-gas-pump text-lg"></i>
       <span class="text-[10px]">Abastecer</span>
     </button>

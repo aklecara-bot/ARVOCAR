@@ -240,7 +240,7 @@ window.alert = function (mensagem) {
 // 2.1 COORDENADAS BASE DE LOCALIZAÇÃO ESCRITÓRIOS
 // =========================================================================
 const COORDENADAS_BASES = {
-  "BASE CENTRAL ALEGRE": { lat: -20.761921434859808, lng: -41.533884461049986 },
+  "BASE CENTRAL ALEGRE": { lat: -20.76219103647448, lng: -41.53181192340939 },
   "ALEGRE": { lat: -20.761921434859808, lng: -41.533884461049986 },
   "GUAÇUÍ": { lat: -20.770687031454834, lng: -41.674244082674676 },
   "CASTELO": { lat: -20.60686706579922, lng: -41.20409608718904 },
@@ -879,17 +879,37 @@ async function handleFimRota(e) {
         .or(condicoesVeiculo.join(','));
     }
 
+    // --- ENCERRAMENTO INTELIGENTE DE RESERVA COM FILTRO TEMPORAL ---
     try {
-      await db.from('reservas').update({ 
-        status: 'CONCLUIDA',
-        updated_at: new Date().toISOString(),
-        updated_by: (sessao?.email || rota.responsavel).toLowerCase().trim()
-      })
-        .eq('veiculo_id', rota.veiculo_id)
+      const condicoesReserva = [];
+      if (rota.veiculo_id) condicoesReserva.push(`veiculo_id.eq.${rota.veiculo_id}`);
+      if (veiculo.nome_frota) condicoesReserva.push(`veiculo_id.eq.${veiculo.nome_frota}`);
+      if (veiculo.placa) condicoesReserva.push(`placa.eq.${veiculo.placa}`);
+      if (veiculo.uuid_veiculos && isUUID(veiculo.uuid_veiculos)) {
+        condicoesReserva.push(`uuid_veiculos.eq.${veiculo.uuid_veiculos}`);
+      }
+
+      // Janela temporal: Tolerância de devolução de até 4 horas após o término previsto
+      const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
+
+      let queryReservas = db.from('reservas')
+        .update({ 
+          status: 'CONCLUIDA',
+          updated_at: dataHoraRetornoAtual,
+          updated_by: (sessao?.email || rota.responsavel).toLowerCase().trim()
+        })
         .eq('responsavel', rota.responsavel)
-        .eq('status', 'CONFIRMADA');
+        .eq('status', 'CONFIRMADA')
+        .lte('data_inicio', dataHoraRetornoAtual) // A reserva já deve ter iniciado
+        .gte('data_fim', limiteToleranciaFim);      // Conclui apenas se estiver no prazo ou encerrada recentemente
+
+      if (condicoesReserva.length > 0) {
+        queryReservas = queryReservas.or(condicoesReserva.join(','));
+      }
+
+      await queryReservas;
     } catch (resErr) {
-      console.warn("Aviso reservas:", resErr);
+      console.warn("Aviso ao atualizar reservas pendentes:", resErr);
     }
 
     e.target.reset();
