@@ -1424,15 +1424,27 @@ function renderPreviewCardCarroMobile(veiculoId) {
   if (!container) return;
 
   const selectElem = document.getElementById('m-inicio-veiculo');
+  const valFinal = veiculoId || selectElem?.value;
   const optSelecionada = selectElem ? selectElem.options[selectElem.selectedIndex] : null;
   const uuidVeiculo = optSelecionada?.dataset?.uuid || null;
   const placaVeiculo = optSelecionada?.dataset?.placa || null;
 
+  if (!valFinal) {
+    container.innerHTML = `
+      <div class="border-2 border-dashed border-slate-700/60 rounded-3xl p-5 text-center text-slate-400 text-xs font-medium bg-[#111827]/40">
+        Selecione um veículo acima para visualizar telemetria, tanque e status operacional.
+      </div>
+    `;
+    return;
+  }
+
+  // Busca robusta no array veiculos
   const veiculo = (veiculos || []).find(v =>
     (uuidVeiculo && String(v.uuid_veiculos) === String(uuidVeiculo)) ||
-    (placaVeiculo && String(v.placa) === String(placaVeiculo)) ||
-    String(v.nome_frota) === String(veiculoId) ||
-    String(v.id) === String(veiculoId)
+    (placaVeiculo && String(v.placa).toUpperCase().trim() === String(placaVeiculo).toUpperCase().trim()) ||
+    String(v.nome_frota).toUpperCase().trim() === String(valFinal).toUpperCase().trim() ||
+    String(v.id) === String(valFinal) ||
+    String(v.placa).toUpperCase().trim() === String(valFinal).toUpperCase().trim()
   );
 
   if (!veiculo) {
@@ -1450,24 +1462,6 @@ function renderPreviewCardCarroMobile(veiculoId) {
   const capTanque = Number(veiculo.tanque || 47);
   const litrosAtuais = Number(veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined ? veiculo.tanque_virtual : capTanque);
 
-  let segmentosHTML = '';
-  if (!isExterno) {
-    const totalSegmentos = 16;
-    const proporcao = Math.max(0, Math.min(1, capTanque > 0 ? (litrosAtuais / capTanque) : 1));
-    const segmentosCheios = Math.round(proporcao * totalSegmentos);
-
-    for (let i = totalSegmentos; i >= 1; i--) {
-      const estaCheio = i <= segmentosCheios;
-      let cor = 'bg-slate-800';
-      if (estaCheio) {
-        if (i <= 2) cor = 'bg-rose-600 shadow-sm';
-        else if (i <= 6) cor = 'bg-amber-500';
-        else cor = 'bg-emerald-400';
-      }
-      segmentosHTML += `<div class="h-1 rounded-xs ${cor}"></div>`;
-    }
-  }
-
   const estiloCardMobile = isEmUso
     ? "background: rgba(234, 88, 12, 0.70); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1.5px solid rgba(254, 215, 170, 0.6); box-shadow: 0 10px 25px rgba(234, 88, 12, 0.35);"
     : "background: linear-gradient(180deg, #182230 0%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.1);";
@@ -1477,17 +1471,16 @@ function renderPreviewCardCarroMobile(veiculoId) {
   if (ref.includes('COMPASS') || ref.includes('JEEP')) imgUrl = '/imagens/jeepcomp.png';
   else if (ref.includes('GOL')) imgUrl = '/imagens/gol.png';
   else if (ref.includes('COROLLA')) imgUrl = '/imagens/corolla.png';
+  else if (ref.includes('STRADA')) imgUrl = '/imagens/strada.png';
 
   container.innerHTML = `
-    <div class="relative rounded-3xl p-5 shadow-2xl text-white overflow-hidden w-full transition-all duration-300"
-         style="${estiloCardMobile}">
-      
+    <div class="relative rounded-3xl p-5 shadow-2xl text-white overflow-hidden w-full transition-all duration-300" style="${estiloCardMobile}">
       <div class="flex justify-between items-start mb-2">
         <div class="space-y-1">
           <div class="flex items-center gap-2">
             <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-              isEmUso 
-                ? 'bg-amber-900/60 text-amber-200 border border-amber-300/50 animate-pulse' 
+              isEmUso
+                ? 'bg-amber-900/60 text-amber-200 border border-amber-300/50 animate-pulse'
                 : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
             }">
               ● ${isEmUso ? 'Em Rota' : 'Disponível'}
@@ -1885,6 +1878,83 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   document.body.appendChild(popUp);
 }
 
+function abrirModalTrocarSenha() {
+  document.getElementById('modal-trocar-senha')?.classList.remove('hidden');
+}
+
+function fecharModalTrocarSenha() {
+  document.getElementById('modal-trocar-senha')?.classList.add('hidden');
+  const at = document.getElementById('senha-atual-usuario');
+  const nv = document.getElementById('senha-nova-usuario');
+  const cf = document.getElementById('senha-confirma-usuario');
+  if (at) at.value = '';
+  if (nv) nv.value = '';
+  if (cf) cf.value = '';
+}
+
+async function handleAlterarMinhaSenha(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-salvar-senha');
+  const sessaoRaw = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+  
+  let sessao = null;
+  try {
+    sessao = JSON.parse(sessaoRaw);
+  } catch (err) {
+    sessao = { email: sessaoRaw };
+  }
+
+  if (!sessao || !sessao.email) {
+    alert("Sessão inválida. Faça login novamente.");
+    window.location.href = "login.html";
+    return;
+  }
+
+  const senhaAtual = document.getElementById('senha-atual-usuario').value.trim();
+  const senhaNova = document.getElementById('senha-nova-usuario').value.trim();
+  const senhaConfirma = document.getElementById('senha-confirma-usuario').value.trim();
+
+  if (senhaNova !== senhaConfirma) {
+    alert("⚠️ A confirmação da nova senha não confere.");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Salvando...`;
+
+  try {
+    // 1. Verifica se a senha antiga confere
+    const { data: usuario, error: erroBusca } = await db
+      .from('usuarios')
+      .select('id, senha')
+      .eq('email', sessao.email.toLowerCase().trim())
+      .single();
+
+    if (erroBusca || !usuario) throw new Error("Usuário não encontrado.");
+    if (String(usuario.senha).trim() !== senhaAtual) {
+      throw new Error("A senha atual informada está incorreta.");
+    }
+
+    // 2. Atualiza a nova senha
+    const { error: erroUpdate } = await db
+      .from('usuarios')
+      .update({ senha: senhaNova })
+      .eq('id', usuario.id);
+
+    if (erroUpdate) throw erroUpdate;
+
+    fecharModalTrocarSenha();
+    alert("✅ Senha atualizada com sucesso!");
+  } catch (err) {
+    alert("Erro: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `Salvar`;
+  }
+}
+
+
+
 // =========================================================================
 // INICIALIZAÇÃO NO DOM E EXPORTAÇÃO GLOBAL
 // =========================================================================
@@ -1904,6 +1974,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Bindings globais no escopo window
+window.abrirModalTrocarSenha = abrirModalTrocarSenha;
+window.fecharModalTrocarSenha = fecharModalTrocarSenha;
+window.handleAlterarMinhaSenha = handleAlterarMinhaSenha;
 window.toggleSenhaMobile = toggleSenhaMobile;
 window.handleMobileLogin = handleMobileLogin;
 window.handleMobileLogout = handleMobileLogout;
@@ -1927,3 +2000,4 @@ window.manterTelaAtiva = manterTelaAtiva;
 window.liberarTelaAtiva = liberarTelaAtiva;
 window.iniciarRastreamentoIntervaladoGPS = iniciarRastreamentoIntervaladoGPS;
 window.pararRastreamentoGPS = pararRastreamentoGPS;
+window.renderPreviewCardCarroMobile = renderPreviewCardCarroMobile;

@@ -237,26 +237,34 @@
   <div id="screen-app" class="hidden flex-1 flex flex-col min-h-screen">
 
     <!-- Header Mobile em Verde Cockpit Escuro com Borda Oliva -->
-    <header class="bg-[#0b110c]/95 backdrop-blur-md text-[#f4f1e5] sticky top-0 z-40 border-b border-[#556b2f]/30 shadow-2xl">
-      <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-8 h-8 rounded-xl border border-[#556b2f]/40 bg-[#1c2e1f] flex items-center justify-center text-[#8fb855] shadow-inner">
-            <i class="ph-bold ph-steering-wheel text-base"></i>
-          </div>
-          <div>
-            <h1 class="text-sm font-black tracking-tight leading-none text-[#f4f1e5]">ARVOCAR</h1>
-            <span id="m-top-username" class="text-[11px] text-[#b0b9ab] font-medium block leading-tight truncate max-w-[190px]">
-              Condutor
-            </span>
-          </div>
-        </div>
-
-        <!-- Botão Sair com o tom Terracota/Âmbar dos Relatórios Financeiros -->
-        <button onclick="handleMobileLogout()" title="Sair" class="text-xs bg-[#7a4522] hover:bg-[#63371b] text-[#f4f1e5] px-3 py-1.5 rounded-xl border border-[#7a4522]/40 transition flex items-center gap-1.5 shadow-md shadow-black/40 active:scale-95 font-bold">
-          <i class="ph-bold ph-sign-out text-sm"></i>
-          <span>Sair</span>
-        </button>
+    <!-- Substitua o bloco de ações do topo do header no mobile.html -->
+    <header class="bg-[#111827]/95 backdrop-blur-md text-white sticky top-0 z-40 border-b border-slate-700/60 shadow-lg">
+    <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="flex items-center space-x-2.5">
+      <div class="w-8 h-8 rounded-full border border-slate-600 bg-slate-800/90 flex items-center justify-center text-emerald-400 shadow-inner">
+        <i class="ph-bold ph-steering-wheel text-base"></i>
       </div>
+      <div>
+        <h1 class="text-sm font-black tracking-tight leading-none text-white">ARVOCAR</h1>
+        <span id="m-top-username" class="text-[11px] text-slate-300 font-medium block leading-tight truncate max-w-[150px]">
+          Condutor
+        </span>
+      </div>
+    </div>
+
+    <!-- GRUPO VISÍVEL: ALTERAR SENHA + SAIR -->
+    <div class="flex items-center gap-2">
+      <button type="button" onclick="abrirModalTrocarSenha()" title="Alterar minha senha"
+              class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-400 p-2 rounded-xl border border-slate-600 transition flex items-center shadow-sm active:scale-95">
+        <i class="ph-bold ph-lock-key text-base"></i>
+      </button>
+
+      <button onclick="handleMobileLogout()" title="Sair" class="text-xs bg-rose-600/80 hover:bg-rose-600 text-white px-2.5 py-1.5 rounded-xl border border-rose-500/30 transition flex items-center gap-1 shadow-sm active:scale-95">
+        <i class="ph-bold ph-sign-out text-sm"></i>
+        <span class="font-bold">Sair</span>
+      </button>
+    </div>
+    </div>
     </header>
 
     <!-- Conteúdo Principal -->
@@ -285,7 +293,7 @@
               <label class="block text-xs font-black tracking-wide uppercase text-slate-600 mb-1.5">
                 SELECIONE O VEÍCULO DISPONÍVEL <span class="text-[#395237]">*</span>
               </label>
-              <select id="m-inicio-veiculo" onchange="atualizarKmVeiculoMobile()" required
+              <select id="m-inicio-veiculo" onchange="aoMudarVeiculoMobile(this.value)" required
                 class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] font-semibold outline-none transition cursor-pointer shadow-xs">
                 <option value="">Selecione o veículo...</option>
               </select>
@@ -523,6 +531,39 @@
 
     </nav>
   </div>
+  <!-- Modal de Autoatendimento para Troca de Senha do Motorista -->
+<div id="modal-trocar-senha" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+      <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+        <i class="ph-bold ph-lock-key text-emerald-700 text-lg"></i> Alterar Minha Senha
+      </h3>
+      <button type="button" onclick="fecharModalTrocarSenha()" class="text-slate-400 hover:text-slate-600">
+        <i class="ph-bold ph-x text-lg"></i>
+      </button>
+    </div>
+
+    <form onsubmit="handleAlterarMinhaSenha(event)" class="space-y-3.5">
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Senha Atual</label>
+        <input type="password" id="senha-atual-usuario" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-600" placeholder="••••••••" />
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nova Senha</label>
+        <input type="password" id="senha-nova-usuario" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-600" placeholder="••••••••" />
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Confirmar Nova Senha</label>
+        <input type="password" id="senha-confirma-usuario" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-600" placeholder="••••••••" />
+      </div>
+
+      <div class="pt-2 flex gap-2">
+        <button type="button" onclick="fecharModalTrocarSenha()" class="flex-1 bg-slate-100 text-slate-600 font-bold py-2.5 rounded-xl text-xs">Cancelar</button>
+        <button type="submit" id="btn-salvar-senha" class="flex-1 bg-[#1E5E3A] hover:bg-[#164E2E] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
 
   <!-- SCRIPT DE REGRAS MOBILE -->
   <script src="/arvocarmobile/backendmobile/mobile.js"></script>

@@ -2148,6 +2148,72 @@ function renderRankingEcoDriving() {
   });
 }
 
+function abrirModalTrocarSenha() {
+  document.getElementById('modal-trocar-senha')?.classList.remove('hidden');
+}
+
+function fecharModalTrocarSenha() {
+  document.getElementById('modal-trocar-senha')?.classList.add('hidden');
+  document.getElementById('senha-atual-usuario').value = '';
+  document.getElementById('senha-nova-usuario').value = '';
+  document.getElementById('senha-confirma-usuario').value = '';
+}
+
+async function handleAlterarMinhaSenha(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-salvar-senha');
+  const sessao = JSON.parse(localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user'));
+
+  if (!sessao || !sessao.email) {
+    alert("Sessão inválida. Faça login novamente.");
+    window.location.href = "login.html";
+    return;
+  }
+
+  const senhaAtual = document.getElementById('senha-atual-usuario').value.trim();
+  const senhaNova = document.getElementById('senha-nova-usuario').value.trim();
+  const senhaConfirma = document.getElementById('senha-confirma-usuario').value.trim();
+
+  if (senhaNova !== senhaConfirma) {
+    alert("⚠️ A confirmação da nova senha não confere.");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Gravando...`;
+
+  try {
+    // 1. Confere se a senha atual está correta no banco
+    const { data: usuario, error: erroBusca } = await db
+      .from('usuarios')
+      .select('id, senha')
+      .eq('email', sessao.email.toLowerCase().trim())
+      .single();
+
+    if (erroBusca || !usuario) throw new Error("Usuário não encontrado.");
+    if (String(usuario.senha).trim() !== senhaAtual) {
+      throw new Error("Senha atual incorreta.");
+    }
+
+    // 2. Atualiza para a nova senha
+    const { error: erroUpdate } = await db
+      .from('usuarios')
+      .update({ senha: senhaNova })
+      .eq('id', usuario.id);
+
+    if (erroUpdate) throw erroUpdate;
+
+    fecharModalTrocarSenha();
+    alert("✅ Senha alterada com sucesso!");
+  } catch (err) {
+    alert("Erro: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `Salvar`;
+  }
+}
+
+
 function renderAll() {
   renderFleetGrid();
   renderDashboardKPIs();

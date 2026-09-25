@@ -7,9 +7,9 @@
   <title>ARVO - Acesso ao Sistema de Rota</title>
 
   <link rel="icon" type="image/png" sizes="192x192" href="/imagens/logo3d192.png" />
-''<link rel="apple-touch-icon" sizes="192x192" href="/imagens/logo3d192.png" />
-''<link rel="manifest" href="/manifest.json" />
-<link rel="stylesheet" href="/EsTyle/style.css">
+  <link rel="apple-touch-icon" sizes="192x192" href="/imagens/logo3d192.png" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="/EsTyle/style.css">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -39,6 +39,7 @@
 <body
   class="bg-slate-900 min-h-screen flex items-center justify-center p-4 antialiased selection:bg-brand-500 selection:text-white">
 
+  <!-- Card Principal de Login -->
   <div
     class="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 sm:p-10 border border-slate-100 relative overflow-hidden">
 
@@ -54,18 +55,21 @@
       <p class="text-xs text-slate-400 mt-1">Insira as suas credenciais para acessar</p>
     </div>
 
+    <!-- Mensagem de Erro -->
     <div id="erro-login"
       class="hidden mb-5 p-3.5 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-700 flex items-start gap-2.5">
       <i class="ph-bold ph-warning-circle text-base shrink-0 mt-0.5"></i>
       <span id="erro-login-msg">E-mail ou senha inválidos.</span>
     </div>
 
+    <!-- Formulário Oficial de Login -->
     <form id="formLogin" onsubmit="handleLogin(event)" class="space-y-4">
       <div>
         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">E-mail</label>
         <div class="relative">
-          <span class="absolute left-3.5 top-3 text-slate-400"><i
-              class="ph-bold ph-envelope-simple text-base"></i></span>
+          <span class="absolute left-3.5 top-3 text-slate-400">
+            <i class="ph-bold ph-envelope-simple text-base"></i>
+          </span>
           <input type="email" id="login-email" required placeholder="usuario@arvo.tec.br"
             class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white outline-none transition" />
         </div>
@@ -74,7 +78,9 @@
       <div>
         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Senha</label>
         <div class="relative">
-          <span class="absolute left-3.5 top-3 text-slate-400"><i class="ph-bold ph-lock-key text-base"></i></span>
+          <span class="absolute left-3.5 top-3 text-slate-400">
+            <i class="ph-bold ph-lock-key text-base"></i>
+          </span>
           <input type="password" id="login-senha" required placeholder="••••••••"
             class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white outline-none transition" />
           <button type="button" onclick="toggleVerSenha()"
@@ -84,12 +90,18 @@
         </div>
       </div>
 
+      <div class="flex justify-end pt-1">
+        <button type="button" onclick="abrirModalEsqueciSenha()" class="text-[11px] font-semibold text-brand-700 hover:underline">
+          Esqueceu a senha?
+        </button>
+      </div>
+
       <div class="pt-2">
-  <button type="submit" id="btn-login" class="btn-primary">
-    <span>Entrar</span>
-    <i class="ph-bold ph-arrow-right text-base"></i>
-  </button>
-</div>
+        <button type="submit" id="btn-login" class="btn-primary w-full py-3 bg-[#1E5E3A] hover:bg-[#164E2E] text-white font-bold rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-md">
+          <span>Entrar no Sistema</span>
+          <i class="ph-bold ph-arrow-right text-base"></i>
+        </button>
+      </div>
     </form>
 
     <div class="mt-8 pt-5 border-t border-slate-100 text-center">
@@ -98,6 +110,69 @@
 
   </div>
 
+  <!-- =========================================================================
+       MODAIS DE RECUPERAÇÃO DE SENHA (POSICIONADOS FORA DO FORM DE LOGIN)
+       ========================================================================= -->
+
+  <!-- Modal 1: Solicitar Redefinição -->
+  <div id="modal-esqueci-senha" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+        <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+          <i class="ph-bold ph-key text-brand-600"></i> Recuperar Senha
+        </h3>
+        <button type="button" onclick="fecharModalEsqueciSenha()" class="text-slate-400 hover:text-slate-600">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-500 mb-4">Informe seu e-mail cadastrado para gerar o código de recuperação.</p>
+      
+      <form onsubmit="handleSolicitarRecuperacao(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">E-mail</label>
+          <input type="email" id="recup-email" required placeholder="seuemail@arvo.tec.br" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-brand-500" />
+        </div>
+        <button type="submit" id="btn-solicitar-recup" class="w-full bg-[#1E5E3A] hover:bg-[#164E2E] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition">
+          Gerar Código de Recuperação
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Inserir Código e Redefinir Senha -->
+  <div id="modal-redefinir-senha" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+        <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+          <i class="ph-bold ph-lock-key text-brand-600"></i> Nova Senha
+        </h3>
+        <button type="button" onclick="fecharModalRedefinirSenha()" class="text-slate-400 hover:text-slate-600">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+      
+      <form onsubmit="handleConfirmarNovaSenha(event)" class="space-y-3.5">
+        <input type="hidden" id="redef-email-alvo" />
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Código (6 dígitos)</label>
+          <input type="text" id="redef-codigo" maxlength="6" required placeholder="123456" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-mono text-center tracking-widest outline-none focus:ring-2 focus:ring-brand-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nova Senha</label>
+          <input type="password" id="redef-nova-senha" minlength="4" required placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-brand-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Confirmar Nova Senha</label>
+          <input type="password" id="redef-confirma-senha" minlength="4" required placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-brand-500" />
+        </div>
+        <button type="submit" id="btn-redefinir" class="w-full bg-[#1E5E3A] hover:bg-[#164E2E] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition">
+          Atualizar Senha
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
   <script>
     const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
@@ -112,15 +187,15 @@
       if (!input) return;
       if (input.type === 'password') {
         input.type = 'text';
-        if(icone) {
-        icone.classList.remove('ph-eye');
-        icone.classList.add('ph-eye-slash');
+        if (icone) {
+          icone.classList.remove('ph-eye');
+          icone.classList.add('ph-eye-slash');
         }
       } else {
         input.type = 'password';
-        if(icone) {
-        icone.classList.remove('ph-eye-slash');
-        icone.classList.add('ph-eye');
+        if (icone) {
+          icone.classList.remove('ph-eye-slash');
+          icone.classList.add('ph-eye');
         }
       }
     }
@@ -136,7 +211,7 @@
 
       erroBox.classList.add('hidden');
       btn.disabled = true;
-      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> A autenticar...`;
+      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Autenticando...`;
 
       try {
         const { data, error } = await db
@@ -169,11 +244,9 @@
           perfil: data.perfil || 'motorista'
         };
 
-        // Salva nas duas chaves para manter compatibilidade com mobile e desktop
         localStorage.setItem('arvo_usuario_logado', JSON.stringify(sessaoUsuario));
         localStorage.setItem('arvo_mobile_user', JSON.stringify(sessaoUsuario));
 
-        // Redireciona para o mobile.html
         window.location.href = "paginainicial.html";
 
       } catch (err) {
@@ -185,6 +258,240 @@
         btn.innerHTML = `<span>Entrar no Sistema</span> <i class="ph-bold ph-arrow-right text-base"></i>`;
       }
     }
+
+    // =========================================================================
+    // LÓGICA DE RECUPERAÇÃO DE SENHA
+    // =========================================================================
+
+    function abrirModalEsqueciSenha() {
+      document.getElementById('modal-esqueci-senha')?.classList.remove('hidden');
+    }
+
+    function fecharModalEsqueciSenha() {
+      document.getElementById('modal-esqueci-senha')?.classList.add('hidden');
+    }
+
+    function fecharModalRedefinirSenha() {
+      document.getElementById('modal-redefinir-senha')?.classList.add('hidden');
+      document.getElementById('redef-codigo').value = '';
+      document.getElementById('redef-nova-senha').value = '';
+      document.getElementById('redef-confirma-senha').value = '';
+    }
+
+    async function handleSolicitarRecuperacao(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-solicitar-recup');
+      const email = document.getElementById('recup-email').value.trim().toLowerCase();
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Processando...`;
+
+      try {
+        const { data: usuario, error: errU } = await db
+          .from('usuarios')
+          .select('id, email')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (errU || !usuario) {
+          throw new Error("E-mail não encontrado no sistema.");
+        }
+
+        // Gera código de 6 dígitos
+        const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiraEm = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hora de validade
+
+        const { error: errInsert } = await db.from('recuperacao_senhas').insert([{
+          usuario_id: usuario.id,
+          email: usuario.email,
+          codigo: codigo,
+          expira_em: expiraEm,
+          usado: false
+        }]);
+
+        if (errInsert) throw errInsert;
+
+        fecharModalEsqueciSenha();
+        document.getElementById('redef-email-alvo').value = email;
+        document.getElementById('modal-redefinir-senha').classList.remove('hidden');
+
+        alert(`Código gerado com sucesso: ${codigo}\n\nUtilize este código para redefinir sua senha agora.`);
+      } catch (err) {
+        alert("Erro: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = `Gerar Código de Recuperação`;
+      }
+    }
+
+    async function handleConfirmarNovaSenha(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-redefinir');
+      const email = document.getElementById('redef-email-alvo').value.trim().toLowerCase();
+      const codigo = document.getElementById('redef-codigo').value.trim();
+      const novaSenha = document.getElementById('redef-nova-senha').value.trim();
+      const confirma = document.getElementById('redef-confirma-senha').value.trim();
+
+      if (novaSenha !== confirma) {
+        alert("⚠️ As senhas digitadas não coincidem.");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Salvando...`;
+
+      try {
+        const agora = new Date().toISOString();
+        const { data: recup, error: errBusca } = await db
+          .from('recuperacao_senhas')
+          .select('*')
+          .eq('email', email)
+          .eq('codigo', codigo)
+          .eq('usado', false)
+          .gte('expira_em', agora)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (errBusca || !recup) {
+          throw new Error("Código inválido ou expirado.");
+        }
+
+        // Atualiza a senha na tabela usuarios
+        const { error: errUpdate } = await db
+          .from('usuarios')
+          .update({ senha: novaSenha })
+          .eq('id', recup.usuario_id);
+
+        if (errUpdate) throw errUpdate;
+
+        // Invalida o código
+        await db.from('recuperacao_senhas').update({ usado: true }).eq('id', recup.id);
+
+        fecharModalRedefinirSenha();
+        alert("✅ Senha redefinida com sucesso! Você já pode entrar com a nova senha.");
+      } catch (err) {
+        alert("Erro: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = `Atualizar Senha`;
+      }
+    }
+    function abrirModalEsqueciSenha() {
+  document.getElementById('modal-esqueci-senha')?.classList.remove('hidden');
+}
+function fecharModalEsqueciSenha() {
+  document.getElementById('modal-esqueci-senha')?.classList.add('hidden');
+}
+function fecharModalRedefinirSenha() {
+  document.getElementById('modal-redefinir-senha')?.classList.add('hidden');
+}
+
+// 1. Gera o código e grava no banco
+async function handleSolicitarRecuperacao(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-solicitar-recup');
+  const email = document.getElementById('recup-email').value.trim().toLowerCase();
+
+  btn.disabled = true;
+  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Processando...`;
+
+  try {
+    const { data: usuario, error: errU } = await db
+      .from('usuarios')
+      .select('id, email')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (errU || !usuario) {
+      throw new Error("E-mail não encontrado no sistema.");
+    }
+
+    // Gera um código de 6 dígitos numéricos
+    const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiraEm = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hora de validade
+
+    const { error: errInsert } = await db.from('recuperacao_senhas').insert([{
+      usuario_id: usuario.id,
+      email: usuario.email,
+      codigo: codigo,
+      expira_em: expiraEm,
+      usado: false
+    }]);
+
+    if (errInsert) throw errInsert;
+
+    // Transição de modais
+    fecharModalEsqueciSenha();
+    document.getElementById('redef-email-alvo').value = email;
+    document.getElementById('modal-redefinir-senha').classList.remove('hidden');
+
+    // Em ambiente de produção sem servidor de disparo SMTP, exibe o código no popup
+    alert(`Código gerado com sucesso: ${codigo}\n\nUtilize este código para redefinir sua senha agora.`);
+  } catch (err) {
+    alert("Erro: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = `Gerar Código de Recuperação`;
+  }
+}
+
+// 2. Valida o código e grava a nova senha
+async function handleConfirmarNovaSenha(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-redefinir');
+  const email = document.getElementById('redef-email-alvo').value.trim().toLowerCase();
+  const codigo = document.getElementById('redef-codigo').value.trim();
+  const novaSenha = document.getElementById('redef-nova-senha').value.trim();
+  const confirma = document.getElementById('redef-confirma-senha').value.trim();
+
+  if (novaSenha !== confirma) {
+    alert("⚠️ As senhas digitadas não coincidem.");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Salvando...`;
+
+  try {
+    // Busca o código ativo e não expirado
+    const agora = new Date().toISOString();
+    const { data: recup, error: errBusca } = await db
+      .from('recuperacao_senhas')
+      .select('*')
+      .eq('email', email)
+      .eq('codigo', codigo)
+      .eq('usado', false)
+      .gte('expira_em', agora)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (errBusca || !recup) {
+      throw new Error("Código inválido ou expirado.");
+    }
+
+    // Atualiza a senha na tabela de usuários
+    const { error: errUpdate } = await db
+      .from('usuarios')
+      .update({ senha: novaSenha })
+      .eq('id', recup.usuario_id);
+
+    if (errUpdate) throw errUpdate;
+
+    // Marca o código como utilizado
+    await db.from('recuperacao_senhas').update({ usado: true }).eq('id', recup.id);
+
+    fecharModalRedefinirSenha();
+    alert("✅ Senha redefinida com sucesso! Você já pode entrar com a nova senha.");
+  } catch (err) {
+    alert("Erro: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = `Atualizar Senha`;
+  }
+}
+
   </script>
 </body>
 
