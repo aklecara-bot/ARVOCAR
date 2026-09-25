@@ -382,9 +382,20 @@ function atualizarTickerTelemetria() {
   const ticker = document.getElementById('ticker-telemetria-dinamico');
   if (!ticker) return;
 
-  const rotasValidas = rotasFiltradas.filter(r => r.status === 'Concluida' || Number(r.km_total) > 0);
+  const rotasValidas = (rotasFiltradas || []).filter(r => r.status === 'Concluida' || Number(r.km_total) > 0);
   const totalKm = rotasValidas.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
-  const ultimaRota = rotasFiltradas[rotasFiltradas.length - 1];
+  const ultimaRota = (rotasFiltradas || [])[rotasFiltradas.length - 1];
+
+  // Tratamento seguro para evitar ReferenceError caso a lista de auditorias não esteja carregada
+  const listaAuditorias = (typeof auditorias !== 'undefined' && Array.isArray(auditorias)) ? auditorias : [];
+  const alertasPendentes = listaAuditorias.filter(a => a.status_resolucao === 'PENDENTE');
+  
+  let alertaTexto = "Sem inconformidades ativas";
+  let corAlerta = "text-emerald-400";
+  if (alertasPendentes.length > 0) {
+    alertaTexto = `⚠️ ${alertasPendentes.length} alerta(s) pendente(s)`;
+    corAlerta = "text-rose-400";
+  }
 
   let textoUltima = "Sem rotas recentes no período";
   if (ultimaRota) {
@@ -398,6 +409,8 @@ function atualizarTickerTelemetria() {
     <span class="mx-6 flex items-center gap-2"><strong class="text-emerald-400">TELEMETRIA INTEGRADA:</strong> ${totalKm.toLocaleString('pt-BR')} km apurados em ${rotasFiltradas.length} viagens no período</span>
     <span class="mx-6 text-slate-600">•</span>
     <span class="mx-6 flex items-center gap-2"><strong class="text-cyan-400">ÚLTIMO REGISTRO:</strong> ${textoUltima}</span>
+    <span class="mx-6 text-slate-600">•</span>
+    <span class="mx-6 flex items-center gap-2"><strong class="${corAlerta}">AUDITORIA & MANUTENÇÃO:</strong> ${alertaTexto}</span>
     <span class="mx-6 text-slate-600">•</span>
     <span class="mx-6 flex items-center gap-2"><strong class="text-amber-400">STATUS OPERACIONAL:</strong> Deslocamentos logados via hodômetros digitais</span>
     <span class="mx-6 text-slate-600">•</span>

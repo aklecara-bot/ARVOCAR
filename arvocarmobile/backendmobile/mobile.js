@@ -87,6 +87,42 @@ function toggleSenhaMobile() {
   }
 }
 
+async function auditarAbastecimento(veiculo, litrosAbastecidos, kmInformado, responsavel) {
+  const capTanque = Number(veiculo.tanque || 47);
+  const saldoVirtualAtual = Number(veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined ? veiculo.tanque_virtual : capTanque);
+  const kmAtualBanco = Number(veiculo.km_atual || 0);
+
+  const alertas = [];
+
+  // Trava 1: Litros abastecidos superam o espaço livre real do tanque (+5% margem de gargalo)
+  const espacoLivre = capTanque - saldoVirtualAtual;
+  if (litrosAbastecidos > (espacoLivre * 1.05) + 3) {
+    alertas.push({
+      veiculo_id: veiculo.id || veiculo.nome_frota,
+      placa: veiculo.placa,
+      responsavel: responsavel,
+      tipo_alerta: 'DESVIO_COMBUSTIVEL',
+      detalhes: `Suspeita de desvio: abastecidos ${litrosAbastecidos}L com espaço estimado de apenas ${espacoLivre.toFixed(1)}L (Tanque Virtual: ${saldoVirtualAtual}L / Capacidade: ${capTanque}L).`
+    });
+  }
+
+  // Trava 2: KM no abastecimento inferior ao KM de encerramento da última rota
+  if (kmInformado && kmInformado < kmAtualBanco) {
+    alertas.push({
+      veiculo_id: veiculo.id || veiculo.nome_frota,
+      placa: veiculo.placa,
+      responsavel: responsavel,
+      tipo_alerta: 'ODOMETRO_INCONSISTENTE',
+      detalhes: `KM informado no posto (${kmInformado} km) menor que o KM registrado na base (${kmAtualBanco} km).`
+    });
+  }
+
+  if (alertas.length > 0) {
+    await db.from('auditoria_alertas').insert(alertas);
+    console.warn("⚠️ Alerta de auditoria registrado:", alertas);
+  }
+}
+
 async function handleMobileLogin(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
 

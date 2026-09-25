@@ -21,6 +21,7 @@ let usuarios = [];
 let veiculos = [];
 let rotas = [];
 let abastecimentos = [];
+let auditorias = [];
 let listaModelosReferencia = [];
 let currentUserIndex = 0;
 
@@ -407,6 +408,7 @@ function setSubTab(moduleName, tab) {
     } else if (tab === 'dashboard') {
       if (typeof renderFleetGrid === 'function') renderFleetGrid();
       if (typeof renderDashboardKPIs === 'function') renderDashboardKPIs();
+      if (typeof renderRankingEcoDriving === 'function') renderRankingEcoDriving();
     } else if (tab === 'cad-veiculos') {
       if (typeof renderTabelaVeiculosCad === 'function') renderTabelaVeiculosCad();
     } else if (tab === 'cad-usuarios') {
@@ -477,6 +479,13 @@ async function carregarTodosDadosDoBanco() {
 
     const { data: dadosAbast } = await db.from('abastecimentos').select('*').order('data_hora', { ascending: false });
     if (dadosAbast) abastecimentos = dadosAbast;
+
+    try {
+      const { data: dadosAuditoria } = await db.from('auditoria_alertas').select('*').order('data_hora', { ascending: false });
+      if (dadosAuditoria) auditorias = dadosAuditoria;
+    } catch (e) {
+      auditorias = [];
+    }
 
     try {
       const { data: dadosRef } = await db.from('modelos_referencia').select('*');
@@ -563,7 +572,6 @@ async function handleInicioRota(e) {
   const nomeCarro = veiculo.nome_frota || veiculo.id;
   const placaCarro = veiculo.placa;
 
-  // Verificação de Reserva Ativa
   try {
     const { data: reservasCarro, error: errRes } = await db
       .from('reservas')
@@ -809,6 +817,7 @@ async function handleFimRota(e) {
 
   const deltaKm = kmFinal - Number(rota.km_saida);
 
+  // --- CÁLCULO DE CONSUMO E COMBUSTÍVEL PRIMEIRO ---
   let histAbast = [];
   if (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos) && abastecimentos.length > 0) {
     histAbast = abastecimentos;
@@ -839,6 +848,34 @@ async function handleFimRota(e) {
   
   const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosEst).toFixed(2));
   const dataHoraRetornoAtual = new Date().toISOString();
+
+  // --- 1. APURAÇÃO DA EFICIÊNCIA (ECO-SCORE) ---
+  const mediaEsperada = medConsumo;
+  const mediaRealRota = (deltaKm > 0 && litrosEst > 0) ? Number((deltaKm / litrosEst).toFixed(2)) : mediaEsperada;
+  const scoreEco = Number(Math.min(100, Math.max(0, (mediaRealRota / mediaEsperada) * 100)).toFixed(1));
+
+  // --- 2. APURAÇÃO PREDITIVA DE REVISÃO ---
+  const kmRevisaoBase = Number(veiculo.km_ultima_revisao || 0);
+  const intervalo = Number(veiculo.km_intervalo_revisao || 10000);
+  const kmProximaRevisao = kmRevisaoBase + intervalo;
+  const kmRestantesRevisao = kmProximaRevisao - kmFinal;
+
+  if (kmRestantesRevisao <= 500) {
+    try {
+      await db.from('auditoria_alertas').insert([{
+        veiculo_id: veiculo.id || veiculo.nome_frota,
+        placa: veiculo.placa,
+        responsavel: rota.responsavel,
+        tipo_alerta: 'REVISAO_VENCIDA',
+        detalhes: kmRestantesRevisao <= 0 
+          ? `Revisão ULTRAPASSADA em ${Math.abs(kmRestantesRevisao)} km!`
+          : `Veículo próximo da revisão preventiva (${kmRestantesRevisao} km restantes).`
+      }]);
+    } catch (alertaErr) {
+      console.warn("Aviso ao registrar alerta de revisão:", alertaErr);
+    }
+  }
+
   const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str));
 
   try {
@@ -849,7 +886,10 @@ async function handleFimRota(e) {
       destino: destinoFinal,
       status: 'Concluida',
       anomalia: anomaliaTexto,
-      data_retorno: dataHoraRetornoAtual
+      data_retorno: dataHoraRetornoAtual,
+      media_real_apurada: mediaRealRota,
+      media_esperada_rota: mediaEsperada,
+      score_eco: scoreEco,
     }).eq('id', rota.id);
 
     if (erroRota) throw erroRota;
@@ -889,7 +929,6 @@ async function handleFimRota(e) {
         condicoesReserva.push(`uuid_veiculos.eq.${veiculo.uuid_veiculos}`);
       }
 
-      // Janela temporal: Tolerância de devolução de até 4 horas após o término previsto
       const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
 
       let queryReservas = db.from('reservas')
@@ -900,8 +939,8 @@ async function handleFimRota(e) {
         })
         .eq('responsavel', rota.responsavel)
         .eq('status', 'CONFIRMADA')
-        .lte('data_inicio', dataHoraRetornoAtual) // A reserva já deve ter iniciado
-        .gte('data_fim', limiteToleranciaFim);      // Conclui apenas se estiver no prazo ou encerrada recentemente
+        .lte('data_inicio', dataHoraRetornoAtual)
+        .gte('data_fim', limiteToleranciaFim);
 
       if (condicoesReserva.length > 0) {
         queryReservas = queryReservas.or(condicoesReserva.join(','));
@@ -917,7 +956,7 @@ async function handleFimRota(e) {
     document.getElementById('fim-detalhes-viagem')?.classList.add('hidden');
     if (typeof toggleAnomaliaInput === 'function') toggleAnomaliaInput(false);
 
-    alert(`Rota #${rota.id} encerrada com sucesso!\nConsumo estimado: ~${litrosEst} L (Média: ${medConsumo} km/L)\nTanque virtual: ~${novoTanqueVirtual} L restantes`);
+    alert(`Rota #${rota.id} encerrada com sucesso!\nConsumo estimado: ~${litrosEst} L (Média: ${medConsumo} km/L)\nTanque virtual: ~${novoTanqueVirtual} L restantes\nScore Eco: ${scoreEco} pts`);
     await carregarTodosDadosDoBanco();
     setSubTab('operacao', 'minhas-rotas');
   } catch (err) {
@@ -951,7 +990,6 @@ function formatarDataHora(dataIso) {
 let gMapHistorico = null;
 let marcadoresHistorico = [];
 let polylineHistorico = null;
-let rotaLinhaSelecionada = null;
 
 function initGoogleMapsHistorico() {
   const container = document.getElementById('mapa-historico-rotas');
@@ -996,7 +1034,6 @@ async function plotarRotaNoMapa(rotaId) {
     lblStatus.classList.add('text-slate-800', 'font-extrabold');
   }
 
-  // Destaca a linha clicada na tabela
   document.querySelectorAll('#tabelaHistorico tr').forEach(tr => tr.classList.remove('bg-emerald-50/80'));
   const trAtual = document.getElementById(`tr-rota-${rota.id}`);
   if (trAtual) trAtual.classList.add('bg-emerald-50/80');
@@ -1020,13 +1057,11 @@ async function plotarRotaNoMapa(rotaId) {
 
   const bounds = new google.maps.LatLngBounds();
 
-  // 1. Trata os pontos de GPS salvos no banco
   let coords = rota.coordenadas;
   if (typeof coords === 'string') {
     try { coords = JSON.parse(coords); } catch (e) { coords = []; }
   }
 
-  // Se houver rastro real do GPS (2 ou mais pontos válidos)
   if (Array.isArray(coords) && coords.length >= 2) {
     if (lblTipo) lblTipo.innerText = 'Trajeto Real (Ajustado a Rodovias)';
 
@@ -1049,7 +1084,6 @@ async function plotarRotaNoMapa(rotaId) {
 
     marcadoresHistorico.push(mInicio, mFim);
 
-    // Amostragem de waypoints intermediários para não ultrapassar a cota da Directions API (máx. 20 a 23 pontos)
     const intermediarios = coords.slice(1, -1);
     const waypoints = (intermediarios.length > 20
       ? intermediarios.filter((_, idx) => idx % Math.ceil(intermediarios.length / 20) === 0)
@@ -1079,7 +1113,6 @@ async function plotarRotaNoMapa(rotaId) {
         });
         result.routes[0].overview_path.forEach(pt => bounds.extend(pt));
       } else {
-        // Fallback: se a API de trânsito falhar, une os pontos geográficos brutos do GPS
         const fallbackPath = coords.map(p => new google.maps.LatLng(Number(p.lat), Number(p.lng)));
         polylineHistorico = new google.maps.Polyline({
           path: fallbackPath,
@@ -1094,7 +1127,6 @@ async function plotarRotaNoMapa(rotaId) {
 
       gMapHistorico.fitBounds(bounds);
 
-      // Trava de segurança para evitar zoom microscópico em paradas
       google.maps.event.addListenerOnce(gMapHistorico, 'idle', () => {
         if (gMapHistorico.getZoom() > 16) {
           gMapHistorico.setZoom(16);
@@ -1105,7 +1137,6 @@ async function plotarRotaNoMapa(rotaId) {
     return;
   }
 
-  // 2. Se não houver pontos suficientes (ou 1 único ponto gravado), calcula rota entre Origem e Destino
   const ptOrigem = await buscarLatLng(rota.origem || 'Alegre');
   const ptDestino = rota.destino ? await buscarLatLng(rota.destino) : null;
 
@@ -1554,6 +1585,8 @@ async function handleCadVeiculo(e) {
     consumo_min: parseFloat(document.getElementById('cad-v-consumomin').value) || 0,
     consumo_max: parseFloat(document.getElementById('cad-v-consumomax').value) || 0,
     km_atual: parseFloat(document.getElementById('cad-v-kminicial').value) || 0,
+    km_ultima_revisao: parseFloat(document.getElementById('cad-v-kmrevisao')?.value) || 0,
+    km_intervalo_revisao: parseFloat(document.getElementById('cad-v-intervalorevisao')?.value) || 10000,
     tipo_frota: document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO',
     status: 'Disponivel',
     anomalias: ''
@@ -1607,6 +1640,8 @@ function abrirModalEditVeiculo(veiculoId) {
   setVal('edit-v-consumomin', v.consumo_min || 0);
   setVal('edit-v-consumomax', v.consumo_max || 0);
   setVal('edit-v-kmatual', v.km_atual || 0);
+  setVal('edit-v-kmrevisao', v.km_ultima_revisao || 0);
+  setVal('edit-v-intervalorevisao', v.km_intervalo_revisao || 10000);
   setVal('edit-v-status', v.status || 'Disponivel');
   setVal('edit-v-anomalias', v.anomalias || '');
   
@@ -1665,6 +1700,8 @@ async function handleSalvarEditVeiculo(e) {
     consumo_min: getNum('edit-v-consumomin', 0),
     consumo_max: getNum('edit-v-consumomax', 0),
     km_atual: getNum('edit-v-kmatual', 0),
+    km_ultima_revisao: getNum('edit-v-kmrevisao', 0),
+    km_intervalo_revisao: getNum('edit-v-intervalorevisao', 10000),
     status: getVal('edit-v-status') || 'Disponivel',
     tipo_frota: tipoFrotaVal,
     anomalias: getVal('edit-v-anomalias')
@@ -1925,8 +1962,192 @@ async function handleApagarUsuario(usuarioId, nome) {
 }
 
 // =========================================================================
-// 8. RENDERIZAÇÃO DE TABELAS E COMPONENTES
+// 8. RENDERIZAÇÃO DE TABELAS, RANKING E KPIS
 // =========================================================================
+function renderRankingEcoDriving() {
+  const tbody = document.getElementById('grid-eco-ranking');
+  const kpiEco = document.getElementById('kpi-eco-score');
+  const kpiSubEco = document.getElementById('kpi-sub-eco');
+  const kpiAuditoria = document.getElementById('kpi-alertas-auditoria');
+  const boxAlerta = document.getElementById('alerta-box-auditoria');
+  const boxAlertaTexto = document.getElementById('alerta-box-texto');
+
+  const rotasValidas = (rotas || []).filter(r => 
+    r.status === 'Concluida' && Number(r.km_total) > 0
+  );
+
+  // 1. Alertas de Auditoria
+  const listaAuditorias = (typeof auditorias !== 'undefined' && Array.isArray(auditorias)) ? auditorias : [];
+  const alertasPendentes = listaAuditorias.filter(a => a.status_resolucao === 'PENDENTE');
+  
+  if (kpiAuditoria) {
+    kpiAuditoria.innerText = alertasPendentes.length;
+  }
+
+  if (boxAlerta) {
+    if (alertasPendentes.length > 0) {
+      boxAlerta.classList.remove('hidden');
+      if (boxAlertaTexto) {
+        boxAlertaTexto.innerText = `${alertasPendentes.length} pendência(s) encontrada(s): verifique desvios de combustível ou revisões iminentes.`;
+      }
+    } else {
+      boxAlerta.classList.add('hidden');
+    }
+  }
+
+  if (!tbody) return;
+
+  if (rotasValidas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-emerald-200/50 text-xs">Nenhuma rota concluída com telemetria no momento.</td></tr>`;
+    if (kpiEco) kpiEco.innerHTML = `-- <span class="text-xs text-emerald-300 font-normal">pts</span>`;
+    return;
+  }
+
+  // 2. Identificação do Mês Vigente
+  const agora = new Date();
+  const mesAtual = agora.getMonth();
+  const anoAtual = agora.getFullYear();
+
+  // Helper para formatar o nome cadastrado
+  const obterNomeCondutorLimpo = (emailOuNome) => {
+    if (!emailOuNome) return 'Condutor';
+    const emailLimpo = String(emailOuNome).toLowerCase().trim();
+    
+    // Procura na lista global de usuários cadastrados
+    if (typeof usuarios !== 'undefined' && Array.isArray(usuarios)) {
+      const u = usuarios.find(user => (user.email || '').toLowerCase().trim() === emailLimpo);
+      if (u?.nome && u.nome.trim() !== '') {
+        return u.nome.replace(/\./g, ' ').trim();
+      }
+    }
+
+    // Fallback: se for e-mail, extrai o usuário e troca ponto por espaço com primeira letra maiúscula
+    const base = emailLimpo.includes('@') ? emailLimpo.split('@')[0] : emailLimpo;
+    return base
+      .replace(/\./g, ' ')
+      .replace(/_/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
+
+  // 3. Agrupamento Total e Mensal por Condutor
+  const agrupadoPorMotorista = {};
+
+  rotasValidas.forEach(r => {
+    const chave = (r.responsavel || 'Indefinido').toLowerCase().trim();
+    if (!agrupadoPorMotorista[chave]) {
+      agrupadoPorMotorista[chave] = {
+        responsavelOriginal: r.responsavel,
+        nomeExibicao: obterNomeCondutorLimpo(r.responsavel),
+        totalKm: 0,
+        totalLitros: 0,
+        rotasGerais: 0,
+        somaScoreGeral: 0,
+        rotasMes: 0,
+        somaScoreMes: 0
+      };
+    }
+
+    const km = Number(r.km_total || 0);
+    const litros = Number(r.consumo_litros || 0);
+
+    // Apuração do Score da Viagem
+    let scoreRota = Number(r.score_eco);
+    if (!scoreRota || isNaN(scoreRota)) {
+      const mediaEsperada = Number(r.media_esperada_rota || 12.3);
+      const mediaReal = (km > 0 && litros > 0) ? (km / litros) : mediaEsperada;
+      scoreRota = Math.min(100, Math.max(0, (mediaReal / mediaEsperada) * 100));
+    }
+
+    // Totais acumulados
+    agrupadoPorMotorista[chave].totalKm += km;
+    agrupadoPorMotorista[chave].totalLitros += litros;
+    agrupadoPorMotorista[chave].rotasGerais += 1;
+    agrupadoPorMotorista[chave].somaScoreGeral += scoreRota;
+
+    // Totais do mês corrente
+    const dataRef = new Date(r.data_retorno || r.data_saida || r.created_at);
+    if (!isNaN(dataRef.getTime()) && dataRef.getMonth() === mesAtual && dataRef.getFullYear() === anoAtual) {
+      agrupadoPorMotorista[chave].rotasMes += 1;
+      agrupadoPorMotorista[chave].somaScoreMes += scoreRota;
+    }
+  });
+
+  // 4. Monta e Ordena o Ranking (Prioridade: Score do Mês > Score Total)
+  const ranking = Object.values(agrupadoPorMotorista).map(m => {
+    const scoreTotal = Number((m.somaScoreGeral / m.rotasGerais).toFixed(1));
+    const scoreMes = m.rotasMes > 0 ? Number((m.somaScoreMes / m.rotasMes).toFixed(1)) : null;
+    const mediaKmL = m.totalLitros > 0 ? Number((m.totalKm / m.totalLitros).toFixed(2)) : 0;
+
+    return {
+      ...m,
+      scoreTotal,
+      scoreMes,
+      mediaKmL
+    };
+  }).sort((a, b) => {
+    const pontuacaoA = a.scoreMes !== null ? a.scoreMes : a.scoreTotal;
+    const pontuacaoB = b.scoreMes !== null ? b.scoreMes : b.scoreTotal;
+    return pontuacaoB - pontuacaoA;
+  });
+
+  // 5. Atualiza KPI Topo
+  if (kpiEco && ranking.length > 0) {
+    const scoreGeral = (ranking.reduce((acc, cur) => acc + cur.scoreTotal, 0) / ranking.length).toFixed(1);
+    kpiEco.innerHTML = `${scoreGeral} <span class="text-xs text-emerald-300 font-normal">pts</span>`;
+    if (kpiSubEco) {
+      kpiSubEco.innerHTML = `<i class="ph-bold ph-leaf"></i> Desempenho geral ponderado`;
+    }
+  }
+
+  // 6. Renderização da Tabela
+  tbody.innerHTML = '';
+  ranking.forEach((cond, index) => {
+    const posicao = index + 1;
+    let badgePosicao = `<span class="font-mono font-bold text-slate-400">#${posicao}</span>`;
+    if (posicao === 1) badgePosicao = `<span class="text-base" title="1º Lugar">🥇</span>`;
+    if (posicao === 2) badgePosicao = `<span class="text-base" title="2º Lugar">🥈</span>`;
+    if (posicao === 3) badgePosicao = `<span class="text-base" title="3º Lugar">🥉</span>`;
+
+    const scoreReferencia = cond.scoreMes !== null ? cond.scoreMes : cond.scoreTotal;
+    let badgeClassificacao = '';
+    if (scoreReferencia >= 95) {
+      badgeClassificacao = `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-950 border border-emerald-500/50 text-emerald-300">EXCELENTE</span>`;
+    } else if (scoreReferencia >= 85) {
+      badgeClassificacao = `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-teal-950 border border-teal-500/50 text-teal-300">EFICIENTE</span>`;
+    } else if (scoreReferencia >= 70) {
+      badgeClassificacao = `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-950 border border-amber-500/50 text-amber-300">REGULAR</span>`;
+    } else {
+      badgeClassificacao = `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-950 border border-rose-500/50 text-rose-300">ALTO CONSUMO</span>`;
+    }
+
+    const tr = document.createElement('tr');
+    tr.className = "hover:bg-emerald-950/20 transition";
+    tr.innerHTML = `
+      <td class="py-2.5 px-3 text-center">${badgePosicao}</td>
+      <td class="py-2.5 px-3 font-semibold text-white truncate max-w-[180px]" title="${cond.responsavelOriginal}">
+        ${cond.nomeExibicao}
+      </td>
+      <td class="py-2.5 px-3 text-center font-mono text-slate-300">
+        <span class="text-emerald-400 font-bold">${cond.rotasMes}</span> / <span class="text-slate-400">${cond.rotasGerais}</span>
+      </td>
+      <td class="py-2.5 px-3 text-center font-mono text-emerald-400 font-bold">
+        ${cond.mediaKmL > 0 ? cond.mediaKmL + ' km/L' : '-'}
+      </td>
+      <td class="py-2.5 px-3 text-center font-mono font-black text-emerald-300 bg-emerald-950/30">
+        ${cond.scoreMes !== null ? cond.scoreMes + ' pts' : '<span class="text-slate-500 text-[10px] font-normal">Sem rotas</span>'}
+      </td>
+      <td class="py-2.5 px-3 text-center font-mono font-black text-amber-300">
+        ${cond.scoreTotal} pts
+      </td>
+      <td class="py-2.5 px-3 text-right">${badgeClassificacao}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
 function renderAll() {
   renderFleetGrid();
   renderDashboardKPIs();
@@ -1936,6 +2157,7 @@ function renderAll() {
   renderTabelaVeiculosCad();
   renderTabelaUsuariosCad();
   popularSelectManutencaoAba();
+  renderRankingEcoDriving();
 }
 
 function renderDashboardKPIs() {
@@ -1972,6 +2194,28 @@ function renderFleetGrid() {
     const isManutencao = v.status === 'Em Manutenção';
     const idAcao = v.id || v.uuid_veiculos || v.placa;
 
+    // --- 1. APURAÇÃO DE MANUTENÇÃO PREVENTIVA PREDITIVA ---
+    const kmAtual = Number(v.km_atual || 0);
+    const kmUltimaRevisao = Number(v.km_ultima_revisao || 0);
+    const intervaloRevisao = Number(v.km_intervalo_revisao || 10000);
+    const kmProximaRevisao = kmUltimaRevisao + intervaloRevisao;
+    const kmRestantesRevisao = kmProximaRevisao - kmAtual;
+
+    let badgeManutencaoHTML = '';
+    if (kmRestantesRevisao <= 0) {
+      badgeManutencaoHTML = `
+        <span class="inline-flex items-center gap-1 bg-rose-950/80 border border-rose-500/60 text-rose-300 text-[9px] font-black px-2 py-0.5 rounded-full animate-pulse shadow-sm" title="Ciclo de revisão excedido em ${Math.abs(kmRestantesRevisao)} km">
+          <i class="ph-bold ph-warning-octagon"></i> REVISÃO VENCIDA (${Math.abs(kmRestantesRevisao)} km)
+        </span>
+      `;
+    } else if (kmRestantesRevisao <= 500) {
+      badgeManutencaoHTML = `
+        <span class="inline-flex items-center gap-1 bg-amber-950/80 border border-amber-500/60 text-amber-300 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm" title="Revisão preventiva próxima">
+          <i class="ph-bold ph-wrench"></i> REVISÃO EM ${kmRestantesRevisao} km
+        </span>
+      `;
+    }
+
     const rotaAtiva = isEmUso ? (rotas || []).find(r => {
       const rPlaca = (r.placa || '').trim().toUpperCase();
       const rVeic = (r.veiculo_id ? String(r.veiculo_id) : '').trim().toUpperCase();
@@ -1984,6 +2228,8 @@ function renderFleetGrid() {
     cardWrapper.innerHTML = montarCardVeiculoHTML(v, {
       rotaAtiva: rotaAtiva,
       exibirTimer: isEmUso,
+      badgeManutencao: badgeManutencaoHTML,
+      kmRestantesRevisao: kmRestantesRevisao,
       acaoBotao: isEmUso ? {
         texto: 'Encerrar Rota &rarr;',
         cor: 'bg-[#d97706] hover:bg-[#b45309]',
@@ -1994,6 +2240,14 @@ function renderFleetGrid() {
         onclick: `abrirInicioDireto('${idAcao}')`
       })
     });
+
+    if (badgeManutencaoHTML && cardWrapper.firstElementChild) {
+      const topoCard = cardWrapper.querySelector('.placa-mercosul') || cardWrapper.firstElementChild;
+      const avisoDiv = document.createElement('div');
+      avisoDiv.className = 'mt-1.5 flex items-center gap-1';
+      avisoDiv.innerHTML = badgeManutencaoHTML;
+      topoCard.parentNode.insertBefore(avisoDiv, topoCard.nextSibling);
+    }
 
     container.appendChild(cardWrapper.firstElementChild);
   });
@@ -2582,6 +2836,76 @@ function aoSelecionarModeloReferencia(origem = 'cad') {
 }
 
 // =========================================================================
+// GESTÃO E RENDERIZAÇÃO DE AUDITORIA & DESVIOS
+// =========================================================================
+function abrirModalAuditoria() {
+  const modal = document.getElementById('modal-auditoria');
+  if (modal) modal.classList.remove('hidden');
+  carregarListaAuditoriaModal();
+}
+
+function fecharModalAuditoria() {
+  const modal = document.getElementById('modal-auditoria');
+  if (modal) modal.classList.add('hidden');
+}
+
+function carregarListaAuditoriaModal() {
+  const tbody = document.getElementById('grid-alertas-auditoria');
+  if (!tbody) return;
+
+  const lista = (typeof auditorias !== 'undefined' && Array.isArray(auditorias)) ? auditorias : [];
+
+  if (lista.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400">Nenhum registro de auditoria cadastrado.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = '';
+  lista.forEach(a => {
+    const tr = document.createElement('tr');
+    tr.className = "hover:bg-rose-950/20 transition";
+
+    const isPendente = a.status_resolucao === 'PENDENTE';
+    const badgeStatus = isPendente
+      ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-950 border border-rose-500/50 text-rose-300 animate-pulse">PENDENTE</span>`
+      : `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-950 border border-emerald-500/50 text-emerald-300">RESOLVIDO</span>`;
+
+    tr.innerHTML = `
+      <td class="py-2.5 px-3 font-mono text-[11px] text-slate-300">${formatarDataHora(a.data_hora)}</td>
+      <td class="py-2.5 px-3 font-bold text-white">${a.placa || a.veiculo_id || '-'}</td>
+      <td class="py-2.5 px-3 font-black text-rose-400 text-[10px]">${a.tipo_alerta || 'ANOMALIA'}</td>
+      <td class="py-2.5 px-3 text-slate-300">${(a.responsavel || '').split('@')[0]}</td>
+      <td class="py-2.5 px-3 text-slate-200 text-xs">${a.detalhes || '-'}</td>
+      <td class="py-2.5 px-3 text-center">${badgeStatus}</td>
+      <td class="py-2.5 px-3 text-center">
+        ${isPendente && ehGestorOuAdmin() ? `
+          <button onclick="resolverAlertaAuditoria(${a.id})" class="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-lg text-[10px] transition">
+            Resolver
+          </button>
+        ` : `<span class="text-[10px] text-slate-500">-</span>`}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function resolverAlertaAuditoria(alertaId) {
+  try {
+    const { error } = await db.from('auditoria_alertas').update({ status_resolucao: 'RESOLVIDO' }).eq('id', alertaId);
+    if (error) throw error;
+
+    const alertaItem = auditorias.find(a => String(a.id) === String(alertaId));
+    if (alertaItem) alertaItem.status_resolucao = 'RESOLVIDO';
+
+    carregarListaAuditoriaModal();
+    renderRankingEcoDriving();
+    alert("✅ Apontamento de auditoria marcado como resolvido!");
+  } catch (err) {
+    alert("Erro ao resolver apontamento: " + err.message);
+  }
+}
+
+// =========================================================================
 // 10. EXPOSIÇÃO GLOBAL (WINDOW)
 // =========================================================================
 window.setModule = setModule;
@@ -2622,6 +2946,11 @@ window.aoMudarRotaFim = aoMudarRotaFim;
 window.obterImagemVeiculo = obterImagemVeiculo;
 window.mapearImagemCarro = mapearImagemCarro;
 window.plotarRotaNoMapa = plotarRotaNoMapa;
+window.renderRankingEcoDriving = renderRankingEcoDriving;
+window.abrirModalAuditoria = abrirModalAuditoria;
+window.fecharModalAuditoria = fecharModalAuditoria;
+window.carregarListaAuditoriaModal = carregarListaAuditoriaModal;
+window.resolverAlertaAuditoria = resolverAlertaAuditoria;
 
 // =========================================================================
 // INICIALIZAÇÃO

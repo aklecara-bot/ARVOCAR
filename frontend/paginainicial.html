@@ -84,9 +84,8 @@
 
       <!-- Submenu / Abas de Rotas -->
       <div class="subtabs-bar">
-        <!-- Submenu / Abas de Rotas (Estilo Pílula da Imagem) -->
         <div class="flex items-center gap-3 mb-6">
-          <!-- 1. Iniciar Rota (Fundo Verde Escuro Ativo) -->
+          <!-- 1. Iniciar Rota -->
           <button 
             id="subtab-saida" 
             onclick="setSubTab('operacao', 'saida')" 
@@ -96,7 +95,7 @@
             <span>1. Iniciar Rota (Retirada)</span>
           </button>
 
-          <!-- 2. Finalizar Rota (Fundo Amarelo Claro / Borda Âmbar) -->
+          <!-- 2. Finalizar Rota -->
           <button 
             id="subtab-retorno" 
             onclick="setSubTab('operacao', 'retorno')" 
@@ -106,7 +105,7 @@
             <span>2. Finalizar Rota (Devolução)</span>
           </button>
 
-          <!-- 3. Todas as Rotas (Mesmo Fundo Verde Escuro do Iniciar) -->
+          <!-- 3. Todas as Rotas -->
           <button 
             id="subtab-minhas-rotas" 
             onclick="setSubTab('operacao', 'minhas-rotas')" 
@@ -283,7 +282,6 @@
         </div>
       </section>
 
-      <!-- 3. Minhas Rotas (Log / Histórico) -->
       <!-- 3. Minhas Rotas (Log / Histórico com Mapa à Esquerda) -->
       <section id="view-minhas-rotas" class="hidden">
         <div class="card-panel">
@@ -329,7 +327,7 @@
               </div>
             </div>
 
-            <!-- Coluna da Direita: Tabela com suas 11 Colunas Originais (7 colunas) -->
+            <!-- Coluna da Direita: Tabela de Rotas (7 colunas) -->
             <div class="lg:col-span-7 overflow-hidden">
               <div class="table-wrapper">
                 <table class="data-table">
@@ -375,7 +373,6 @@
         
         <!-- Grupo de Navegação das 4 Abas (Esquerda) -->
         <div class="flex items-center gap-2 shrink-0 flex-nowrap">
-          <!-- 1. Visão Geral da Frota (Ativo) -->
           <button 
             type="button" 
             onclick="setSubTab('gestao', 'dashboard')" 
@@ -386,7 +383,6 @@
             <span>Visão Geral da Frota</span>
           </button>
 
-          <!-- 2. Gestão de Veículos -->
           <button 
             type="button" 
             onclick="setSubTab('gestao', 'cad-veiculos')" 
@@ -397,7 +393,6 @@
             <span>Gestão de Veículos</span>
           </button>
 
-          <!-- 3. Gestão de Condutores / CNH -->
           <button 
             type="button" 
             onclick="setSubTab('gestao', 'cad-usuarios')" 
@@ -408,7 +403,6 @@
             <span>Gestão de Condutores / CNH</span>
           </button>
 
-          <!-- 4. Gestão de Manutenções -->
           <button 
             type="button" 
             onclick="setSubTab('gestao', 'manutencao')" 
@@ -422,12 +416,10 @@
 
         <!-- Grupo Fixo de Links (Direita) -->
         <div class="flex items-center gap-2.5 shrink-0 flex-nowrap">
-          <!-- Botão Financeiro -->
           <a href="financeiro.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 1rem; background-color: #1E5E3A; color: #ffffff; font-weight: 900; font-size: 0.8125rem; line-height: 1; text-decoration: none; white-space: nowrap; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); cursor: pointer;">
             <i class="ph-bold ph-currency-circle-dollar" style="background-color: #15803d; color: #fde047; font-size: 1rem;"></i>
             <span>Financeiro</span>
           </a>      
-          <!-- Botão Relatórios e Gráficos -->
           <a href="relatorios.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 1rem; background-color: #e08c0d; border: 2px solid #FDE68A; color: #f8f7f6; font-weight: 900; font-size: 0.8125rem; line-height: 1; text-decoration: none; white-space: nowrap; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); cursor: pointer;">
             <i class="ph-bold ph-chart-line-up" style="background-color: #d97706; color: #f8f5f1; font-size: 1rem;"></i>
             <span>Relatórios</span>
@@ -438,67 +430,147 @@
 
       <!-- 1. Aba: Visão Geral da Frota -->
       <section id="view-dashboard" class="space-y-6">
-        <!-- CARDS DE KPIS DO PAINEL DE GESTÃO (TEMA PADRONIZADO COCKPIT EMERALD) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
         
-        <!-- 1. Frota Total -->
-        <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-5 border border-emerald-500/30 shadow-[0_0_25px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
-          <div class="flex justify-between items-start">
-            <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Frota Total</span>
-            <div class="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <i class="ph-bold ph-truck text-base"></i>
+        <!-- CARDS DE KPIS DO PAINEL DE GESTÃO (6 CARDS INTEGRADOS) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+          
+          <!-- 1. Frota Total -->
+          <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-4 border border-emerald-500/30 shadow-[0_0_20px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Frota Total</span>
+              <div class="w-7 h-7 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <i class="ph-bold ph-truck text-sm"></i>
+              </div>
             </div>
+            <div class="text-2xl font-black font-mono text-white mt-1.5" id="kpi-total-veiculos">0</div>
+            <p class="text-[10px] text-emerald-400/80 mt-1 font-medium">Veículos cadastrados</p>
           </div>
-          <div class="text-3xl font-black font-mono text-white mt-2" id="kpi-total-veiculos">0</div>
-          <p class="text-[11px] text-emerald-400/80 mt-1 font-medium">Veículos cadastrados</p>
+
+          <!-- 2. Em Rota Ativa -->
+          <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-4 border border-emerald-500/30 shadow-[0_0_20px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Em Rota</span>
+              <div class="w-7 h-7 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <i class="ph-bold ph-road-horizon text-sm"></i>
+              </div>
+            </div>
+            <div class="text-2xl font-black font-mono text-white mt-1.5" id="kpi-em-rota">0</div>
+            <p class="text-[10px] text-emerald-400/80 mt-1 font-medium">Veículos em trânsito</p>
+          </div>
+
+          <!-- 3. Disponíveis -->
+          <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-4 border border-emerald-500/30 shadow-[0_0_20px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Disponíveis</span>
+              <div class="w-7 h-7 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <i class="ph-bold ph-check-circle text-sm"></i>
+              </div>
+            </div>
+            <div class="text-2xl font-black font-mono text-white mt-1.5" id="kpi-disponiveis">0</div>
+            <p class="text-[10px] text-emerald-400/80 mt-1 font-medium">Prontos na base</p>
+          </div>
+
+          <!-- 4. Alertas de Avaria -->
+          <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-4 border border-emerald-500/30 shadow-[0_0_20px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Avarias</span>
+              <div class="w-7 h-7 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <i class="ph-bold ph-warning text-sm"></i>
+              </div>
+            </div>
+            <div class="text-2xl font-black font-mono text-white mt-1.5" id="kpi-anomalias">0</div>
+            <p class="text-[10px] text-emerald-400/80 mt-1 font-medium">Pendências mecânicas</p>
+          </div>
+
+          <!-- 5. Eco-Score Médio da Frota -->
+          <div class="relative bg-gradient-to-br from-[#12281c] to-[#0a1811] rounded-2xl p-4 border border-emerald-400/40 shadow-[0_0_20px_-5px_rgba(52,211,153,0.25)] transition hover:-translate-y-1">
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-black uppercase tracking-wider text-emerald-300">Eco-Score Frota</span>
+              <div class="w-7 h-7 rounded-lg bg-emerald-950 border border-emerald-400/40 flex items-center justify-center text-emerald-300">
+                <i class="ph-bold ph-leaf text-sm"></i>
+              </div>
+            </div>
+            <div class="text-2xl font-black font-mono text-white mt-1.5" id="kpi-eco-score">-- <span class="text-xs text-emerald-300 font-normal">pts</span></div>
+            <p class="text-[10px] text-emerald-300/80 mt-1 font-medium truncate" id="kpi-sub-eco">Eficiência de condução</p>
+          </div>
+
+          <!-- 6. Alertas de Auditoria e Manutenção Preditiva -->
+          <div class="relative bg-gradient-to-br from-[#2a130f] to-[#170a08] rounded-2xl p-4 border border-rose-500/40 shadow-[0_0_20px_-5px_rgba(244,63,94,0.25)] transition hover:-translate-y-1 cursor-pointer" onclick="abrirModalAuditoria()" title="Clique para auditar apontamentos">
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-black uppercase tracking-wider text-rose-400">Auditoria & Revisões</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+            </div>
+            <div class="text-2xl font-black font-mono text-white mt-1.5" id="kpi-alertas-auditoria">0</div>
+            <p class="text-[10px] text-rose-300/80 mt-1 font-medium flex items-center gap-1">
+              <i class="ph-bold ph-shield-warning"></i> Discrepâncias ativas
+            </p>
+          </div>
+
         </div>
 
-        <!-- 2. Em Rota Ativa -->
-        <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-5 border border-emerald-500/30 shadow-[0_0_25px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
-          <div class="flex justify-between items-start">
-            <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Em Rota Ativa</span>
-            <div class="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <i class="ph-bold ph-road-horizon text-base"></i>
+        <!-- BANNER DE ALERTA RÁPIDO DE AUDITORIA (OCULTO ATÉ DETECTAR ANOMALIA) -->
+        <div id="alerta-box-auditoria" class="hidden bg-rose-950/70 border border-rose-500/50 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-rose-900/80 border border-rose-500/40 flex items-center justify-center text-rose-300 shrink-0">
+              <i class="ph-bold ph-warning-octagon text-xl"></i>
+            </div>
+            <div>
+              <span class="font-black uppercase tracking-wider text-rose-200 block text-xs">Atenção: Inconsistência Operacional Detectada</span>
+              <span id="alerta-box-texto" class="text-rose-300/90 text-[11px]">Existem apontamentos pendentes de desvio de combustível ou hodômetro inconsistente.</span>
             </div>
           </div>
-          <div class="text-3xl font-black font-mono text-white mt-2" id="kpi-em-rota">0</div>
-          <p class="text-[11px] text-emerald-400/80 mt-1 font-medium">Veículos em trânsito</p>
+          <button type="button" onclick="abrirModalAuditoria()" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition shadow-md self-start sm:self-auto shrink-0 flex items-center gap-1.5">
+            <i class="ph-bold ph-magnifying-glass"></i> Visualizar Auditoria
+          </button>
         </div>
 
-        <!-- 3. Disponíveis -->
-        <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-5 border border-emerald-500/30 shadow-[0_0_25px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
-          <div class="flex justify-between items-start">
-            <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Disponíveis</span>
-            <div class="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <i class="ph-bold ph-check-circle text-base"></i>
-            </div>
-          </div>
-          <div class="text-3xl font-black font-mono text-white mt-2" id="kpi-disponiveis">0</div>
-          <p class="text-[11px] text-emerald-400/80 mt-1 font-medium">Prontos na base</p>
-        </div>
-
-        <!-- 4. Alertas de Avaria -->
-        <div class="relative bg-gradient-to-br from-[#0f2418] to-[#07130d] rounded-2xl p-5 border border-emerald-500/30 shadow-[0_0_25px_-5px_rgba(16,185,129,0.2)] transition hover:-translate-y-1">
-          <div class="flex justify-between items-start">
-            <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Alertas de Avaria</span>
-            <div class="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <i class="ph-bold ph-warning text-base"></i>
-            </div>
-          </div>
-          <div class="text-3xl font-black font-mono text-white mt-2" id="kpi-anomalias">0</div>
-          <p class="text-[11px] text-emerald-400/80 mt-1 font-medium">Pendências mecânicas</p>
-        </div>
-        </div>
-
+        <!-- GRID DE VEÍCULOS OPERACIONAIS COM TELEMETRIA E BADGES -->
         <div>
           <div class="flex items-center justify-between mb-4">
             <h2 class="card-title flex items-center gap-2">
               <i class="ph-bold ph-car-profile text-brand-600"></i> Frotas e Status Operacional
             </h2>
-            <span class="text-xs text-slate-400">Veículos ativos com telemetria e cronômetro em tempo real</span>
+            <span class="text-xs text-slate-400">Veículos ativos com status de revisão preventiva e odômetro dinâmico</span>
           </div>
           <div id="fleetGrid" class="fleet-grid"></div>
         </div>
+
+       <!-- RANKING ECO-DRIVING (LEADERBOARD DE CONDUTORES) -->
+        <div class="bg-gradient-to-b from-[#142319] to-[#0c1811] rounded-3xl border border-emerald-500/20 shadow-2xl p-6 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-900/40 pb-3">
+            <div>
+              <h3 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <i class="ph-bold ph-medal text-amber-400 text-lg"></i> Ranking Eco-Driving (Eficiência Real)
+              </h3>
+              <p class="text-xs text-emerald-200/60">Comparação da média real apurada em relação à meta técnica do veículo</p>
+            </div>
+            <span class="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-3 py-1 rounded-lg self-start sm:self-auto">
+             Meta: Inmetro / PBEV
+            </span>
+          </div>
+        
+          <div class="overflow-x-auto">
+       <table class="w-full text-left text-xs border-collapse">
+        <thead>
+        <tr class="border-b border-emerald-900/40 text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-black/40">
+          <th class="py-2.5 px-3 text-center">Posição</th>
+          <th class="py-2.5 px-3">Condutor</th>
+          <th class="py-2.5 px-3 text-center">Rotas (Mês / Total)</th>
+          <th class="py-2.5 px-3 text-center">Média Real</th>
+          <th class="py-2.5 px-3 text-center text-emerald-300 font-extrabold">Score Mês Atual</th>
+          <th class="py-2.5 px-3 text-center text-amber-300 font-extrabold">Score Total</th>
+          <th class="py-2.5 px-3 text-right">Classificação</th>
+        </tr>
+        </thead>
+        <tbody id="grid-eco-ranking" class="divide-y divide-emerald-950/40 font-medium">
+        <tr>
+          <td colspan="7" class="text-center py-6 text-emerald-200/50 text-xs">Calculando pontuações de condução eficiente...</td>
+        </tr>
+        </tbody>
+        </table>
+          </div>
+        </div>
+
       </section>
 
       <!-- 2. Aba: Gestão de Veículos -->
@@ -558,6 +630,18 @@
                 </div>
               </div>
 
+              <!-- Parâmetros de Manutenção Preventiva Preditiva -->
+              <div class="form-grid-2">
+                <div>
+                  <label class="form-label">KM Última Revisão</label>
+                  <input type="number" id="cad-v-kmrevisao" value="0" placeholder="0" class="form-control font-mono" />
+                </div>
+                <div>
+                  <label class="form-label">Intervalo de Revisão (km)</label>
+                  <input type="number" id="cad-v-intervalorevisao" value="10000" placeholder="10000" class="form-control font-mono" />
+                </div>
+              </div>
+
               <!-- Consumo Gasolina -->
               <div class="form-grid-2">
                 <div>
@@ -600,7 +684,9 @@
               </button>
             </form>
           </div>
+
           <div id="mapa-deslocamento" class="w-full h-64 rounded-xl border border-slate-300 mt-3 hidden"></div>
+
           <!-- Tabela de Veículos -->
           <div class="card-panel lg:col-span-2 p-0 overflow-hidden flex flex-col">
             <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -804,6 +890,7 @@
             </table>
           </div>
         </div>
+        
       </section>
 
     </div>
@@ -812,6 +899,53 @@
   <!-- =========================================================================
        MODAIS DO SISTEMA
        ========================================================================= -->
+
+  <!-- Modal de Auditoria e Desvios de Combustível (NOVO) -->
+  <div id="modal-auditoria" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-[#121b13] border border-rose-500/40 rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 text-white">
+      <div class="flex items-center justify-between border-b border-rose-500/20 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-rose-950/80 border border-rose-500/40 flex items-center justify-center text-rose-400">
+            <i class="ph-bold ph-shield-warning text-xl"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-extrabold text-white">Auditoria & Inconformidades de Combustível</h3>
+            <p class="text-xs text-rose-300/80">Discrepâncias de litragem e avisos críticos de odômetro</p>
+          </div>
+        </div>
+        <button type="button" onclick="fecharModalAuditoria()" class="text-slate-400 hover:text-white transition">
+          <i class="ph-bold ph-x text-xl"></i>
+        </button>
+      </div>
+
+      <div class="overflow-x-auto max-h-[420px]">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-rose-500/30 text-[10px] font-black text-rose-300 uppercase tracking-widest bg-black/50">
+              <th class="py-2.5 px-3">Data/Hora</th>
+              <th class="py-2.5 px-3">Veículo</th>
+              <th class="py-2.5 px-3">Tipo</th>
+              <th class="py-2.5 px-3">Responsável</th>
+              <th class="py-2.5 px-3">Detalhes</th>
+              <th class="py-2.5 px-3 text-center">Status</th>
+              <th class="py-2.5 px-3 text-center">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="grid-alertas-auditoria" class="divide-y divide-rose-950/50">
+            <tr>
+              <td colspan="7" class="py-6 text-center text-slate-400">Nenhum alerta pendente no momento.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t border-rose-500/20">
+        <button type="button" onclick="fecharModalAuditoria()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs transition">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal Rápido de Manutenção (Chamado pelos cards da frota) -->
   <div id="modal-manutencao" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
@@ -916,6 +1050,19 @@
             <input type="number" step="0.1" id="edit-v-consumomax" required class="form-control font-mono" />
           </div>
         </div>
+        
+        <!-- Revisão Preventiva no Modal de Edição -->
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">KM Última Revisão</label>
+            <input type="number" id="edit-v-kmrevisao" class="form-control font-mono font-bold" />
+          </div>
+          <div>
+            <label class="form-label">Intervalo Revisão (km)</label>
+            <input type="number" id="edit-v-intervalorevisao" class="form-control font-mono font-bold" />
+          </div>
+        </div>
+
         <div class="form-grid-2">
           <div>
             <label class="form-label">KM Atual</label>
@@ -1008,6 +1155,22 @@
       </form>
     </div>
   </div>
+
+  <!-- Funções de Controle dos Novos Modais -->
+  <script>
+    function abrirModalAuditoria() {
+      const modal = document.getElementById('modal-auditoria');
+      if (modal) modal.classList.remove('hidden');
+      if (typeof carregarListaAuditoriaModal === 'function') {
+        carregarListaAuditoriaModal();
+      }
+    }
+
+    function fecharModalAuditoria() {
+      const modal = document.getElementById('modal-auditoria');
+      if (modal) modal.classList.add('hidden');
+    }
+  </script>
 
   <!-- Script da Regra de Negócio Web -->
   <script src="../backend/app.js"></script>
