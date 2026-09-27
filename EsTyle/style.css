@@ -243,7 +243,7 @@ body {
    ========================================================================= */
 .app-header {
   background-color: var(--brand-900);
-  color: #ffffff;
+  color: var( --slate-50);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -276,7 +276,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var( --slate-50);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -291,7 +291,7 @@ body {
   font-weight: 900;
   letter-spacing: -0.025em;
   line-height: 1;
-  color: #ffffff;
+  color: var( --slate-50);
 }
 
 .brand-subtitle {
@@ -373,7 +373,7 @@ body {
 
 .module-nav-active {
   background-color: var(--brand-700) !important;
-  color: #ffffff !important;
+  color: var( --slate-50) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -382,7 +382,7 @@ body {
 }
 
 .module-nav-inactive:hover {
-  color: #ffffff;
+  color: var( --slate-50);
 }
 
 .mobile-bottom-nav {
@@ -394,7 +394,7 @@ body {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  background-color: #ffffff;
+  background-color: var( --slate-50);
   border-top: 1px solid var(--slate-200, #e2e8f0);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
   padding: 0.5rem 1.5rem;
@@ -445,7 +445,7 @@ body {
 .user-meta-name {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var( --slate-50);
   line-height: 1.2;
 }
 
@@ -466,7 +466,7 @@ body {
   width: 100%;
   padding: 0.75rem 1rem;
   background-color: var(--brand-700);
-  color: #ffffff;
+  color: var( --slate-50);
   font-weight: 700;
   font-size: 0.875rem;
   border-radius: 0.75rem;
@@ -500,7 +500,7 @@ body {
   transition: all 0.2s ease;
   white-space: nowrap;
   background-color: var(--brand-700);
-  color: #ffffff;
+  color: var( --slate-50);
   cursor: pointer;
 }
 
@@ -512,13 +512,13 @@ body {
 
 .btn-nav-green {
   background-color: var(--brand-700);
-  color: #ffffff;
+  color: var( --slate-50);
 }
 
 .btn-nav-amber,
 .btn-header-amber {
   background-color: #d97706 !important;
-  color: #ffffff !important;
+  color: var( --slate-50) !important;
   border-color: rgba(245, 158, 11, 0.3);
 }
 
@@ -533,7 +533,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   background-color: var(--brand-800);
-  color: #ffffff;
+  color: var( --slate-50);
   font-size: 0.75rem;
   font-weight: 700;
   padding: 0.5rem 1rem;
@@ -556,7 +556,7 @@ body {
   font-size: 0.75rem;
   font-weight: 700;
   background-color: #be123c;
-  color: #ffffff;
+  color: var( --slate-50);
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
@@ -613,7 +613,7 @@ body {
 
 .form-control:focus,
 .input-reserva:focus {
-  background-color: #ffffff;
+  background-color: var( --slate-50);
   border-color: var(--brand-500);
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
 }
@@ -645,7 +645,7 @@ body {
   width: 100%;
   padding: 0.75rem 1rem;
   background-color: var(--brand-700);
-  color: #ffffff;
+  color: var( --slate-50);
   font-weight: 700;
   font-size: 0.8125rem;
   border-radius: 0.75rem;
@@ -665,7 +665,7 @@ body {
    ========================================================================= */
 .card-panel,
 .card-reservas {
-  background-color: #ffffff;
+  background-color: var( --slate-50);
   border-radius: 1.5rem;
   border: 1px solid var(--slate-200);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -713,7 +713,7 @@ body {
 
 /* Sub-abas Secundárias */
 .subtabs-bar {
-  background-color: #ffffff;
+  background-color: var( --slate-50);
   border-bottom: 1px solid var(--slate-200);
   padding: 0 1.5rem;
 }
@@ -754,7 +754,7 @@ body {
 
 /* Placa Padrão Mercosul */
 .placa-mercosul {
-  background: #ffffff;
+  background: var( --slate-50);
   border: 1.5px solid #0f172a;
   border-radius: 4px;
   position: relative;
@@ -901,7 +901,7 @@ body {
 }
 
 .modal-card {
-  background-color: #ffffff;
+  background-color: var( --slate-50);
   border-radius: 1.5rem;
   max-width: 24rem;
   width: 100%;
@@ -941,11 +941,11 @@ body {
 .fc .fc-today-button {
   background-color: var(--slate-400) !important;
   border-color: var(--slate-400) !important;
-  color: #ffffff !important;
+  color: var( --slate-50) !important;
 }
 
 .fc-theme-standard th {
-  background-color: #ffffff !important;
+  background-color: var( --slate-50) !important;
   border-color: var(--slate-200) !important;
   padding: 0.5rem 0 !important;
   font-size: 0.75rem !important;
@@ -996,7 +996,7 @@ body {
 }
 
 .kpi-card {
-  background-color: #ffffff;
+  background-color: var( --slate-50);
   padding: 1.25rem;
   border-radius: 1rem;
   border: 1px solid var(--slate-200);
@@ -1070,7 +1070,7 @@ body {
 }
 
 .modal-alerta-card {
-  background-color: #ffffff;
+  background-color: var( --slate-50);
   border-radius: 1.5rem; /* rounded-3xl */
   max-width: 24rem; /* max-w-sm */
   width: 100%;
@@ -1133,7 +1133,7 @@ body {
   flex: 1;
   padding: 0.625rem;
   background-color: #15803d !important;
-  color: #ffffff !important;
+  color: var( --slate-50) !important;
   font-weight: 700;
   font-size: 0.75rem;
   border-radius: 0.75rem;
@@ -1153,7 +1153,7 @@ body {
   width: 100% !important;
   padding: 0.625rem;
   background-color: #d97706 !important; /* Laranja âmbar */
-  color: #ffffff !important;           /* Texto branco */
+  color: var( --slate-50) !important;           /* Texto branco */
   font-weight: 700;
   font-size: 0.75rem;
   border-radius: 0.75rem;
@@ -1229,7 +1229,7 @@ body {
 
 /* Barra de alternância de abas móvel (Novo Agendamento / Calendário) */
 .mobile-subtabs-bar {
-  background-color: #ffffff;
+  background-color: var( --slate-50);
   border-bottom: 1px solid var(--slate-200);
   display: flex;
   margin-bottom: 1rem;
@@ -1312,7 +1312,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: #ffffff;
+  background-color: var( --slate-50);
   border-top: 1px solid var(--slate-200);
   padding: 0.5rem 1rem;
   display: flex;
@@ -1365,7 +1365,7 @@ body {
    ========================================================================= */
 
 .mobile-history-card {
-  background-color: #ffffff;
+  background-color: var( --slate-50);
   border: 1px solid var(--slate-200);
   border-radius: 1rem;
   padding: 0.875rem;
@@ -1444,7 +1444,7 @@ body {
 /* 1 e 3. Variação Verde Sólida (Iniciar Rota / Todas as Rotas / Botão Ativo) */
 .subtab-pill-green {
   background-color: #1E5E3A !important;
-  color: #ffffff !important;
+  color: var( --slate-50) !important;
   border-color: #1E5E3A !important;
   box-shadow: 0 4px 6px -1px rgba(30, 94, 58, 0.25), 0 2px 4px -2px rgba(30, 94, 58, 0.2);
 }
@@ -1483,7 +1483,7 @@ body {
 
 /* Estado Inativo Padronizado (Caso alterne para aba neutra) */
 .subtab-pill-inactive {
-  background-color: #ffffff !important;
+  background-color: var( --slate-50) !important;
   border: 1px solid var(--slate-200, #e2e8f0) !important;
   color: var(--slate-600, #475569) !important;
   box-shadow: none !important;
@@ -1530,7 +1530,7 @@ body {
   font-size: 0.75rem !important; /* text-xs */
   line-height: 1 !important;
   background-color: #1E5E3A !important;
-  color: #ffffff !important;
+  color: var( --slate-50) !important;
   border: 1px solid #1E5E3A !important;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !important; /* shadow-md */
   transition: all 0.2s ease-in-out !important;
@@ -1609,7 +1609,7 @@ body {
    PLACA MERCOSUL OFICIAL (PADRÃO DOS CARDS DO PAINEL)
    ========================================================================= */
 .placa-mercosul-cockpit {
-  background: #ffffff;
+  background: var( --slate-50);
   border: 1.5px solid #0f172a;
   border-radius: 4px;
   position: relative;
@@ -1666,7 +1666,7 @@ body {
 }
 
 .app-popup-card {
-  background-color: #ffffff !important;
+  background-color: var( --slate-50) !important;
   border-radius: 1.5rem !important;
   width: 100% !important;
   max-width: 24rem !important;
@@ -1700,7 +1700,7 @@ body {
   font-size: 0.8125rem !important;
   border: none !important;
   cursor: pointer !important;
-  color: #ffffff !important;
+  color: var( --slate-50) !important;
   transition: opacity 0.2s ease !important;
 }
 

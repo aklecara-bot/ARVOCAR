@@ -1462,7 +1462,7 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
 
       ${acaoBotao ? `
         <div class="mt-2">
-          <button type="button" onclick="${acaoBotao.onclick}" class="w-full ${acaoBotao.cor} text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition shadow-lg flex items-center justify-center gap-1.5">
+          <button type="button" onclick="${acaoBotao.onclick}" class="w-full ${acaoBotao.cor} font-black py-3 rounded-xl text-xs uppercase tracking-wider transition shadow-lg flex items-center justify-center gap-1.5">
             ${acaoBotao.texto}
           </button>
         </div>
@@ -2302,7 +2302,9 @@ function renderFleetGrid() {
         onclick: `abrirFinalizacaoDireta('${idAcao}')`
       } : (isManutencao ? null : {
         texto: 'Iniciar Rota &rarr;',
-        cor: (v.tipo_frota || '').toUpperCase() === 'EXTERNO' ? 'bg-white hover:bg-slate-100 text-slate-900' : 'bg-[#15803d] hover:bg-[#166534]',
+        cor: (v.tipo_frota || '').toUpperCase() === 'EXTERNO' 
+          ? 'bg-white hover:bg-slate-100 text-slate-900 shadow-md' 
+          : 'bg-[#15803d] hover:bg-[#166534] text-white',
         onclick: `abrirInicioDireto('${idAcao}')`
       })
     });
