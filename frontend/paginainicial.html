@@ -1167,41 +1167,9 @@
         </div>
       </form>
     </div>
-    <div id="modal-trocar-senha" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-          <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
-            <i class="ph-bold ph-lock-key text-brand-600 text-lg"></i> Alterar Minha Senha
-          </h3>
-          <button onclick="fecharModalTrocarSenha()" class="text-slate-400 hover:text-slate-600">
-            <i class="ph-bold ph-x text-lg"></i>
-          </button>
-        </div>
-      
-        <form onsubmit="handleAlterarMinhaSenha(event)" class="space-y-3.5">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Senha Atual</label>
-            <input type="password" id="senha-atual-usuario" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-brand-500" placeholder="••••••••" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nova Senha</label>
-            <input type="password" id="senha-nova-usuario" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-brand-500" placeholder="••••••••" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Confirmar Nova Senha</label>
-            <input type="password" id="senha-confirma-usuario" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-brand-500" placeholder="••••••••" />
-          </div>
-
-          <div class="pt-2 flex gap-2">
-            <button type="button" onclick="fecharModalTrocarSenha()" class="flex-1 bg-slate-100 text-slate-600 font-bold py-2.5 rounded-xl text-xs">Cancelar</button>
-            <button type="submit" id="btn-salvar-senha" class="flex-1 bg-[#1E5E3A] hover:bg-[#164E2E] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition">Salvar</button>
-          </div>
-        </form>
-      </div>
-    </div>
   </div>
 
-  <!-- Modal de Autoatendimento para Troca de Senha do Motorista -->
+  <!-- Modal de Autoatendimento para Troca de Senha do Motorista (ÚNICO E FORA DE QUALQUER OUTRO MODAL) -->
   <div id="modal-trocar-senha" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -1214,22 +1182,22 @@
       </div>
 
       <form onsubmit="handleAlterarMinhaSenha(event)" class="space-y-3.5">
-       <div>
-         <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Senha Atual</label>
-         <input type="password" id="senha-atual-usuario" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-600" placeholder="••••••••" />
-       </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Senha Atual</label>
+          <input type="password" id="senha-atual-usuario" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-600" placeholder="••••••••" />
+        </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nova Senha</label>
           <input type="password" id="senha-nova-usuario" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-600" placeholder="••••••••" />
         </div>
         <div>
-         <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Confirmar Nova Senha</label>
-         <input type="password" id="senha-confirma-usuario" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-600" placeholder="••••••••" />
-       </div>
-      
-       <div class="pt-2 flex gap-2">
-         <button type="button" onclick="fecharModalTrocarSenha()" class="flex-1 bg-slate-100 text-slate-600 font-bold py-2.5 rounded-xl text-xs">Cancelar</button>
-         <button type="submit" id="btn-salvar-senha" class="flex-1 bg-[#1E5E3A] hover:bg-[#164E2E] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition">Salvar</button>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Confirmar Nova Senha</label>
+          <input type="password" id="senha-confirma-usuario" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-600" placeholder="••••••••" />
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="fecharModalTrocarSenha()" class="flex-1 bg-slate-100 text-slate-600 font-bold py-2.5 rounded-xl text-xs">Cancelar</button>
+          <button type="submit" id="btn-salvar-senha" class="flex-1 bg-[#1E5E3A] hover:bg-[#164E2E] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition">Salvar</button>
         </div>
       </form>
     </div>

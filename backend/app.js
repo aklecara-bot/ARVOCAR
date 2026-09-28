@@ -3019,6 +3019,9 @@ window.abrirModalAuditoria = abrirModalAuditoria;
 window.fecharModalAuditoria = fecharModalAuditoria;
 window.carregarListaAuditoriaModal = carregarListaAuditoriaModal;
 window.resolverAlertaAuditoria = resolverAlertaAuditoria;
+window.abrirModalTrocarSenha = abrirModalTrocarSenha;
+window.fecharModalTrocarSenha = fecharModalTrocarSenha;
+window.handleAlterarMinhaSenha = handleAlterarMinhaSenha;
 
 // =========================================================================
 // INICIALIZAÇÃO
