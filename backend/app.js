@@ -1050,9 +1050,17 @@ async function plotarRotaNoMapa(rotaId) {
     lblStatus.className = 'text-[10px] font-mono font-extrabold text-slate-800 truncate max-w-[130px]';
   }
 
-  document.querySelectorAll('#tabelaHistorico tr').forEach(tr => tr.classList.remove('bg-emerald-50/80'));
-  const trAtual = document.getElementById(`tr-rota-${rota.id}`);
-  if (trAtual) trAtual.classList.add('bg-emerald-50/80');
+ document.querySelectorAll('#tabelaHistorico tr').forEach(tr => {
+  tr.classList.remove('bg-emerald-100', 'border-l-4', 'border-emerald-600', 'font-bold');
+  tr.classList.add('border-l-4', 'border-transparent');
+});
+
+const trAtual = document.getElementById(`tr-rota-${rota.id}`);
+if (trAtual) {
+  // Destaque nítido e imediato para o usuário saber qual linha clicou:
+  trAtual.classList.remove('border-transparent');
+  trAtual.classList.add('bg-emerald-100', 'border-l-4', 'border-emerald-600', 'font-bold', 'shadow-xs');
+}
 
   limparElementosMapa();
 
@@ -1122,9 +1130,9 @@ async function plotarRotaNoMapa(rotaId) {
         polylineHistorico = new google.maps.Polyline({
           path: result.routes[0].overview_path,
           geodesic: true,
-          strokeColor: '#1E5E3A',
-          strokeOpacity: 0.9,
-          strokeWeight: 4,
+          strokeColor: '#2563EB', 
+          strokeOpacity: 0.95,
+          strokeWeight: 6,        
           map: gMapHistorico
         });
         result.routes[0].overview_path.forEach(pt => bounds.extend(pt));
