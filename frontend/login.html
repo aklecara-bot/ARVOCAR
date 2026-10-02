@@ -311,6 +311,15 @@
 
         if (errInsert) throw errInsert;
 
+        // Dispara o e-mail pela Edge Function recém-criada
+      const { error: errFn } = await db.functions.invoke('enviar-codigo-recuperacao', {
+        body: { email: usuario.email, codigo: codigo }
+      });
+
+      if (errFn) {
+        throw new Error("Não foi possível enviar o e-mail com o código. Tente novamente.");
+      }
+
         fecharModalEsqueciSenha();
         document.getElementById('redef-email-alvo').value = email;
         document.getElementById('modal-redefinir-senha').classList.remove('hidden');
