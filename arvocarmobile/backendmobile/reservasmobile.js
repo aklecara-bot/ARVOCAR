@@ -1,5 +1,5 @@
 // =========================================================================
-// MÓDULO: RESERVAS & AGENDAMENTOS MOBILE - ARVO
+// MÓDULO: RESERVAS & AGENDAMENTOS MOBILE - ARVO (INTEGRAL COM CALENDÁRIO)
 // =========================================================================
 const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
@@ -12,19 +12,11 @@ const db = window.db || (window.supabase && typeof window.supabase.createClient 
 let usuarioLogado = null;
 let veiculosReserva = [];
 let listaReservas = [];
+let usuarios = [];
 let calendar = null;
 
-const coresCarros = {
-  'ARVO 10': '#0284c7',
-  'ARVO 11': '#16a34a',
-  'ARVO 12': '#f59e0b',
-  'ARVO 15': '#8b5cf6',
-  'ARVO 16': '#ec4899',
-  'DEFAULT': '#15803d'
-};
-
 // =========================================================================
-// FUNÇÕES AUXILIARES DE PARSE E FORMATAÇÃO (FUSO HORÁRIO SEGURO)
+// FUNÇÕES AUXILIARES DE FORMATAÇÃO E NOMES
 // =========================================================================
 function parseDataLocal(dataStr, horaStr = '00:00:00') {
   if (!dataStr) return new Date();
@@ -46,15 +38,29 @@ function formatarDataHora(dataIso) {
   });
 }
 
-function formatarApenasData(dataStr) {
-  if (!dataStr) return '-';
-  const limpo = dataStr.split('T')[0];
-  const partes = limpo.split('-');
-  if (partes.length === 3) {
-    const [ano, mes, dia] = partes;
-    return `${dia}/${mes}/${ano}`;
+function obterNomeMotoristaFormatado(identificador) {
+  if (!identificador) return 'Condutor';
+  const idLimpo = String(identificador).toLowerCase().trim();
+
+  if (Array.isArray(usuarios) && usuarios.length > 0) {
+    const u = usuarios.find(user =>
+      (user.email || '').toLowerCase().trim() === idLimpo ||
+      String(user.id).trim() === idLimpo
+    );
+    if (u && u.nome && u.nome.trim() !== '') return u.nome.trim();
   }
-  return new Date(dataStr).toLocaleDateString('pt-BR');
+
+  if (usuarioLogado && (usuarioLogado.email || '').toLowerCase().trim() === idLimpo) {
+    if (usuarioLogado.nome && !usuarioLogado.nome.includes('@')) return usuarioLogado.nome;
+  }
+
+  const base = idLimpo.includes('@') ? idLimpo.split('@')[0] : idLimpo;
+  return base
+    .replace(/[._-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
 }
 
 // =========================================================================
@@ -70,20 +76,17 @@ async function initReservasMobile() {
         usuarioLogado = { email: sessaoStr, nome: sessaoStr };
       }
 
-      const userDisplay = document.getElementById('user-display') || document.getElementById('m-top-username') || document.getElementById('m-user-label');
+      const userDisplay = document.getElementById('user-display') || document.getElementById('m-top-username');
       if (userDisplay && usuarioLogado) {
-        userDisplay.innerText = `${usuarioLogado.nome || usuarioLogado.email || 'Condutor'}`;
+        userDisplay.innerText = `${obterNomeMotoristaFormatado(usuarioLogado.email)}`;
       }
     }
   } catch (err) {
-    console.warn("Aviso na leitura da sessão:", err);
+    console.warn("Aviso sessão:", err);
   }
 
   const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-  const dia = String(hoje.getDate()).padStart(2, '0');
-  const hojeStr = `${ano}-${mes}-${dia}`;
+  const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
 
   const inputDtIni = document.getElementById('res-data-inicio') || document.getElementById('m-res-data-inicio');
   const inputDtFim = document.getElementById('res-data-fim') || document.getElementById('m-res-data-fim');
@@ -101,134 +104,27 @@ async function initReservasMobile() {
   if (tipoIni) ajustarCamposModalidade(tipoIni.value);
 
   await carregarVeiculosReservas();
+  await carregarUsuarios();
   await carregarHistoricoReservas();
-  initCalendario();
   sincronizarFilaReservas();
 }
 
-/**
- * Popup Universal Centralizado (Web & Mobile)
- */
-function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
-  const modalId = `app-popup-${Date.now()}`;
-
-  const temas = {
-    sucesso: { icon: 'ph-check-circle', bg: '#dcfce7', text: '#15803d', btn: '#15803d' },
-    erro:    { icon: 'ph-x-circle',     bg: '#ffe4e6', text: '#e11d48', btn: '#e11d48' },
-    aviso:   { icon: 'ph-warning',      bg: '#fef3c7', text: '#d97706', btn: '#d97706' },
-    info:    { icon: 'ph-info',         bg: '#e0f2fe', text: '#0284c7', btn: '#0284c7' }
-  };
-
-  const config = temas[tipo] || temas.aviso;
-
-  const backdrop = document.createElement('div');
-  backdrop.id = modalId;
-  backdrop.style.cssText = `
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    background-color: rgba(15, 23, 42, 0.75) !important;
-    backdrop-filter: blur(4px) !important;
-    -webkit-backdrop-filter: blur(4px) !important;
-    z-index: 999999 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 1rem !important;
-    box-sizing: border-box !important;
-  `;
-
-  backdrop.innerHTML = `
-    <div style="
-      background-color: #ffffff !important;
-      border-radius: 1.5rem !important;
-      width: 100% !important;
-      max-width: 24rem !important;
-      padding: 1.5rem !important;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
-      border: 1px solid #f1f5f9 !important;
-      text-align: center !important;
-      display: flex !important;
-      flex-direction: column !important;
-      align-items: center !important;
-      gap: 1rem !important;
-      box-sizing: border-box !important;
-      font-family: inherit !important;
-    ">
-      <div style="
-        width: 3.5rem !important;
-        height: 3.5rem !important;
-        border-radius: 1rem !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        font-size: 1.75rem !important;
-        background-color: ${config.bg} !important;
-        color: ${config.text} !important;
-      ">
-        <i class="ph-bold ${config.icon}"></i>
-      </div>
-
-      <div style="width: 100% !important;">
-        <h3 style="font-size: 1.05rem !important; font-weight: 900 !important; color: #0f172a !important; margin: 0 0 0.5rem 0 !important;">
-          ${titulo}
-        </h3>
-        <p style="font-size: 0.8125rem !important; color: #475569 !important; margin: 0 !important; line-height: 1.45 !important; word-break: break-word !important;">
-          ${mensagem}
-        </p>
-      </div>
-
-      <button type="button" id="${modalId}-btn" style="
-        width: 100% !important;
-        padding: 0.75rem 1rem !important;
-        border-radius: 0.75rem !important;
-        font-weight: 700 !important;
-        font-size: 0.8125rem !important;
-        border: none !important;
-        cursor: pointer !important;
-        color: #ffffff !important;
-        background-color: ${config.btn} !important;
-      ">
-        Entendido
-      </button>
-    </div>
-  `;
-
-  document.body.appendChild(backdrop);
-
-  const fechar = () => {
-    backdrop.remove();
-    if (typeof onClose === 'function') onClose();
-  };
-
-  document.getElementById(`${modalId}-btn`).onclick = fechar;
-  backdrop.onclick = (e) => {
-    if (e.target === backdrop) fechar();
-  };
+async function carregarUsuarios() {
+  try {
+    const cache = localStorage.getItem('arvo_cache_usuarios');
+    if (cache) usuarios = JSON.parse(cache);
+    if (navigator.onLine) {
+      const { data } = await db.from('usuarios').select('id, nome, email');
+      if (data) {
+        usuarios = data;
+        localStorage.setItem('arvo_cache_usuarios', JSON.stringify(data));
+      }
+    }
+  } catch (e) { }
 }
 
-// Converte chamadas automáticas de alert()
-window.alert = function (msg) {
-  const texto = String(msg || '');
-  let tipo = 'aviso';
-  let titulo = 'Atenção';
-
-  const t = texto.toLowerCase();
-  if (t.includes('sucesso') || t.includes('salvo') || t.includes('confirmad')) {
-    tipo = 'sucesso';
-    titulo = 'Sucesso!';
-  } else if (t.includes('erro') || t.includes('falha') || t.includes('inválid')) {
-    tipo = 'erro';
-    titulo = 'Erro!';
-  }
-
-  mostrarPopupCustom(tipo, titulo, texto);
-};
-
 // =========================================================================
-// 2. CONTROLE DE ABAS (NOVO / CALENDÁRIO)
+// 2. CONTROLE DE ABAS (CORREÇÃO DE RENDERIZAÇÃO DO FULLCALENDAR)
 // =========================================================================
 function trocarAba(aba) {
   const viewNovo = document.getElementById('view-novo');
@@ -240,28 +136,31 @@ function trocarAba(aba) {
     if (viewNovo) viewNovo.classList.remove('hidden');
     if (viewCal) viewCal.classList.add('hidden');
 
-    if (btnNovo) btnNovo.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
-    if (btnCal) btnCal.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
+    if (btnNovo) btnNovo.className = "flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[#8fb855] border-b-2 border-[#8fb855] transition";
+    if (btnCal) btnCal.className = "flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[#b0b9ab] hover:text-[#f4f1e5] border-b-2 border-transparent transition";
   } else {
     if (viewNovo) viewNovo.classList.add('hidden');
     if (viewCal) viewCal.classList.remove('hidden');
 
-    if (btnCal) btnCal.className = "flex-1 py-2.5 text-center font-bold text-amber-400 border-b-2 border-amber-400 flex items-center justify-center gap-1.5 transition";
-    if (btnNovo) btnNovo.className = "flex-1 py-2.5 text-center font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center gap-1.5 transition";
+    if (btnCal) btnCal.className = "flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[#8fb855] border-b-2 border-[#8fb855] transition";
+    if (btnNovo) btnNovo.className = "flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[#b0b9ab] hover:text-[#f4f1e5] border-b-2 border-transparent transition";
 
+    // Garante inicialização e recálculo do tamanho quando o elemento se torna visível
     setTimeout(() => {
-      if (calendar) {
+      if (!calendar) {
+        initCalendario();
+      } else {
         calendar.updateSize();
         calendar.refetchEvents();
       }
-    }, 120);
+    }, 100);
 
     carregarHistoricoReservas();
   }
 }
 
 // =========================================================================
-// 3. VEÍCULOS (CACHE & BACKEND)
+// 3. VEÍCULOS (CACHE & FILTRAGEM)
 // =========================================================================
 async function carregarVeiculosReservas() {
   const sel = document.getElementById('res-veiculo') || document.getElementById('m-res-veiculo');
@@ -272,7 +171,7 @@ async function carregarVeiculosReservas() {
     try {
       veiculosReserva = JSON.parse(localV);
       renderSelectVeiculos(sel);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   if (navigator.onLine) {
@@ -296,21 +195,31 @@ async function carregarVeiculosReservas() {
 
 function renderSelectVeiculos(sel) {
   sel.innerHTML = '<option value="">Selecione o veículo...</option>';
-  veiculosReserva.forEach(v => {
-    const nome = v.nome_frota || v.id;
-    sel.innerHTML += `<option value="${nome}" data-uuid="${v.uuid_veiculos || ''}" data-placa="${v.placa || ''}">${nome} - ${v.marca || ''} [${v.placa || 'S/ Placa'}]</option>`;
-  });
+  const emailUser = (usuarioLogado?.email || '').toLowerCase().trim();
+  const isAdmin = emailUser === ADMIN_EMAIL.toLowerCase().trim();
+
+  veiculosReserva
+    .filter(v => {
+      const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO' || (v.proprietario || '').toUpperCase() === 'EXTERNO';
+      const condutorExclusivo = (v.motorista_autorizado || '').toLowerCase().trim();
+      if (isExterno && condutorExclusivo !== emailUser && !isAdmin) return false;
+      return true;
+    })
+    .forEach(v => {
+      const nome = v.nome_frota || v.id;
+      sel.innerHTML += `<option value="${nome}" data-uuid="${v.uuid_veiculos || ''}" data-placa="${v.placa || ''}">${nome} - ${v.marca || ''} [${v.placa || 'S/ Placa'}]</option>`;
+    });
 }
 
 // =========================================================================
 // 4. MODALIDADES DE RESERVA
 // =========================================================================
 function ajustarCamposModalidade(tipo) {
-  const boxHoras = document.getElementById('box-horas') || document.getElementById('box-horas-mobile');
-  const boxTurno = document.getElementById('box-turno') || document.getElementById('box-turno-mobile');
-  const boxDataFim = document.getElementById('box-data-fim') || document.getElementById('box-data-fim-mobile');
-  const inputDtIni = document.getElementById('res-data-inicio') || document.getElementById('m-res-data-inicio');
-  const inputDtFim = document.getElementById('res-data-fim') || document.getElementById('m-res-data-fim');
+  const boxHoras = document.getElementById('box-horas');
+  const boxTurno = document.getElementById('box-turno');
+  const boxDataFim = document.getElementById('box-data-fim');
+  const inputDtIni = document.getElementById('res-data-inicio');
+  const inputDtFim = document.getElementById('res-data-fim');
 
   if (boxHoras) boxHoras.classList.add('hidden');
   if (boxTurno) boxTurno.classList.add('hidden');
@@ -347,16 +256,8 @@ function ajustarCamposModalidade(tipo) {
         const primDia = new Date(ano, mesIndex, 1);
         const ultDia = new Date(ano, mesIndex + 1, 0);
 
-        const a1 = primDia.getFullYear();
-        const m1 = String(primDia.getMonth() + 1).padStart(2, '0');
-        const d1 = String(primDia.getDate()).padStart(2, '0');
-
-        const a2 = ultDia.getFullYear();
-        const m2 = String(ultDia.getMonth() + 1).padStart(2, '0');
-        const d2 = String(ultDia.getDate()).padStart(2, '0');
-
-        inputDtIni.value = `${a1}-${m1}-${d1}`;
-        inputDtFim.value = `${a2}-${m2}-${d2}`;
+        inputDtIni.value = `${primDia.getFullYear()}-${String(primDia.getMonth() + 1).padStart(2, '0')}-${String(primDia.getDate()).padStart(2, '0')}`;
+        inputDtFim.value = `${ultDia.getFullYear()}-${String(ultDia.getMonth() + 1).padStart(2, '0')}-${String(ultDia.getDate()).padStart(2, '0')}`;
         inputDtFim.readOnly = true;
       }
       break;
@@ -373,9 +274,8 @@ function ajustarCamposModalidade(tipo) {
 // =========================================================================
 async function salvarReservaMobile(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
-  const btn = document.getElementById('btn-submit') || document.getElementById('btn-salvar-reserva') || document.getElementById('btn-m-salvar-res');
-
-  const selVeiculo = document.getElementById('res-veiculo') || document.getElementById('m-res-veiculo');
+  const btn = document.getElementById('btn-submit');
+  const selVeiculo = document.getElementById('res-veiculo');
   const opt = selVeiculo ? selVeiculo.options[selVeiculo.selectedIndex] : null;
   const veiculo_id = selVeiculo ? selVeiculo.value : '';
 
@@ -386,10 +286,10 @@ async function salvarReservaMobile(e) {
 
   const uuid_veiculos = opt?.dataset?.uuid || null;
   const placa = opt?.dataset?.placa || null;
-  const finalidade = (document.getElementById('res-finalidade')?.value || document.getElementById('m-res-finalidade')?.value || 'DEMANDAS INTERNAS').trim();
-  const tipo_reserva = document.getElementById('res-tipo')?.value || document.getElementById('m-res-tipo')?.value || 'DIAS';
-  const dtInicioStr = document.getElementById('res-data-inicio')?.value || document.getElementById('m-res-data-inicio')?.value;
-  let dtFimStr = document.getElementById('res-data-fim')?.value || document.getElementById('m-res-data-fim')?.value || dtInicioStr;
+  const finalidade = (document.getElementById('res-finalidade')?.value || 'DEMANDAS INTERNAS').trim();
+  const tipo_reserva = document.getElementById('res-tipo')?.value || 'DIAS';
+  const dtInicioStr = document.getElementById('res-data-inicio')?.value;
+  let dtFimStr = document.getElementById('res-data-fim')?.value || dtInicioStr;
 
   if (!dtInicioStr) {
     alert("Informe a data de início do agendamento.");
@@ -399,12 +299,12 @@ async function salvarReservaMobile(e) {
   let dInicio, dFim;
 
   if (tipo_reserva === 'HORAS') {
-    const hIni = document.getElementById('res-hora-inicio')?.value || document.getElementById('m-res-hora-inicio')?.value || '08:00';
-    const hFim = document.getElementById('res-hora-fim')?.value || document.getElementById('m-res-hora-fim')?.value || '12:00';
+    const hIni = document.getElementById('res-hora-inicio')?.value || '08:00';
+    const hFim = document.getElementById('res-hora-fim')?.value || '12:00';
     dInicio = parseDataLocal(dtInicioStr, `${hIni}:00`);
     dFim = parseDataLocal(dtInicioStr, `${hFim}:00`);
   } else if (tipo_reserva === 'TURNO') {
-    const turno = document.getElementById('res-turno-sel')?.value || document.getElementById('m-res-turno-sel')?.value || 'MANHA';
+    const turno = document.getElementById('res-turno-sel')?.value || 'MANHA';
     if (turno === 'MANHA') {
       dInicio = parseDataLocal(dtInicioStr, '07:00:00');
       dFim = parseDataLocal(dtInicioStr, '12:00:00');
@@ -415,34 +315,19 @@ async function salvarReservaMobile(e) {
       dInicio = parseDataLocal(dtInicioStr, '18:00:00');
       const dSeg = parseDataLocal(dtInicioStr);
       dSeg.setDate(dSeg.getDate() + 1);
-      const a = dSeg.getFullYear();
-      const m = String(dSeg.getMonth() + 1).padStart(2, '0');
-      const d = String(dSeg.getDate()).padStart(2, '0');
-      dFim = parseDataLocal(`${a}-${m}-${d}`, '06:00:00');
+      dFim = parseDataLocal(`${dSeg.getFullYear()}-${String(dSeg.getMonth() + 1).padStart(2, '0')}-${String(dSeg.getDate()).padStart(2, '0')}`, '06:00:00');
     }
   } else if (tipo_reserva === 'SEMANAS') {
     dInicio = parseDataLocal(dtInicioStr, '00:00:00');
     const dFimSem = parseDataLocal(dtInicioStr);
     dFimSem.setDate(dFimSem.getDate() + 6);
-    const a = dFimSem.getFullYear();
-    const m = String(dFimSem.getMonth() + 1).padStart(2, '0');
-    const d = String(dFimSem.getDate()).padStart(2, '0');
-    dFim = parseDataLocal(`${a}-${m}-${d}`, '23:59:59');
+    dFim = parseDataLocal(`${dFimSem.getFullYear()}-${String(dFimSem.getMonth() + 1).padStart(2, '0')}-${String(dFimSem.getDate()).padStart(2, '0')}`, '23:59:59');
   } else if (tipo_reserva === 'MES') {
     const base = parseDataLocal(dtInicioStr);
     const primDia = new Date(base.getFullYear(), base.getMonth(), 1);
     const ultDia = new Date(base.getFullYear(), base.getMonth() + 1, 0);
-
-    const a1 = primDia.getFullYear();
-    const m1 = String(primDia.getMonth() + 1).padStart(2, '0');
-    const d1 = String(primDia.getDate()).padStart(2, '0');
-
-    const a2 = ultDia.getFullYear();
-    const m2 = String(ultDia.getMonth() + 1).padStart(2, '0');
-    const d2 = String(ultDia.getDate()).padStart(2, '0');
-
-    dInicio = parseDataLocal(`${a1}-${m1}-${d1}`, '00:00:00');
-    dFim = parseDataLocal(`${a2}-${m2}-${d2}`, '23:59:59');
+    dInicio = parseDataLocal(`${primDia.getFullYear()}-${String(primDia.getMonth() + 1).padStart(2, '0')}-${String(primDia.getDate()).padStart(2, '0')}`, '00:00:00');
+    dFim = parseDataLocal(`${ultDia.getFullYear()}-${String(ultDia.getMonth() + 1).padStart(2, '0')}-${String(ultDia.getDate()).padStart(2, '0')}`, '23:59:59');
   } else {
     dInicio = parseDataLocal(dtInicioStr, '00:00:00');
     dFim = parseDataLocal(dtFimStr, '23:59:59');
@@ -453,10 +338,10 @@ async function salvarReservaMobile(e) {
     return;
   }
 
-  // Prevenção de conflito de agenda no cache local
+  // Checagem de sobreposição
   const conflito = listaReservas.some(r => {
     if (r.status === 'CANCELADA') return false;
-    if (String(r.veiculo_id) !== String(veiculo_id)) return false;
+    if (String(r.veiculo_id) !== String(veiculo_id) && String(r.placa) !== String(placa)) return false;
     const rIni = new Date(r.data_inicio).getTime();
     const rFim = new Date(r.data_fim).getTime();
     return (dInicio.getTime() < rFim && dFim.getTime() > rIni);
@@ -483,7 +368,7 @@ async function salvarReservaMobile(e) {
     tipo_reserva,
     data_inicio: dInicio.toISOString(),
     data_fim: dFim.toISOString(),
-    observacao: (document.getElementById('res-obs')?.value || document.getElementById('m-res-obs')?.value || '').trim(),
+    observacao: (document.getElementById('res-obs')?.value || '').trim(),
     status: 'CONFIRMADA'
   };
 
@@ -511,7 +396,6 @@ async function salvarReservaMobile(e) {
     await carregarHistoricoReservas();
     trocarAba('calendario');
   } catch (err) {
-    console.warn("Conexão instável, enfileirando offline:", err);
     payload.id = tempId;
     salvarFilaReserva(payload);
     listaReservas.unshift(payload);
@@ -528,17 +412,14 @@ async function salvarReservaMobile(e) {
 }
 
 function limparFormularioReserva() {
-  const form = document.getElementById('form-reserva') || document.getElementById('formReservaMobile');
+  const form = document.getElementById('form-reserva');
   if (form) form.reset();
-
   const hoje = new Date();
   const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
-
-  const inputDtIni = document.getElementById('res-data-inicio') || document.getElementById('m-res-data-inicio');
-  const inputDtFim = document.getElementById('res-data-fim') || document.getElementById('m-res-data-fim');
+  const inputDtIni = document.getElementById('res-data-inicio');
+  const inputDtFim = document.getElementById('res-data-fim');
   if (inputDtIni) inputDtIni.value = hojeStr;
   if (inputDtFim) inputDtFim.value = hojeStr;
-
   ajustarCamposModalidade('DIAS');
 }
 
@@ -573,7 +454,7 @@ async function sincronizarFilaReservas() {
 window.addEventListener('online', sincronizarFilaReservas);
 
 // =========================================================================
-// 6. HISTÓRICO & FULLCALENDAR
+// 6. HISTÓRICO & FULLCALENDAR COM CORES ESPECÍFICAS
 // =========================================================================
 async function carregarHistoricoReservas() {
   const localRes = localStorage.getItem('arvo_cache_reservas');
@@ -581,21 +462,24 @@ async function carregarHistoricoReservas() {
     try {
       listaReservas = JSON.parse(localRes);
       renderHistoricoCards();
-    } catch (e) {}
+    } catch (e) { }
   }
 
   if (navigator.onLine) {
     try {
+      // Carrega TODAS as reservas (confirmadas, concluidas e canceladas) para o calendário
       const { data, error } = await db
         .from('reservas')
         .select('*')
-        .eq('status', 'CONFIRMADA')
-        .order('data_inicio', { ascending: true });
+        .order('data_inicio', { ascending: false });
 
       if (!error && data) {
         listaReservas = data;
         localStorage.setItem('arvo_cache_reservas', JSON.stringify(data));
         renderHistoricoCards();
+        if (calendar) {
+          calendar.refetchEvents();
+        }
       }
     } catch (err) {
       console.warn("Offline: Mantendo histórico cacheado.");
@@ -604,13 +488,11 @@ async function carregarHistoricoReservas() {
 }
 
 function renderHistoricoCards() {
-  const container = document.getElementById('lista-reservas') || document.getElementById('lista-reservas-mobile') || document.getElementById('m-lista-reservas');
-  const badge = document.getElementById('badge-total-reservas') || document.getElementById('m-badge-reservas');
+  const container = document.getElementById('lista-reservas');
+  const badge = document.getElementById('badge-total-reservas');
   if (!container) return;
 
   const agora = new Date().getTime();
-
-  // 1. Divide em reservas ativas/futuras e passadas/encerradas
   const ativasEFuturas = [];
   const passadas = [];
 
@@ -623,19 +505,14 @@ function renderHistoricoCards() {
     }
   });
 
-  // Ativas/Futuras: das mais próximas para as mais distantes
   ativasEFuturas.sort((a, b) => new Date(a.data_inicio) - new Date(b.data_inicio));
-  // Encerradas: das finalizadas mais recentemente para as mais antigas
   passadas.sort((a, b) => new Date(b.data_fim) - new Date(a.data_fim));
 
-  // 2. Coloca ativas/futuras no topo e limita a exibição a no máximo 10 agendamentos
   const reservasExibicao = [...ativasEFuturas, ...passadas].slice(0, 10);
-
   if (badge) badge.innerText = `${reservasExibicao.length} reservas`;
 
   if (reservasExibicao.length === 0) {
     container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Nenhum agendamento ativo no momento.</div>`;
-    if (calendar) calendar.refetchEvents();
     return;
   }
 
@@ -656,12 +533,12 @@ function renderHistoricoCards() {
 
     const nomeExibicao = veic?.nome_frota || r.nome_frota || r.veiculo_id || 'Veículo';
     const placaExibicao = veic?.placa ? `(${veic.placa})` : (r.placa ? `(${r.placa})` : '');
-    const condutorNome = (r.responsavel || '').split('@')[0];
+    const condutorNome = obterNomeMotoristaFormatado(r.responsavel);
     const isPendenteOffline = String(r.id).startsWith('temp_');
 
     const card = document.createElement('div');
     card.className = "bg-[#1E293B] border border-slate-700/70 rounded-2xl p-3 flex items-center justify-between shadow-xs transition hover:border-slate-600";
-    
+
     card.innerHTML = `
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
@@ -684,7 +561,7 @@ function renderHistoricoCards() {
         <span class="text-[9px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-semibold border border-slate-700 inline-block mt-0.5 max-w-[120px] truncate" title="${r.finalidade || 'Demandas'}">
           ${r.finalidade || 'Demandas'}
         </span>
-        ${(ehAdmin || ehDono) ? `
+        ${(ehAdmin || ehDono) && r.status !== 'CANCELADA' ? `
           <button onclick="cancelarReservaMobile('${r.id}', '${r.responsavel}')" class="block text-rose-400 hover:text-rose-300 text-[10px] font-bold mt-1 ml-auto">
             Cancelar
           </button>
@@ -693,10 +570,6 @@ function renderHistoricoCards() {
     `;
     container.appendChild(card);
   });
-
-  if (calendar) {
-    calendar.refetchEvents();
-  }
 }
 
 function initCalendario() {
@@ -717,36 +590,64 @@ function initCalendario() {
       month: 'Mês',
       list: 'Lista'
     },
-    events: function(fetchInfo, successCallback, failureCallback) {
-      const eventos = listaReservas.map(r => {
+    events: function (fetchInfo, successCallback, failureCallback) {
+      const agora = new Date().getTime();
+
+      const eventos = (listaReservas || []).map(r => {
         const veic = (veiculosReserva || []).find(v =>
           String(v.placa) === String(r.veiculo_id) ||
           String(v.id) === String(r.veiculo_id) ||
-          String(v.nome_frota) === String(r.veiculo_id) ||
-          String(v.uuid_veiculos) === String(r.uuid_veiculos || r.veiculo_id)
+          String(v.uuid_veiculos) === String(r.uuid_veiculos || r.veiculo_id) ||
+          String(v.nome_frota) === String(r.veiculo_id)
         );
 
         const nomeFrotaExibicao = veic?.nome_frota || r.nome_frota || r.veiculo_id || 'ARVO';
+        const condutorFormatado = obterNomeMotoristaFormatado(r.responsavel);
+        const statusUpper = String(r.status || '').toUpperCase().trim();
+        const dtInicio = new Date(r.data_inicio).getTime();
+
+        // CORES RIGOROSAS CONFORME SOLICITADO
+        let corFundo = '#65a30d'; // Verde-limão não fluorescente
+        let corBorda = '#4d7c0f';
+        let corTexto = '#ffffff';
+
+        if (statusUpper === 'CONCLUIDA' || statusUpper === 'FINALIZADA') {
+          corFundo = 'rgba(20, 83, 45, 0.70)'; // Verde escuro 70% transparente
+          corBorda = 'rgba(22, 101, 52, 0.85)';
+        } else if (statusUpper === 'CANCELADA') {
+          corFundo = 'rgba(220, 38, 38, 0.70)'; // Vermelho 70% transparente
+          corBorda = 'rgba(185, 28, 28, 0.85)';
+        } else if (agora < dtInicio) {
+          corFundo = '#65a30d'; // Verde-limão sóbrio (agendada/futura)
+          corBorda = '#4d7c0f';
+        } else {
+          // Em andamento
+          corFundo = 'rgba(2, 132, 199, 0.75)';
+          corBorda = '#0369a1';
+        }
 
         return {
           id: String(r.id),
-          title: `${nomeFrotaExibicao} - ${(r.responsavel || '').split('@')[0]}`,
+          title: `${nomeFrotaExibicao} - ${condutorFormatado}`,
           start: r.data_inicio,
           end: r.data_fim,
-          backgroundColor: coresCarros[nomeFrotaExibicao] || coresCarros[r.veiculo_id] || coresCarros.DEFAULT,
-          borderColor: coresCarros[nomeFrotaExibicao] || coresCarros[r.veiculo_id] || coresCarros.DEFAULT,
+          backgroundColor: corFundo,
+          borderColor: corBorda,
+          textColor: corTexto,
           extendedProps: {
-            responsavel: r.responsavel,
+            responsavel: condutorFormatado,
             finalidade: r.finalidade,
-            veiculo: nomeFrotaExibicao
+            veiculo: nomeFrotaExibicao,
+            status: r.status
           }
         };
       });
+
       successCallback(eventos);
     },
-    eventClick: function(info) {
+    eventClick: function (info) {
       const p = info.event.extendedProps;
-      alert(`🚗 Reserva: ${p.veiculo}\n👤 Condutor: ${p.responsavel}\n🎯 Finalidade: ${p.finalidade}\n📅 Início: ${formatarDataHora(info.event.start)}\n📅 Fim: ${formatarDataHora(info.event.end)}`);
+      alert(`🚗 Veículo: ${p.veiculo}\n👤 Condutor: ${p.responsavel}\n🎯 Finalidade: ${p.finalidade}\nStatus: ${p.status || 'Agendada'}\n📅 Início: ${formatarDataHora(info.event.start)}\n📅 Fim: ${formatarDataHora(info.event.end)}`);
     }
   });
 
@@ -754,7 +655,7 @@ function initCalendario() {
 }
 
 // =========================================================================
-// 7. CANCELAMENTO E SESSÃO
+// 7. CANCELAMENTO DE RESERVA
 // =========================================================================
 async function cancelarReservaMobile(reservaId, responsavel) {
   const ehAdmin = (usuarioLogado?.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
@@ -796,16 +697,12 @@ function handleMobileLogout() {
   }
 }
 
-// Exportações Globais para acionamento via inline HTML
+// Exportações Globais
 window.trocarAba = trocarAba;
 window.ajustarCamposModalidade = ajustarCamposModalidade;
-window.ajustarModalidadeReserva = ajustarCamposModalidade;
 window.salvarReservaMobile = salvarReservaMobile;
-window.handleSalvarReserva = salvarReservaMobile;
-window.handleSalvarReservaMobile = salvarReservaMobile;
 window.cancelarReservaMobile = cancelarReservaMobile;
 window.handleMobileLogout = handleMobileLogout;
 window.formatarDataHora = formatarDataHora;
-window.formatarApenasData = formatarApenasData;
 
 document.addEventListener('DOMContentLoaded', initReservasMobile);

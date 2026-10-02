@@ -25,6 +25,33 @@ let auditorias = [];
 let listaModelosReferencia = [];
 let currentUserIndex = 0;
 
+function obterNomeMotoristaFormatado(identificador) {
+  if (!identificador) return 'Condutor';
+  const idLimpo = String(identificador).toLowerCase().trim();
+  if (Array.isArray(usuarios) && usuarios.length > 0) {
+    const u = usuarios.find(user =>
+      (user.email || '').toLowerCase().trim() === idLimpo ||
+      String(user.id).trim() === idLimpo
+    );
+    if (u && u.nome && u.nome.trim() !== '') return u.nome.trim();
+  }
+  const base = idLimpo.includes('@') ? idLimpo.split('@')[0] : idLimpo;
+  return base
+    .replace(/[._-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
+}
+
+function formatarTempoSegundos(totalSegundos) {
+  if (!totalSegundos || isNaN(totalSegundos) || Number(totalSegundos) <= 0) return '0h 00m';
+  const seg = Math.round(Number(totalSegundos));
+  const h = Math.floor(seg / 3600);
+  const m = Math.floor((seg % 3600) / 60);
+  return `${h}h ${String(m).padStart(2, '0')}m`;
+}
+
 // =========================================================================
 // 2. CONTROLE DE SESSÃO, PERMISSÕES E LOGOUT
 // =========================================================================
@@ -109,7 +136,7 @@ function atualizarUsuarioNoCabecalho() {
   if (usuarios.length === 0) return;
   const u = usuarios[currentUserIndex] || usuarios[0];
   if (!u) return;
-  
+
   const display = document.getElementById('topUserDisplay') || document.getElementById('header-user-nome');
   const cnh = document.getElementById('topUserCnh') || document.getElementById('header-user-cnh');
   const inputUsuario = document.getElementById('form-inicio-Usuario');
@@ -124,9 +151,9 @@ function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
 
   const temas = {
     sucesso: { icon: 'ph-check-circle', bg: '#dcfce7', text: '#15803d', btn: '#15803d' },
-    erro:    { icon: 'ph-x-circle',     bg: '#ffe4e6', text: '#e11d48', btn: '#e11d48' },
-    aviso:   { icon: 'ph-warning',      bg: '#fef3c7', text: '#d97706', btn: '#d97706' },
-    info:    { icon: 'ph-info',         bg: '#e0f2fe', text: '#0284c7', btn: '#0284c7' }
+    erro: { icon: 'ph-x-circle', bg: '#ffe4e6', text: '#e11d48', btn: '#e11d48' },
+    aviso: { icon: 'ph-warning', bg: '#fef3c7', text: '#d97706', btn: '#d97706' },
+    info: { icon: 'ph-info', bg: '#e0f2fe', text: '#0284c7', btn: '#0284c7' }
   };
 
   const config = temas[tipo] || temas.aviso;
@@ -241,13 +268,13 @@ window.alert = function (mensagem) {
 // 2.1 COORDENADAS BASE DE LOCALIZAÇÃO ESCRITÓRIOS
 // =========================================================================
 const COORDENADAS_BASES = {
-  "BASE CENTRAL ALEGRE": { lat: -20.76219103647448, lng: -41.53181192340939 },
-  "ALEGRE": { lat: -20.761921434859808, lng: -41.533884461049986 },
-  "GUAÇUÍ": { lat: -20.770687031454834, lng: -41.674244082674676 },
-  "CASTELO": { lat: -20.60686706579922, lng: -41.20409608718904 },
-  "MUNIZ FREIRE": { lat: -20.463385075249683, lng: -41.41357126008319 },
-  "LOCADORA CACHOEIRO": { lat: -20.858238836550413, lng: -41.12056777598245 },
-  "LOCADORA CASTELO": { lat: -20.602361586924207, lng: -41.21215241943304 }
+  "BASE CENTRAL ALEGRE": { lat: -20.762191, lng: -41.531811 },
+  "ALEGRE": { lat: -20.761921, lng: -41.533884 },
+  "GUAÇUÍ": { lat: -20.770687, lng: -41.674244 },
+  "CASTELO": { lat: -20.606867, lng: -41.204096 },
+  "MUNIZ FREIRE": { lat: -20.463385, lng: -41.413571 },
+  "LOCADORA CACHOEIRO": { lat: -20.858238, lng: -41.120567 },
+  "LOCADORA CASTELO": { lat: -20.602361, lng: -41.212152 }
 };
 
 async function obterCoordenadasPartida(origemTexto) {
@@ -298,18 +325,18 @@ function setModule(mod) {
     if (modGestao) modGestao.classList.add('hidden');
     if (subnavOperacao) subnavOperacao.classList.remove('hidden');
     if (subnavGestao) subnavGestao.classList.add('hidden');
-    
-    if (btnModOperacao) btnModOperacao.className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
-    if (btnModGestao) btnModGestao.className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
+
+    if (btnModOperacao) btnModOperacao.className = "btn-module-nav module-nav-active";
+    if (btnModGestao) btnModGestao.className = "btn-module-nav module-nav-inactive";
     setSubTab('operacao', 'saida');
   } else {
     if (modOperacao) modOperacao.classList.add('hidden');
     if (modGestao) modGestao.classList.remove('hidden');
     if (subnavOperacao) subnavOperacao.classList.add('hidden');
     if (subnavGestao) subnavGestao.classList.remove('hidden');
-    
-    if (btnModGestao) btnModGestao.className = "module-nav-active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
-    if (btnModOperacao) btnModOperacao.className = "text-brand-300 hover:text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5";
+
+    if (btnModGestao) btnModGestao.className = "btn-module-nav module-nav-active";
+    if (btnModOperacao) btnModOperacao.className = "btn-module-nav module-nav-inactive";
     setSubTab('gestao', 'dashboard');
   }
 }
@@ -317,7 +344,7 @@ function setModule(mod) {
 function setSubTab(moduleName, tab) {
   if (moduleName === 'operacao') {
     const abasOperacao = ['saida', 'retorno', 'minhas-rotas'];
-    
+
     abasOperacao.forEach(t => {
       const view = document.getElementById(`view-${t}`) || document.getElementById(`tab-${t}`);
       if (view) {
@@ -361,13 +388,13 @@ function setSubTab(moduleName, tab) {
 
   } else {
     if ((tab === 'cad-veiculos' || tab === 'cad-usuarios') && typeof ehAdminMaster === 'function' && !ehAdminMaster()) {
-      alert("Acesso restrito: Usuário sem permissão para cadastrar ou editar veículos e condutores.");
+      alert("Acesso restrito: Usuário sem permissão para gerenciar cadastros.");
       tab = 'dashboard';
     }
 
     const abasGestao = ['dashboard', 'cad-veiculos', 'cad-usuarios', 'manutencao'];
     const classeInativo = "flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all active:scale-95 cursor-pointer whitespace-nowrap";
-    const classeAtivo   = "flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm bg-[#1E5E3A] text-white shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap";
+    const classeAtivo = "flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm bg-[#1E5E3A] text-white shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap";
 
     abasGestao.forEach(t => {
       const view = document.getElementById(`view-${t}`);
@@ -445,9 +472,9 @@ function atualizarKmManutencaoAba() {
   const inputKm = document.getElementById('manut-aba-km');
   if (!inputKm || !selValor) return;
 
-  const v = (veiculos || []).find(item => 
-    String(item.placa) === String(selValor) || 
-    String(item.nome_frota) === String(selValor) || 
+  const v = (veiculos || []).find(item =>
+    String(item.placa) === String(selValor) ||
+    String(item.nome_frota) === String(selValor) ||
     String(item.uuid_veiculos) === String(selValor) ||
     String(item.id) === String(selValor)
   );
@@ -465,37 +492,24 @@ async function carregarTodosDadosDoBanco() {
   if (!usuarioSessao) return;
 
   try {
-    const { data: dadosVeiculos, error: errV } = await db.from('veiculos').select('*');
-    if (errV) throw errV;
-    veiculos = dadosVeiculos || [];
+    const [resV, resU, resR, resA, resAud, resRef] = await Promise.all([
+      db.from('veiculos').select('*'),
+      db.from('usuarios').select('*').order('nome'),
+      db.from('rotas').select('*').order('created_at', { ascending: false }),
+      db.from('abastecimentos').select('*').order('data_hora', { ascending: false }),
+      db.from('auditoria_alertas').select('*').order('data_hora', { ascending: false }),
+      db.from('modelos_referencia').select('*')
+    ]);
 
-    const { data: dadosUsuarios, error: errU } = await db.from('usuarios').select('*').order('nome');
-    if (errU) throw errU;
-    usuarios = dadosUsuarios || [];
-
-    const { data: dadosRotas, error: errR } = await db.from('rotas').select('*').order('created_at', { ascending: false });
-    if (errR) throw errR;
-    rotas = dadosRotas || [];
-
-    const { data: dadosAbast } = await db.from('abastecimentos').select('*').order('data_hora', { ascending: false });
-    if (dadosAbast) abastecimentos = dadosAbast;
-
-    try {
-      const { data: dadosAuditoria } = await db.from('auditoria_alertas').select('*').order('data_hora', { ascending: false });
-      if (dadosAuditoria) auditorias = dadosAuditoria;
-    } catch (e) {
-      auditorias = [];
-    }
-
-    try {
-      const { data: dadosRef } = await db.from('modelos_referencia').select('*');
-      if (dadosRef) listaModelosReferencia = dadosRef;
-    } catch (e) {}
+    veiculos = resV.data || [];
+    usuarios = resU.data || [];
+    rotas = resR.data || [];
+    abastecimentos = resA.data || [];
+    auditorias = resAud.data || [];
+    listaModelosReferencia = resRef.data || [];
 
     const userIndex = usuarios.findIndex(u => (u.email || '').toLowerCase() === (usuarioSessao.email || '').toLowerCase());
-    if (userIndex !== -1) {
-      currentUserIndex = userIndex;
-    }
+    if (userIndex !== -1) currentUserIndex = userIndex;
 
     atualizarUsuarioNoCabecalho();
     aplicarPermissoesUsuario();
@@ -538,6 +552,53 @@ function toggleOutroDestino(valor) {
   }
 }
 
+function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos = []) {
+  const placa = veiculo?.placa;
+  const vId = veiculo?.id;
+  const uuid = veiculo?.uuid_veiculos;
+  const nomeFrota = veiculo?.nome_frota;
+
+  const abastsCarro = (listaAbastecimentos || [])
+    .filter(a => {
+      const bateuVeiculo = (placa && String(a.placa) === String(placa)) ||
+        (vId && String(a.veiculo_id) === String(vId)) ||
+        (uuid && String(a.uuid_veiculos) === String(uuid)) ||
+        (nomeFrota && String(a.veiculo_id) === String(nomeFrota));
+      return bateuVeiculo && Number(a.km_atual) > 0 && Number(a.quantidade_litros) > 0;
+    })
+    .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
+
+  const combAtual = tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum';
+
+  const abastsTipo = abastsCarro.filter(a =>
+    (a.tipo_combustivel || '').toUpperCase() === combAtual.toUpperCase()
+  );
+
+  if (abastsTipo.length >= 2) {
+    const kmRecente = Number(abastsTipo[0].km_atual);
+    const kmAnterior = Number(abastsTipo[1].km_atual);
+    const litros = Number(abastsTipo[0].quantidade_litros);
+    const deltaKm = kmRecente - kmAnterior;
+
+    if (deltaKm > 0 && litros > 0) {
+      const mediaCalculada = deltaKm / litros;
+      if (mediaCalculada >= 3 && mediaCalculada <= 35) {
+        return Number(mediaCalculada.toFixed(2));
+      }
+    }
+  }
+
+  const cMin = Number(veiculo?.consumo_min || 10);
+  const cMax = Number(veiculo?.consumo_max || 14);
+  let mediaFabricante = (cMin + cMax) / 2;
+
+  if (combAtual.toUpperCase().includes('ETANOL') || combAtual.toUpperCase().includes('ÁLCOOL')) {
+    mediaFabricante *= 0.7;
+  }
+
+  return Number(mediaFabricante.toFixed(2));
+}
+
 async function handleInicioRota(e) {
   e.preventDefault();
 
@@ -572,6 +633,7 @@ async function handleInicioRota(e) {
   const nomeCarro = veiculo.nome_frota || veiculo.id;
   const placaCarro = veiculo.placa;
 
+  // Trava de Reserva Ativa
   try {
     const { data: reservasCarro, error: errRes } = await db
       .from('reservas')
@@ -581,9 +643,9 @@ async function handleInicioRota(e) {
     if (!errRes && reservasCarro) {
       const reservaAtiva = reservasCarro.find(r => {
         const bateuCarro = String(r.veiculo_id) === String(nomeCarro) ||
-                           String(r.veiculo_id) === String(veiculo.id) ||
-                           String(r.veiculo_id) === String(placaCarro) ||
-                           String(r.placa) === String(placaCarro);
+          String(r.veiculo_id) === String(veiculo.id) ||
+          String(r.veiculo_id) === String(placaCarro) ||
+          String(r.placa) === String(placaCarro);
 
         const ini = new Date(r.data_inicio).getTime();
         const fim = new Date(r.data_fim).getTime();
@@ -645,7 +707,7 @@ async function handleInicioRota(e) {
     }
   }
 
-  let kmSaidaFinal = (isExterno && !isNaN(kmInformadoInput) && kmInformadoInput > 0) ? kmInformadoInput : kmBanco;
+  const kmSaidaFinal = (isExterno && !isNaN(kmInformadoInput) && kmInformadoInput > 0) ? kmInformadoInput : kmBanco;
 
   if (btn) {
     btn.disabled = true;
@@ -671,6 +733,9 @@ async function handleInicioRota(e) {
     consumo_litros: null,
     anomalia: '',
     status: 'Em Uso',
+    gps_autorizado: Boolean(coordsPartida?.tipo === 'GPS_REAL'),
+    tempo_movimento_segundos: 0,
+    tempo_parado_segundos: 0,
     coords_origem: coordsPartida,
     coordenadas: coordsPartida ? [{ lat: coordsPartida.lat, lng: coordsPartida.lng, timestamp: dataHoraSaidaAtual }] : []
   };
@@ -700,7 +765,7 @@ async function handleInicioRota(e) {
 
     e.target.reset();
     if (typeof toggleOutroOrigem === 'function') toggleOutroOrigem('');
-    
+
     alert(`✅ Rota ${rotaIdCriada ? '#' + rotaIdCriada : ''} iniciada com sucesso!`);
     await carregarTodosDadosDoBanco();
     setSubTab('operacao', 'retorno');
@@ -715,59 +780,12 @@ async function handleInicioRota(e) {
   }
 }
 
-function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos = []) {
-  const placa = veiculo?.placa;
-  const vId = veiculo?.id;
-  const uuid = veiculo?.uuid_veiculos;
-  const nomeFrota = veiculo?.nome_frota;
-
-  const abastsCarro = (listaAbastecimentos || [])
-    .filter(a => {
-      const bateuVeiculo = (placa && String(a.placa) === String(placa)) ||
-                           (vId && String(a.veiculo_id) === String(vId)) ||
-                           (uuid && String(a.uuid_veiculos) === String(uuid)) ||
-                           (nomeFrota && String(a.veiculo_id) === String(nomeFrota));
-      return bateuVeiculo && Number(a.km_atual) > 0 && Number(a.quantidade_litros) > 0;
-    })
-    .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
-
-  const combAtual = tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum';
-
-  const abastsTipo = abastsCarro.filter(a => 
-    (a.tipo_combustivel || '').toUpperCase() === combAtual.toUpperCase()
-  );
-
-  if (abastsTipo.length >= 2) {
-    const kmRecente = Number(abastsTipo[0].km_atual);
-    const kmAnterior = Number(abastsTipo[1].km_atual);
-    const litros = Number(abastsTipo[0].quantidade_litros);
-    const deltaKm = kmRecente - kmAnterior;
-
-    if (deltaKm > 0 && litros > 0) {
-      const mediaCalculada = deltaKm / litros;
-      if (mediaCalculada >= 3 && mediaCalculada <= 35) {
-        return Number(mediaCalculada.toFixed(2));
-      }
-    }
-  }
-
-  const cMin = Number(veiculo?.consumo_min || 10);
-  const cMax = Number(veiculo?.consumo_max || 14);
-  let mediaFabricante = (cMin + cMax) / 2;
-
-  if (combAtual.toUpperCase().includes('ETANOL') || combAtual.toUpperCase().includes('ÁLCOOL')) {
-    mediaFabricante = mediaFabricante * 0.7;
-  }
-
-  return Number(mediaFabricante.toFixed(2));
-}
-
 async function handleFimRota(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-submit-fim');
   const rotaId = document.getElementById('form-fim-rota-select')?.value;
   const kmFinal = parseFloat(document.getElementById('form-fim-km')?.value);
-  
+
   const selectDestino = document.getElementById('form-fim-destino')?.value;
   const textoDestino = document.getElementById('form-fim-destino-texto')?.value?.trim().toUpperCase() || '';
   const destinoFinal = selectDestino === 'OUTRO' ? textoDestino : selectDestino;
@@ -795,10 +813,10 @@ async function handleFimRota(e) {
     return;
   }
 
-  const veiculo = (veiculos || []).find(v => 
-    String(v.id) === String(rota?.veiculo_id) || 
-    String(v.uuid_veiculos) === String(rota?.veiculo_id) || 
-    String(v.nome_frota) === String(rota?.veiculo_id) || 
+  const veiculo = (veiculos || []).find(v =>
+    String(v.id) === String(rota?.veiculo_id) ||
+    String(v.uuid_veiculos) === String(rota?.veiculo_id) ||
+    String(v.nome_frota) === String(rota?.veiculo_id) ||
     String(v.placa) === String(rota?.veiculo_id)
   ) || {};
 
@@ -813,48 +831,45 @@ async function handleFimRota(e) {
   }
 
   const situacao = document.querySelector('input[name="situacao_carro"]:checked')?.value || 'SEM';
-  let anomaliaTexto = situacao === 'COM' ? (document.getElementById('form-fim-anomalia')?.value?.trim() || '') : '';
-
+  const anomaliaTexto = situacao === 'COM' ? (document.getElementById('form-fim-anomalia')?.value?.trim() || '') : '';
   const deltaKm = kmFinal - Number(rota.km_saida);
 
-  // --- CÁLCULO DE CONSUMO E COMBUSTÍVEL PRIMEIRO ---
-  let histAbast = [];
-  if (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos) && abastecimentos.length > 0) {
-    histAbast = abastecimentos;
-  } else {
-    const localCache = localStorage.getItem('arvo_cache_abastecimentos');
-    if (localCache) {
-      try { histAbast = JSON.parse(localCache); } catch (e) { histAbast = []; }
-    }
-  }
+  let histAbast = (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos) && abastecimentos.length > 0)
+    ? abastecimentos
+    : [];
 
   let medConsumo = 12.3;
-  if (typeof obterMediaConsumoEsperada === 'function') {
-    try {
-      medConsumo = obterMediaConsumoEsperada(veiculo, null, histAbast);
-    } catch (e) {
-      medConsumo = 12.3;
-    }
-    if (!medConsumo || isNaN(medConsumo) || medConsumo <= 0) medConsumo = 12.3;
-  } else {
-    medConsumo = (Number(veiculo.consumo_min || 10) + Number(veiculo.consumo_max || 14)) / 2;
+  try {
+    medConsumo = obterMediaConsumoEsperada(veiculo, null, histAbast);
+  } catch (e) {
+    medConsumo = 12.3;
   }
+  if (!medConsumo || isNaN(medConsumo) || medConsumo <= 0) medConsumo = 12.3;
 
   const litrosEst = Number((deltaKm / medConsumo).toFixed(2));
   const capTanque = Number(veiculo.tanque || 45);
   const tanqueAnterior = (veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined)
     ? Number(veiculo.tanque_virtual)
     : capTanque;
-  
+
   const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosEst).toFixed(2));
   const dataHoraRetornoAtual = new Date().toISOString();
 
-  // --- 1. APURAÇÃO DA EFICIÊNCIA (ECO-SCORE) ---
+  // Cálculo de tempos com suporte a telemetria GPS e proporcionalidade de rota
+  let segMov = Number(rota.tempo_movimento_segundos || 0);
+  let segPar = Number(rota.tempo_parado_segundos || 0);
+  if (segMov === 0 && segPar === 0 && rota.data_saida) {
+    const totalSeg = Math.max(0, (new Date(dataHoraRetornoAtual) - new Date(rota.data_saida)) / 1000);
+    segMov = Math.round(totalSeg * 0.75);
+    segPar = Math.round(totalSeg * 0.25);
+  }
+
+  // Eficiência Eco-score
   const mediaEsperada = medConsumo;
   const mediaRealRota = (deltaKm > 0 && litrosEst > 0) ? Number((deltaKm / litrosEst).toFixed(2)) : mediaEsperada;
   const scoreEco = Number(Math.min(100, Math.max(0, (mediaRealRota / mediaEsperada) * 100)).toFixed(1));
 
-  // --- 2. APURAÇÃO PREDITIVA DE REVISÃO ---
+  // Alerta preditivo de revisão
   const kmRevisaoBase = Number(veiculo.km_ultima_revisao || 0);
   const intervalo = Number(veiculo.km_intervalo_revisao || 10000);
   const kmProximaRevisao = kmRevisaoBase + intervalo;
@@ -867,7 +882,7 @@ async function handleFimRota(e) {
         placa: veiculo.placa,
         responsavel: rota.responsavel,
         tipo_alerta: 'REVISAO_VENCIDA',
-        detalhes: kmRestantesRevisao <= 0 
+        detalhes: kmRestantesRevisao <= 0
           ? `Revisão ULTRAPASSADA em ${Math.abs(kmRestantesRevisao)} km!`
           : `Veículo próximo da revisão preventiva (${kmRestantesRevisao} km restantes).`
       }]);
@@ -887,9 +902,11 @@ async function handleFimRota(e) {
       status: 'Concluida',
       anomalia: anomaliaTexto,
       data_retorno: dataHoraRetornoAtual,
+      tempo_movimento_segundos: segMov,
+      tempo_parado_segundos: segPar,
       media_real_apurada: mediaRealRota,
       media_esperada_rota: mediaEsperada,
-      score_eco: scoreEco,
+      score_eco: scoreEco
     }).eq('id', rota.id);
 
     if (erroRota) throw erroRota;
@@ -919,7 +936,7 @@ async function handleFimRota(e) {
         .or(condicoesVeiculo.join(','));
     }
 
-    // --- ENCERRAMENTO INTELIGENTE DE RESERVA COM FILTRO TEMPORAL ---
+    // Encerramento de reservas pendentes
     try {
       const condicoesReserva = [];
       if (rota.veiculo_id) condicoesReserva.push(`veiculo_id.eq.${rota.veiculo_id}`);
@@ -932,7 +949,7 @@ async function handleFimRota(e) {
       const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
 
       let queryReservas = db.from('reservas')
-        .update({ 
+        .update({
           status: 'CONCLUIDA',
           updated_at: dataHoraRetornoAtual,
           updated_by: (sessao?.email || rota.responsavel).toLowerCase().trim()
@@ -974,7 +991,7 @@ function formatarDataHora(dataIso) {
   if (!dataIso) return '-';
   const data = new Date(dataIso);
   if (isNaN(data.getTime())) return dataIso;
-  
+
   return data.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -1030,8 +1047,7 @@ async function plotarRotaNoMapa(rotaId) {
   const lblTipo = document.getElementById('mapa-tipo-tracado');
   if (lblStatus) {
     lblStatus.innerText = `Rota #${rota.id} (${rota.placa || rota.veiculo_id || ''})`.trim();
-    lblStatus.classList.remove('text-slate-400');
-    lblStatus.classList.add('text-slate-800', 'font-extrabold');
+    lblStatus.className = 'text-[10px] font-mono font-extrabold text-slate-800 truncate max-w-[130px]';
   }
 
   document.querySelectorAll('#tabelaHistorico tr').forEach(tr => tr.classList.remove('bg-emerald-50/80'));
@@ -1254,7 +1270,7 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
     const rPlaca = (r.placa || '').trim().toUpperCase();
     const rVeic = (r.veiculo_id ? String(r.veiculo_id) : '').trim().toUpperCase();
     return ((vPlaca && (rPlaca === vPlaca || rVeic === vPlaca)) || (vNome && rVeic === vNome)) &&
-           r.status === 'Concluida' && Number(r.km_total) > 0 && Number(r.consumo_litros) > 0;
+      r.status === 'Concluida' && Number(r.km_total) > 0 && Number(r.consumo_litros) > 0;
   });
 
   let mediaCalculada = 0;
@@ -1327,13 +1343,9 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
 
   let condutorNome = '';
   if (isEmUso && rotaAtiva) {
-    const emailDono = (rotaAtiva.responsavel || '').toLowerCase().trim();
-    const uObj = (typeof usuarios !== 'undefined' ? usuarios : []).find(u => (u.email || '').toLowerCase().trim() === emailDono);
-    condutorNome = uObj?.nome || emailDono.split('@')[0];
+    condutorNome = obterNomeMotoristaFormatado(rotaAtiva.responsavel);
   } else if (isExterno && veiculo.motorista_autorizado) {
-    const emailDono = veiculo.motorista_autorizado.toLowerCase().trim();
-    const uObj = (typeof usuarios !== 'undefined' ? usuarios : []).find(u => (u.email || '').toLowerCase().trim() === emailDono);
-    condutorNome = uObj?.nome || veiculo.motorista_autorizado;
+    condutorNome = obterNomeMotoristaFormatado(veiculo.motorista_autorizado);
   }
 
   let timerHTML = '';
@@ -1413,9 +1425,9 @@ function montarCardVeiculoHTML(veiculo, options = {}) {
 
   const estiloBg = isEmUso
     ? "background: linear-gradient(180deg, #2b221b 0%, #1e1713 100%); border: 1px solid rgba(217,119,6,0.35);"
-    : (isExterno 
-        ? "background: linear-gradient(180deg, #182230 0%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.1);"
-        : "background: linear-gradient(180deg, #211f1d 0%, #171514 100%); border: 1px solid rgba(255,255,255,0.08);");
+    : (isExterno
+      ? "background: linear-gradient(180deg, #182230 0%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.1);"
+      : "background: linear-gradient(180deg, #211f1d 0%, #171514 100%); border: 1px solid rgba(255,255,255,0.08);");
 
   return `
     <div class="relative rounded-3xl p-5 shadow-2xl flex flex-col justify-between text-white overflow-hidden min-h-[420px] w-full transition" style="${estiloBg}">
@@ -1508,10 +1520,10 @@ function renderPreviewCardRetorno() {
   const rota = (rotas || []).find(r => String(r.id) === String(rotaId));
 
   if (rota) {
-    const veiculo = (veiculos || []).find(v => 
-      String(v.id) === String(rota.veiculo_id) || 
-      String(v.uuid_veiculos) === String(rota.veiculo_id) || 
-      String(v.nome_frota) === String(rota.veiculo_id) || 
+    const veiculo = (veiculos || []).find(v =>
+      String(v.id) === String(rota.veiculo_id) ||
+      String(v.uuid_veiculos) === String(rota.veiculo_id) ||
+      String(v.nome_frota) === String(rota.veiculo_id) ||
       String(v.placa) === String(rota.veiculo_id)
     ) || { nome_frota: rota.veiculo_id, placa: rota.placa, km_atual: rota.km_saida, tanque: 47 };
 
@@ -1573,7 +1585,7 @@ async function handleCadVeiculo(e) {
     alert("Permissão negada: Apenas o administrador geral pode cadastrar veículos.");
     return;
   }
-  
+
   const placa = document.getElementById('cad-v-placa').value.toUpperCase().trim();
   const idInformado = document.getElementById('cad-v-id')?.value?.toUpperCase().trim();
 
@@ -1644,7 +1656,7 @@ function abrirModalEditVeiculo(veiculoId) {
   setVal('edit-v-intervalorevisao', v.km_intervalo_revisao || 10000);
   setVal('edit-v-status', v.status || 'Disponivel');
   setVal('edit-v-anomalias', v.anomalias || '');
-  
+
   const selectTipo = document.getElementById('edit-v-tipofrota');
   if (selectTipo) {
     selectTipo.value = (v.tipo_frota || 'PROPRIO').toUpperCase();
@@ -1707,8 +1719,8 @@ async function handleSalvarEditVeiculo(e) {
     anomalias: getVal('edit-v-anomalias')
   };
 
-  const btnSalvar = document.querySelector('#modal-edit-veiculo button[type="submit"]') || 
-                    document.querySelector('#formEditVeiculo button[type="submit"]');
+  const btnSalvar = document.querySelector('#modal-edit-veiculo button[type="submit"]') ||
+    document.querySelector('#formEditVeiculo button[type="submit"]');
   if (btnSalvar) {
     btnSalvar.disabled = true;
     btnSalvar.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Salvando...`;
@@ -1766,9 +1778,9 @@ async function handleApagarVeiculo(veiculoId) {
     return;
   }
 
-  const veic = veiculos.find(v => 
-    String(v.id) === String(veiculoId) || 
-    String(v.uuid_veiculos) === String(veiculoId) || 
+  const veic = veiculos.find(v =>
+    String(v.id) === String(veiculoId) ||
+    String(v.uuid_veiculos) === String(veiculoId) ||
     String(v.placa) === String(veiculoId)
   );
 
@@ -1972,14 +1984,13 @@ function renderRankingEcoDriving() {
   const boxAlerta = document.getElementById('alerta-box-auditoria');
   const boxAlertaTexto = document.getElementById('alerta-box-texto');
 
-  const rotasValidas = (rotas || []).filter(r => 
+  const rotasValidas = (rotas || []).filter(r =>
     r.status === 'Concluida' && Number(r.km_total) > 0
   );
 
-  // 1. Alertas de Auditoria
   const listaAuditorias = (typeof auditorias !== 'undefined' && Array.isArray(auditorias)) ? auditorias : [];
   const alertasPendentes = listaAuditorias.filter(a => a.status_resolucao === 'PENDENTE');
-  
+
   if (kpiAuditoria) {
     kpiAuditoria.innerText = alertasPendentes.length;
   }
@@ -2003,36 +2014,10 @@ function renderRankingEcoDriving() {
     return;
   }
 
-  // 2. Identificação do Mês Vigente
   const agora = new Date();
   const mesAtual = agora.getMonth();
   const anoAtual = agora.getFullYear();
 
-  // Helper para formatar o nome cadastrado
-  const obterNomeCondutorLimpo = (emailOuNome) => {
-    if (!emailOuNome) return 'Condutor';
-    const emailLimpo = String(emailOuNome).toLowerCase().trim();
-    
-    // Procura na lista global de usuários cadastrados
-    if (typeof usuarios !== 'undefined' && Array.isArray(usuarios)) {
-      const u = usuarios.find(user => (user.email || '').toLowerCase().trim() === emailLimpo);
-      if (u?.nome && u.nome.trim() !== '') {
-        return u.nome.replace(/\./g, ' ').trim();
-      }
-    }
-
-    // Fallback: se for e-mail, extrai o usuário e troca ponto por espaço com primeira letra maiúscula
-    const base = emailLimpo.includes('@') ? emailLimpo.split('@')[0] : emailLimpo;
-    return base
-      .replace(/\./g, ' ')
-      .replace(/_/g, ' ')
-      .split(' ')
-      .filter(Boolean)
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ');
-  };
-
-  // 3. Agrupamento Total e Mensal por Condutor
   const agrupadoPorMotorista = {};
 
   rotasValidas.forEach(r => {
@@ -2040,7 +2025,7 @@ function renderRankingEcoDriving() {
     if (!agrupadoPorMotorista[chave]) {
       agrupadoPorMotorista[chave] = {
         responsavelOriginal: r.responsavel,
-        nomeExibicao: obterNomeCondutorLimpo(r.responsavel),
+        nomeExibicao: obterNomeMotoristaFormatado(r.responsavel),
         totalKm: 0,
         totalLitros: 0,
         rotasGerais: 0,
@@ -2053,7 +2038,6 @@ function renderRankingEcoDriving() {
     const km = Number(r.km_total || 0);
     const litros = Number(r.consumo_litros || 0);
 
-    // Apuração do Score da Viagem
     let scoreRota = Number(r.score_eco);
     if (!scoreRota || isNaN(scoreRota)) {
       const mediaEsperada = Number(r.media_esperada_rota || 12.3);
@@ -2061,13 +2045,11 @@ function renderRankingEcoDriving() {
       scoreRota = Math.min(100, Math.max(0, (mediaReal / mediaEsperada) * 100));
     }
 
-    // Totais acumulados
     agrupadoPorMotorista[chave].totalKm += km;
     agrupadoPorMotorista[chave].totalLitros += litros;
     agrupadoPorMotorista[chave].rotasGerais += 1;
     agrupadoPorMotorista[chave].somaScoreGeral += scoreRota;
 
-    // Totais do mês corrente
     const dataRef = new Date(r.data_retorno || r.data_saida || r.created_at);
     if (!isNaN(dataRef.getTime()) && dataRef.getMonth() === mesAtual && dataRef.getFullYear() === anoAtual) {
       agrupadoPorMotorista[chave].rotasMes += 1;
@@ -2075,7 +2057,6 @@ function renderRankingEcoDriving() {
     }
   });
 
-  // 4. Monta e Ordena o Ranking (Prioridade: Score do Mês > Score Total)
   const ranking = Object.values(agrupadoPorMotorista).map(m => {
     const scoreTotal = Number((m.somaScoreGeral / m.rotasGerais).toFixed(1));
     const scoreMes = m.rotasMes > 0 ? Number((m.somaScoreMes / m.rotasMes).toFixed(1)) : null;
@@ -2093,7 +2074,6 @@ function renderRankingEcoDriving() {
     return pontuacaoB - pontuacaoA;
   });
 
-  // 5. Atualiza KPI Topo
   if (kpiEco && ranking.length > 0) {
     const scoreGeral = (ranking.reduce((acc, cur) => acc + cur.scoreTotal, 0) / ranking.length).toFixed(1);
     kpiEco.innerHTML = `${scoreGeral} <span class="text-xs text-emerald-300 font-normal">pts</span>`;
@@ -2102,7 +2082,6 @@ function renderRankingEcoDriving() {
     }
   }
 
-  // 6. Renderização da Tabela
   tbody.innerHTML = '';
   ranking.forEach((cond, index) => {
     const posicao = index + 1;
@@ -2183,7 +2162,6 @@ async function handleAlterarMinhaSenha(e) {
   btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Gravando...`;
 
   try {
-    // 1. Confere se a senha atual está correta no banco
     const { data: usuario, error: erroBusca } = await db
       .from('usuarios')
       .select('id, senha')
@@ -2195,7 +2173,6 @@ async function handleAlterarMinhaSenha(e) {
       throw new Error("Senha atual incorreta.");
     }
 
-    // 2. Atualiza para a nova senha
     const { error: erroUpdate } = await db
       .from('usuarios')
       .update({ senha: senhaNova })
@@ -2212,7 +2189,6 @@ async function handleAlterarMinhaSenha(e) {
     btn.innerHTML = `Salvar`;
   }
 }
-
 
 function renderAll() {
   renderFleetGrid();
@@ -2244,10 +2220,10 @@ function renderFleetGrid() {
   container.innerHTML = '';
 
   const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
-  let user = (typeof usuarios !== 'undefined' && usuarios && typeof currentUserIndex !== 'undefined' && usuarios[currentUserIndex]) 
-    ? usuarios[currentUserIndex] 
+  let user = (typeof usuarios !== 'undefined' && usuarios && typeof currentUserIndex !== 'undefined' && usuarios[currentUserIndex])
+    ? usuarios[currentUserIndex]
     : null;
-    
+
   if (!user && rawSessao) {
     try { user = JSON.parse(rawSessao); } catch (e) { user = { email: rawSessao }; }
   }
@@ -2260,7 +2236,7 @@ function renderFleetGrid() {
     const isManutencao = v.status === 'Em Manutenção';
     const idAcao = v.id || v.uuid_veiculos || v.placa;
 
-    // --- 1. APURAÇÃO DE MANUTENÇÃO PREVENTIVA PREDITIVA ---
+    // Manutenção preventiva preditiva
     const kmAtual = Number(v.km_atual || 0);
     const kmUltimaRevisao = Number(v.km_ultima_revisao || 0);
     const intervaloRevisao = Number(v.km_intervalo_revisao || 10000);
@@ -2302,8 +2278,8 @@ function renderFleetGrid() {
         onclick: `abrirFinalizacaoDireta('${idAcao}')`
       } : (isManutencao ? null : {
         texto: 'Iniciar Rota &rarr;',
-        cor: (v.tipo_frota || '').toUpperCase() === 'EXTERNO' 
-          ? 'bg-white hover:bg-slate-100 text-slate-900 shadow-md' 
+        cor: (v.tipo_frota || '').toUpperCase() === 'EXTERNO'
+          ? 'bg-white hover:bg-slate-100 text-slate-900 shadow-md'
           : 'bg-[#15803d] hover:bg-[#166534] text-white',
         onclick: `abrirInicioDireto('${idAcao}')`
       })
@@ -2337,14 +2313,14 @@ function renderTabelaVeiculosCad() {
   const tbody = document.getElementById('tabelaVeiculosCadastrados');
   if (!tbody) return;
   tbody.innerHTML = '';
-  
+
   const podeAcoes = ehAdminMaster();
 
   const veiculosOrdenados = [...veiculos].sort((a, b) => {
     const aFora = a.status === 'Fora de Uso' ? 1 : 0;
     const bFora = b.status === 'Fora de Uso' ? 1 : 0;
     if (aFora !== bFora) return aFora - bFora;
-    
+
     const nomeA = (a.nome_frota || a.identificador || a.placa || a.id || '').toUpperCase();
     const nomeB = (b.nome_frota || b.identificador || b.placa || b.id || '').toUpperCase();
     return nomeA.localeCompare(nomeB);
@@ -2373,7 +2349,7 @@ function renderTabelaVeiculosCad() {
 
     const tr = document.createElement('tr');
     tr.className = `hover:bg-slate-50 transition ${isForaUso ? 'opacity-60 bg-slate-50' : ''}`;
-    
+
     tr.innerHTML = `
       <td class="py-3 px-3 font-extrabold text-slate-900">${nomeCarroArvo}</td>
       <td class="py-3 px-3">${v.marca || '-'}</td>
@@ -2460,15 +2436,23 @@ function renderSelectVeiculosInicio() {
   if (!select) return;
   select.innerHTML = '<option value="">Selecione um veículo...</option>';
 
-  (veiculos || []).filter(v => v.status === 'Disponivel').forEach(v => {
-    const nomeAmigavel = v.nome_frota || v.identificador || v.id;
+  const user = (usuarios && usuarios[currentUserIndex]) ? usuarios[currentUserIndex] : null;
 
+  (veiculos || []).filter(v => v.status === 'Disponivel').forEach(v => {
+    const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
+    const autorizado = (v.motorista_autorizado || '').toLowerCase().trim();
+    const userEmail = (user?.email || '').toLowerCase().trim();
+    const ehAdmin = userEmail === ADMIN_EMAIL.toLowerCase().trim();
+
+    if (isExterno && autorizado && autorizado !== userEmail && !ehAdmin) return;
+
+    const nomeAmigavel = v.nome_frota || v.identificador || v.id;
     const ultimasRotas = (typeof rotas !== 'undefined' && Array.isArray(rotas) ? rotas : [])
       .filter(r => {
         const bateuCarro = (v.placa && String(r.placa) === String(v.placa)) ||
-                           String(r.veiculo_id) === String(v.id) ||
-                           String(r.veiculo_id) === String(v.nome_frota) ||
-                           String(r.uuid_veiculos) === String(v.uuid_veiculos);
+          String(r.veiculo_id) === String(v.id) ||
+          String(r.veiculo_id) === String(v.nome_frota) ||
+          String(r.uuid_veiculos) === String(v.uuid_veiculos);
         return bateuCarro && r.status === 'Concluida' && r.km_retorno;
       })
       .sort((a, b) => new Date(b.data_retorno || b.data_saida) - new Date(a.data_retorno || a.data_saida));
@@ -2497,18 +2481,18 @@ function atualizarKmInicialPreenchido() {
     const ultimasRotasCarro = (typeof rotas !== 'undefined' && Array.isArray(rotas) ? rotas : [])
       .filter(r => {
         const bateuCarro = (v.placa && String(r.placa) === String(v.placa)) ||
-                           String(r.veiculo_id) === String(v.id) ||
-                           String(r.veiculo_id) === String(v.nome_frota) ||
-                           String(r.uuid_veiculos) === String(v.uuid_veiculos);
+          String(r.veiculo_id) === String(v.id) ||
+          String(r.veiculo_id) === String(v.nome_frota) ||
+          String(r.uuid_veiculos) === String(v.uuid_veiculos);
         return bateuCarro && r.status === 'Concluida' && r.km_retorno;
       })
       .sort((a, b) => new Date(b.data_retorno || b.data_saida) - new Date(a.data_retorno || a.data_saida));
 
     const ultimaRota = ultimasRotasCarro[0];
-    let kmSincronizado = (ultimaRota && Number(ultimaRota.km_retorno) > 0) ? Number(ultimaRota.km_retorno) : Number(v.km_atual || 0);
+    const kmSincronizado = (ultimaRota && Number(ultimaRota.km_retorno) > 0) ? Number(ultimaRota.km_retorno) : Number(v.km_atual || 0);
 
     inputKm.value = kmSincronizado;
-    
+
     const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO';
     if (isExterno) {
       inputKm.readOnly = false;
@@ -2541,13 +2525,13 @@ function renderSelectRotasFim() {
   if (!select) return;
   select.innerHTML = '<option value="">Selecione uma viagem em trânsito...</option>';
   rotas.filter(r => r.status === 'Em Uso').forEach(r => {
-    const veic = veiculos.find(v => 
-      String(v.id) === String(r.veiculo_id) || 
-      String(v.uuid_veiculos) === String(r.veiculo_id) || 
+    const veic = veiculos.find(v =>
+      String(v.id) === String(r.veiculo_id) ||
+      String(v.uuid_veiculos) === String(r.veiculo_id) ||
       String(v.nome_frota) === String(r.veiculo_id)
     );
     const nomeExibicao = r.nome_frota || (veic ? (veic.nome_frota || veic.identificador || veic.id) : r.veiculo_id);
-    select.innerHTML += `<option value="${r.id}">${r.id} | ${nomeExibicao} (${r.responsavel})</option>`;
+    select.innerHTML += `<option value="${r.id}">${r.id} | ${nomeExibicao} (${obterNomeMotoristaFormatado(r.responsavel)})</option>`;
   });
 }
 
@@ -2557,9 +2541,9 @@ function selecionarRotaFim() {
   const detalhes = document.getElementById('fim-detalhes-viagem');
 
   if (rota) {
-    const v = veiculos.find(item => 
-      String(item.id) === String(rota.veiculo_id) || 
-      String(item.uuid_veiculos) === String(rota.veiculo_id) || 
+    const v = veiculos.find(item =>
+      String(item.id) === String(rota.veiculo_id) ||
+      String(item.uuid_veiculos) === String(rota.veiculo_id) ||
       String(item.nome_frota) === String(rota.veiculo_id)
     ) || {};
 
@@ -2572,14 +2556,14 @@ function selecionarRotaFim() {
     if (infoCar) infoCar.innerText = `${nomeExibicao} [${v.placa || 'Sem Placa'}]`;
 
     const infoUser = document.getElementById('fim-info-Usuario') || document.getElementById('fim-info-condutor');
-    if (infoUser) infoUser.innerText = rota.responsavel;
+    if (infoUser) infoUser.innerText = obterNomeMotoristaFormatado(rota.responsavel);
 
     const infoKm = document.getElementById('fim-info-kmsaida');
     if (infoKm) infoKm.innerText = `${Number(rota.km_saida).toLocaleString('pt-BR')} km`;
 
     const infoConsumo = document.getElementById('fim-info-consumo-est');
     if (infoConsumo) infoConsumo.innerText = `Média de ${medConsumo} km/L`;
-    
+
     if (detalhes) detalhes.classList.remove('hidden');
 
     const inputKm = document.getElementById('form-fim-km');
@@ -2594,10 +2578,10 @@ function selecionarRotaFim() {
 }
 
 function abrirFinalizacaoDireta(identificador) {
-  const rota = rotas.find(r => 
+  const rota = rotas.find(r =>
     (String(r.id) === String(identificador) ||
-     String(r.veiculo_id) === String(identificador) || 
-     String(r.nome_frota) === String(identificador)) && 
+      String(r.veiculo_id) === String(identificador) ||
+      String(r.nome_frota) === String(identificador)) &&
     r.status === 'Em Uso'
   );
 
@@ -2626,15 +2610,15 @@ function calcularKmPercorrido() {
     feedback.className = "text-[11px] text-rose-600 font-bold mt-1 block";
   } else {
     const delta = kmFinal - Number(rota.km_saida);
-    const v = veiculos.find(item => 
-      String(item.id) === String(rota.veiculo_id) || 
-      String(item.uuid_veiculos) === String(rota.veiculo_id) || 
+    const v = veiculos.find(item =>
+      String(item.id) === String(rota.veiculo_id) ||
+      String(item.uuid_veiculos) === String(rota.veiculo_id) ||
       String(item.nome_frota) === String(rota.veiculo_id)
     ) || {};
     const medConsumo = ((Number(v.consumo_min || 10) + Number(v.consumo_max || 14)) / 2);
     const litrosEst = (delta / medConsumo).toFixed(1);
-    feedback.innerText = `Distância: ${delta} km (Consumo est.: ~${litrosEst} Litros)`;
-    feedback.className = "text-[11px] text-brand-700 font-bold mt-1 block";
+    feedback.innerText = `Distância apurada: ${delta} km (Consumo est.: ~${litrosEst} L)`;
+    feedback.className = "text-[11px] text-emerald-700 font-bold mt-1 block";
   }
 }
 
@@ -2646,6 +2630,9 @@ function toggleAnomaliaInput(show) {
   }
 }
 
+// =========================================================================
+// TABELA DE HISTÓRICO DE ROTAS
+// =========================================================================
 function renderHistorico() {
   const tbody = document.getElementById('tabelaHistorico');
   if (!tbody) return;
@@ -2662,17 +2649,16 @@ function renderHistorico() {
     .filter(rotaEstaAberta)
     .sort((a, b) => new Date(b.data_saida || b.created_at) - new Date(a.data_saida || a.created_at));
 
-  const ultimas10Concluidas = listaRotas
+  const ultimasConcluidas = listaRotas
     .filter(r => !rotaEstaAberta(r))
-    .sort((a, b) => new Date(b.data_retorno || b.data_saida || b.created_at) - new Date(a.data_retorno || a.data_saida || a.created_at))
-    .slice(0, 10);
+    .sort((a, b) => new Date(b.data_retorno || b.data_saida || b.created_at) - new Date(a.data_retorno || a.data_saida || a.created_at));
 
-  const rotasExibicao = [...rotasAbertas, ...ultimas10Concluidas];
+  const rotasExibicao = [...rotasAbertas, ...ultimasConcluidas];
 
   if (rotasExibicao.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="11" class="py-8 text-center text-slate-400 font-medium">Nenhuma rota registrada no momento.</td>
+        <td colspan="7" class="py-8 text-center text-slate-400 font-medium">Nenhuma rota registrada no momento.</td>
       </tr>
     `;
     return;
@@ -2680,35 +2666,102 @@ function renderHistorico() {
 
   rotasExibicao.forEach(r => {
     const isEmUso = rotaEstaAberta(r);
+
+    const condutorNome = typeof obterNomeMotoristaFormatado === 'function'
+      ? obterNomeMotoristaFormatado(r.responsavel)
+      : (r.responsavel_nome || (r.responsavel ? r.responsavel.split('@')[0] : 'Condutor'));
+
+    // Bloco de Tempos Auditados
+    let blocoTempoHTML = '';
+    if (isEmUso) {
+      const diffMs = Math.max(0, new Date().getTime() - new Date(r.data_saida || r.created_at).getTime());
+      const tempoDecorrido = formatarTempoSegundos(diffMs / 1000);
+      blocoTempoHTML = `
+        <span class="text-[9.5px] font-mono font-bold text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 block text-center truncate">
+          ⏳ ${tempoDecorrido}
+        </span>
+      `;
+    } else {
+      let segMov = Number(r.tempo_movimento_segundos || 0);
+      let segPar = Number(r.tempo_parado_segundos || 0);
+
+      if (segMov === 0 && segPar === 0 && r.data_saida && r.data_retorno) {
+  const duracaoTotalSeg = Math.max(0, (new Date(r.data_retorno) - new Date(r.data_saida)) / 1000);
+  const kmPercorrido = Number(r.km_total || 0);
+
+  if (kmPercorrido <= 0) {
+    segMov = 0;
+    segPar = duracaoTotalSeg;
+  } else {
+    // Adota velocidade operacional média urbana/mista de 30 km/h (1 km a cada 120 segundos)
+    const segPorKm = 120; // 30 km/h
+    const tempoEstimadoMovimento = Math.round(kmPercorrido * segPorKm);
+
+    // O tempo em movimento não pode ultrapassar a duração total da rota
+    segMov = Math.min(duracaoTotalSeg, tempoEstimadoMovimento);
+    segPar = Math.max(0, duracaoTotalSeg - segMov);
+  }
+}
+
+      blocoTempoHTML = `
+        <div class="flex flex-col gap-0.5 text-[9px] font-mono leading-tight">
+          <div class="bg-emerald-50 text-emerald-800 px-1 py-0.5 rounded flex justify-between">
+            <span class="font-bold">Rod:</span><span>${formatarTempoSegundos(segMov)}</span>
+          </div>
+          <div class="bg-amber-50 text-amber-800 px-1 py-0.5 rounded flex justify-between">
+            <span class="font-bold">Par:</span><span>${formatarTempoSegundos(segPar)}</span>
+          </div>
+        </div>
+      `;
+    }
+
     const tr = document.createElement('tr');
     tr.id = `tr-rota-${r.id}`;
-    tr.className = `hover:bg-slate-50 transition cursor-pointer ${isEmUso ? 'bg-amber-50/50 font-semibold' : ''}`;
-    tr.onclick = () => plotarRotaNoMapa(r.id);
+    tr.className = `hover:bg-slate-50 transition cursor-pointer ${isEmUso ? 'bg-amber-50/40 font-semibold' : ''}`;
+    tr.onclick = () => {
+      if (typeof plotarRotaNoMapa === 'function') plotarRotaNoMapa(r.id);
+    };
+
     tr.innerHTML = `
-      <td class="py-3 px-3 font-mono font-bold text-slate-800">${r.id}</td>
-      <td class="py-3 px-3 font-extrabold text-slate-900 text-sm">
-        ${r.nome_frota || r.veiculo_id || '-'}
+      <td class="py-2 px-1.5 font-mono font-bold text-slate-500 text-center">${r.id}</td>
+      <td class="py-2 px-1.5 truncate" title="${r.veiculo_id}">
+        <span class="font-bold text-slate-900 block truncate">${r.veiculo_id || '-'}</span>
+        <span class="text-[9px] text-slate-400 font-mono block">${r.placa || ''}</span>
       </td>
-      <td class="py-3 px-3 text-slate-600">${r.responsavel}</td>
-      <td class="py-3 px-3 font-medium">${r.origem} &rarr; ${r.destino || '<span class="text-amber-600 font-bold">Em trânsito</span>'}</td>
-      <td class="py-3 px-3 font-semibold text-slate-800">
-        <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] border border-slate-200">${r.finalidade || '-'}</span>
+      <td class="py-2 px-1.5 text-slate-800 font-semibold truncate" title="${condutorNome}">
+        ${condutorNome}
       </td>
-      <td class="py-3 px-3 font-mono text-[11px] text-slate-600">${formatarDataHora(r.data_saida)}</td>
-      <td class="py-3 px-3 font-mono text-[11px] text-slate-600">${r.data_retorno ? formatarDataHora(r.data_retorno) : '<span class="text-amber-600 font-bold">Em trânsito</span>'}</td>
-      <td class="py-3 px-3 text-center font-mono font-bold">${r.km_total ? `${r.km_total} km` : (isEmUso ? `<span class="text-slate-400 text-xs font-normal">Saída: ${r.km_saida}</span>` : '-')}</td>
-      <td class="py-3 px-3 text-center font-mono text-slate-600 text-[11px]">${r.consumo_litros ? `${r.consumo_litros} L` : '-'}</td>
-      <td class="py-3 px-3 max-w-xs">${r.anomalia ? `<span class="text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded text-[11px] font-medium">${r.anomalia}</span>` : '<span class="text-slate-400">-</span>'}</td>
-      <td class="py-3 px-3 text-center">
-        <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isEmUso ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-slate-100 text-slate-700'}">
-          ${isEmUso ? 'Em Uso' : (r.status || 'Concluída')}
+      <td class="py-2 px-1.5">
+        <div class="text-[10px] leading-tight truncate">
+          <span class="text-slate-500">${r.origem || 'Base'}</span> &rarr; 
+          <span class="font-bold text-slate-800">${r.destino || (isEmUso ? 'Em trânsito' : '-')}</span>
+        </div>
+        <span class="text-[8.5px] text-slate-400 font-mono block">
+          ${r.data_saida ? new Date(r.data_saida).toLocaleDateString('pt-BR') : ''}
+        </span>
+      </td>
+      <td class="py-2 px-1.5 truncate">
+        <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[9.5px] border border-slate-200 block truncate" title="${r.finalidade || 'Demandas'}">
+          ${r.finalidade || 'Demandas'}
+        </span>
+      </td>
+      <td class="py-2 px-1.5 text-center">
+        ${blocoTempoHTML}
+      </td>
+      <td class="py-2 px-1.5 text-center">
+        <span class="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider block truncate ${
+          isEmUso
+            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+            : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+        }">
+          ${isEmUso ? 'Em Uso' : (r.km_total ? `${r.km_total}km` : 'OK')}
         </span>
       </td>
     `;
     tbody.appendChild(tr);
   });
 
-  if (rotasExibicao.length > 0) {
+  if (rotasExibicao.length > 0 && typeof plotarRotaNoMapa === 'function') {
     plotarRotaNoMapa(rotasExibicao[0].id);
   }
 }
@@ -2737,7 +2790,7 @@ function dispararNotificacaoNativa(titulo, corpo) {
         icon: "/imagens/logo3d192.png",
         badge: "/imagens/logo3d192.png"
       });
-    } catch (e) {}
+    } catch (e) { }
   }
 }
 
@@ -2762,13 +2815,13 @@ function exibirPopUpAlerta(rota, horasAbertas) {
   const responsavelRota = String(rota.responsavel || '').toLowerCase().trim();
   const podeFinalizar = ehGestorOuAdmin() || (emailUsuario === responsavelRota) || (nomeUsuario && responsavelRota.includes(nomeUsuario));
 
-  const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v => 
-    String(v.id) === String(rota.veiculo_id) || 
-    String(v.uuid_veiculos) === String(rota.veiculo_id) || 
-    String(v.nome_frota) === String(rota.veiculo_id) || 
+  const veic = (typeof veiculos !== 'undefined' ? veiculos : []).find(v =>
+    String(v.id) === String(rota.veiculo_id) ||
+    String(v.uuid_veiculos) === String(rota.veiculo_id) ||
+    String(v.nome_frota) === String(rota.veiculo_id) ||
     String(v.placa) === String(rota.veiculo_id)
   );
-  
+
   const nomeCarro = rota.nome_frota || (veic ? (veic.nome_frota || veic.id) : rota.veiculo_id) || 'Veículo';
   const placaCarro = (veic && veic.placa) ? ` [${veic.placa}]` : (rota.placa ? ` [${rota.placa}]` : '');
 
@@ -2783,13 +2836,13 @@ function exibirPopUpAlerta(rota, horasAbertas) {
       <div>
         <h3 class="text-base font-black text-slate-900">Atenção: Rota Pendente!</h3>
         <p class="text-xs text-slate-500 mt-1">
-          A rota <b class="text-slate-800">#${rota.id}</b> com o veículo <b class="text-slate-800">${nomeCarro}${placaCarro}</b> (Condutor: <b>${rota.responsavel}</b>) está aberta há mais de <span class="text-rose-600 font-bold">${Math.floor(horasAbertas)} horas</span>.
+          A rota <b class="text-slate-800">#${rota.id}</b> com o veículo <b class="text-slate-800">${nomeCarro}${placaCarro}</b> (Condutor: <b>${obterNomeMotoristaFormatado(rota.responsavel)}</b>) está aberta há mais de <span class="text-rose-600 font-bold">${Math.floor(horasAbertas)} horas</span>.
         </p>
       </div>
       <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium text-left">
-        ${podeFinalizar 
-          ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento." 
-          : "Esta rota está aberta há mais de 12 horas. Apenas o condutor responsável ou a administração podem encerrá-la."}
+        ${podeFinalizar
+      ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento."
+      : "Esta rota está aberta há mais de 12 horas. Apenas o condutor responsável ou a administração podem encerrá-la."}
       </div>
       <div class="modal-alerta-actions">
         ${podeFinalizar ? `
@@ -2833,11 +2886,11 @@ async function verificarRotasExcedidas12h() {
         exibirPopUpAlerta(rota, diferencaHoras);
         dispararNotificacaoNativa(
           "⚠️ ARVO - Rota Excedida",
-          `A rota #${rota.id} (${rota.veiculo_id}) está aberta há ${Math.floor(diferencaHoras)}h por ${rota.responsavel || 'condutor'}.`
+          `A rota #${rota.id} (${rota.veiculo_id}) está aberta há ${Math.floor(diferencaHoras)}h por ${obterNomeMotoristaFormatado(rota.responsavel)}.`
         );
       }
     });
-  } catch (err) {}
+  } catch (err) { }
 }
 
 // =========================================================================
@@ -2942,7 +2995,7 @@ function carregarListaAuditoriaModal() {
       <td class="py-2.5 px-3 font-mono text-[11px] text-slate-300">${formatarDataHora(a.data_hora)}</td>
       <td class="py-2.5 px-3 font-bold text-white">${a.placa || a.veiculo_id || '-'}</td>
       <td class="py-2.5 px-3 font-black text-rose-400 text-[10px]">${a.tipo_alerta || 'ANOMALIA'}</td>
-      <td class="py-2.5 px-3 text-slate-300">${(a.responsavel || '').split('@')[0]}</td>
+      <td class="py-2.5 px-3 text-slate-300">${obterNomeMotoristaFormatado(a.responsavel)}</td>
       <td class="py-2.5 px-3 text-slate-200 text-xs">${a.detalhes || '-'}</td>
       <td class="py-2.5 px-3 text-center">${badgeStatus}</td>
       <td class="py-2.5 px-3 text-center">
@@ -3022,6 +3075,8 @@ window.resolverAlertaAuditoria = resolverAlertaAuditoria;
 window.abrirModalTrocarSenha = abrirModalTrocarSenha;
 window.fecharModalTrocarSenha = fecharModalTrocarSenha;
 window.handleAlterarMinhaSenha = handleAlterarMinhaSenha;
+window.obterNomeMotoristaFormatado = obterNomeMotoristaFormatado;
+window.formatarTempoSegundos = formatarTempoSegundos;
 
 // =========================================================================
 // INICIALIZAÇÃO

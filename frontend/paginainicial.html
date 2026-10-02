@@ -296,7 +296,7 @@
       </section>
 
       <!-- 3. Minhas Rotas (Log / Histórico com Mapa à Esquerda) -->
-      <section id="view-minhas-rotas" class="hidden">
+     <section id="view-minhas-rotas" class="hidden">
         <div class="card-panel">
           
           <div class="toolbar-filtro">
@@ -309,60 +309,54 @@
             </div>
           </div>
 
-          <!-- Grid Responsivo: Mapa à Esquerda e Tabela à Direita -->
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-4 items-start">
+          <!-- Grid Responsivo Ajustado: Mapa (4 cols) e Tabela (8 cols) sem scroll -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-4 items-start">
             
-            <!-- Coluna da Esquerda: Container do Google Maps (5 colunas) -->
-            <div class="lg:col-span-5 flex flex-col gap-3 sticky top-20">
+            <!-- Coluna da Esquerda: Container do Google Maps (4 colunas) -->
+            <div class="lg:col-span-4 flex flex-col gap-3 sticky top-20">
               <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-3">
                 <div class="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
                   <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <i class="ph-bold ph-map-trifold text-[#1E5E3A] text-base"></i> Visualização de Trajeto
+                    <i class="ph-bold ph-map-trifold text-[#1E5E3A] text-base"></i> Visualização
                   </span>
-                  <span id="mapa-status-rota" class="text-[10px] font-mono font-bold text-slate-400">Nenhuma rota selecionada</span>
+                  <span id="mapa-status-rota" class="text-[10px] font-mono font-bold text-slate-400 truncate max-w-[130px]">Nenhuma rota</span>
                 </div>
 
                 <!-- Div de renderização do Google Maps -->
-                <div id="mapa-historico-rotas" class="w-full h-[480px] rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 text-xs text-center p-4">
+                <div id="mapa-historico-rotas" class="w-full h-[490px] rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 text-xs text-center p-3">
                   Selecione uma rota na lista ao lado para projetar o trajeto no mapa.
                 </div>
 
                 <!-- Legenda do Mapa -->
-                <div class="mt-2.5 flex items-center justify-between text-[11px] text-slate-500 px-1">
-                  <span class="flex items-center gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block"></span> Origem (A)
+                <div class="mt-2 flex items-center justify-between text-[10px] text-slate-500 px-1">
+                  <span class="flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> Origem (A)
                   </span>
-                  <span class="flex items-center gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-rose-600 inline-block"></span> Destino (B)
+                  <span class="flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-rose-600 inline-block"></span> Destino (B)
                   </span>
-                  <span id="mapa-tipo-tracado" class="font-semibold text-slate-600 text-[10px]">Aguardando seleção...</span>
+                  <span id="mapa-tipo-tracado" class="font-semibold text-slate-600 truncate max-w-[110px]">Aguardando...</span>
                 </div>
               </div>
             </div>
 
-            <!-- Coluna da Direita: Tabela de Rotas (7 colunas) -->
-            <div class="lg:col-span-7 overflow-hidden">
-              <div class="table-wrapper">
-                <table class="data-table">
+            <!-- Coluna da Direita: Tabela de Rotas (8 colunas - largura 100% sem scroll) -->
+            <div class="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="w-full overflow-hidden">
+                <table class="w-full table-fixed text-left text-[11px] border-collapse">
                   <thead>
-                    <tr>
-                      <th>Cód.</th>
-                      <th>Veículo</th>
-                      <th>Condutor</th>
-                      <th>Trajeto</th>
-                      <th>Finalidade</th>
-                      <th>Saída</th>
-                      <th>Retorno</th>
-                      <th style="text-align: center;">KM</th>
-                      <th style="text-align: center;">Consumo</th>
-                      <th>Avarias</th>
-                      <th style="text-align: center;">Status</th>
+                    <tr class="border-b border-slate-200 text-[9.5px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/80">
+                      <th class="py-2.5 px-1.5 w-[7%] text-center">Cód.</th>
+                      <th class="py-2.5 px-1.5 w-[14%]">Veículo</th>
+                      <th class="py-2.5 px-1.5 w-[18%]">Condutor</th>
+                      <th class="py-2.5 px-1.5 w-[19%]">Trajeto</th>
+                      <th class="py-2.5 px-1.5 w-[14%]">Finalidade</th>
+                      <th class="py-2.5 px-1.5 w-[16%] text-center">Tempo (Mov/Par)</th>
+                      <th class="py-2.5 px-1.5 w-[12%] text-center">Status</th>
                     </tr>
                   </thead>
-                  <tbody id="tabelaHistorico">
-                    <tr>
-                      <td colspan="11" class="py-8 text-center text-slate-400 font-medium">Carregando rotas...</td>
-                    </tr>
+                  <tbody id="tabelaHistorico" class="divide-y divide-slate-100 font-medium text-slate-700">
+                    <!-- Linhas geradas via JavaScript -->
                   </tbody>
                 </table>
               </div>

@@ -488,8 +488,91 @@
 
       </section>
 
+
       <!-- ==================== ABA 3: HISTÓRICO ==================== -->
       <section id="tab-historico" class="hidden space-y-3">
+
+              <!-- PAINEL DE TELEMETRIA E INDICADORES OPERACIONAIS DO MOTORISTA -->
+      <!-- ==================== COCKPIT OPERACIONAL SIMPLIFICADO & CENTRALIZADO ==================== -->
+      <div class="px-1 pt-2 pb-1 space-y-3">
+  
+        <!-- FILTRO DE PERÍODO CENTRALIZADO & SÓBRIO -->
+        <div class="bg-[#121b13] border border-[#395237]/60 rounded-2xl p-2.5 shadow-md flex items-center justify-between gap-2">
+          <div class="flex-1 text-center">
+            <label class="text-[9px] font-black uppercase tracking-wider text-[#b0b9ab] block mb-1">Início</label>
+            <input type="date" id="filtro-m-data-inicio" onchange="atualizarKpisMotoristaMobile()" 
+              class="w-full bg-[#0b110c] text-[#f4f1e5] border border-[#395237]/70 rounded-xl px-2 py-1.5 text-xs text-center outline-none focus:border-[#8fb855] font-mono [color-scheme:dark]">
+          </div>
+          <div class="flex-1 text-center">
+            <label class="text-[9px] font-black uppercase tracking-wider text-[#b0b9ab] block mb-1">Fim</label>
+            <input type="date" id="filtro-m-data-fim" onchange="atualizarKpisMotoristaMobile()" 
+              class="w-full bg-[#0b110c] text-[#f4f1e5] border border-[#395237]/70 rounded-xl px-2 py-1.5 text-xs text-center outline-none focus:border-[#8fb855] font-mono [color-scheme:dark]">
+          </div>
+          <div class="pt-3.5 shrink-0">
+            <button type="button" onclick="limparFiltrosDataMotorista()" title="Limpar Filtro" 
+              class="p-2 bg-[#1c2e1f] text-[#b0b9ab] hover:text-[#f4f1e5] border border-[#556b2f]/50 rounded-xl transition active:scale-95 shadow-sm">
+              <i class="ph-bold ph-arrow-counter-clockwise text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- GRID 2x2 CENTRALIZADA, MONOCROMÁTICA E RESPONSIVA -->
+        <div class="grid grid-cols-2 gap-2.5">
+    
+          <!-- CARD 1: DISTÂNCIA TOTAL -->
+          <div class="bg-[#121b13] border border-[#395237]/50 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-md min-h-[92px]">
+            <span class="text-[9px] font-black uppercase tracking-wider text-[#b0b9ab]">DISTÂNCIA TOTAL</span>
+            <div class="my-1 flex items-baseline justify-center">
+              <span id="kpi-m-distancia" class="text-2xl font-black font-mono text-[#f4f1e5] tracking-tight">0</span>
+              <span class="text-xs text-[#8fb855] font-bold ml-1">km</span>
+            </div>
+            <div class="flex items-center justify-center gap-1 text-[8.5px] text-[#6e7a6b] font-medium">
+              <i class="ph-bold ph-trend-up"></i>
+              <span>Quilometragem apurada</span>
+            </div>
+          </div>
+
+          <!-- CARD 2: CONSUMO MÉDIO -->
+          <div class="bg-[#121b13] border border-[#395237]/50 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-md min-h-[92px]">
+            <span class="text-[9px] font-black uppercase tracking-wider text-[#b0b9ab]">CONSUMO MÉDIO</span>
+            <div class="my-1 flex items-baseline justify-center">
+              <span id="kpi-m-consumo" class="text-2xl font-black font-mono text-[#f4f1e5] tracking-tight">0.0</span>
+              <span class="text-xs text-[#8fb855] font-bold ml-1">km/L</span>
+            </div>
+            <div class="flex items-center justify-center gap-1 text-[8.5px] text-[#6e7a6b] font-medium">
+              <i class="ph-bold ph-shield-check"></i>
+              <span>Conformidade operacional</span>
+            </div>
+          </div>
+
+          <!-- CARD 3: TEMPO EM ROTA -->
+          <div class="bg-[#121b13] border border-[#395237]/50 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-md min-h-[92px]">
+            <span class="text-[9px] font-black uppercase tracking-wider text-[#b0b9ab]">TEMPO EM ROTA</span>
+            <div class="my-1 flex items-baseline justify-center">
+              <span id="kpi-m-tempo" class="text-2xl font-black font-mono text-[#f4f1e5] tracking-tight">0.0</span>
+              <span class="text-xs text-[#8fb855] font-bold ml-1">h</span>
+            </div>
+            <div class="flex items-center justify-center gap-1 text-[8.5px] text-[#6e7a6b] font-medium">
+              <i class="ph-bold ph-clock-counter-clockwise"></i>
+              <span>Horas contínuas</span>
+            </div>
+          </div>
+
+          <!-- CARD 4: ROTAS CONCLUÍDAS -->
+          <div class="bg-[#121b13] border border-[#395237]/50 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-md min-h-[92px]">
+            <span class="text-[9px] font-black uppercase tracking-wider text-[#b0b9ab]">ROTAS CONCLUÍDAS</span>
+            <div class="my-1 flex items-baseline justify-center">
+              <span id="kpi-m-rotas-qtd" class="text-2xl font-black font-mono text-[#f4f1e5] tracking-tight">0</span>
+            </div>
+            <div class="flex items-center justify-center gap-1 text-[8.5px] text-[#6e7a6b] font-medium">
+              <i class="ph-bold ph-check-circle"></i>
+              <span>Logadas no servidor</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
         <div class="flex items-center justify-between px-1">
           <h2 class="text-xs font-black text-[#b0b9ab] uppercase tracking-wider">Meu Histórico de Rotas</h2>
           <span id="m-total-rotas-badge" class="text-[11px] bg-[#1c2e1f] border border-[#556b2f]/40 text-[#8fb855] font-mono font-bold px-2.5 py-0.5 rounded-full">
