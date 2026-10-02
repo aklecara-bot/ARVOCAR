@@ -115,25 +115,27 @@
        ========================================================================= -->
 
   <!-- Modal 1: Solicitar Redefinição -->
+  <!-- Modal 1: Solicitar Redefinição via WhatsApp -->
   <div id="modal-esqueci-senha" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
         <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
-          <i class="ph-bold ph-key text-brand-600"></i> Recuperar Senha
+          <i class="ph-bold ph-whatsapp-logo text-emerald-600 text-lg"></i> Recuperar via WhatsApp
         </h3>
         <button type="button" onclick="fecharModalEsqueciSenha()" class="text-slate-400 hover:text-slate-600">
           <i class="ph-bold ph-x text-lg"></i>
         </button>
       </div>
-      <p class="text-xs text-slate-500 mb-4">Informe seu e-mail cadastrado para gerar o código de recuperação.</p>
+      <p class="text-xs text-slate-500 mb-4">Informe o e-mail cadastrado. Um código será gerado e enviado diretamente via WhatsApp.</p>
       
-      <form onsubmit="handleSolicitarRecuperacao(event)" class="space-y-3.5">
+      <form onsubmit="handleSolicitarRecuperacaoWhatsApp(event)" class="space-y-3.5">
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase mb-1">E-mail</label>
           <input type="email" id="recup-email" required placeholder="seuemail@arvo.tec.br" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-brand-500" />
         </div>
-        <button type="submit" id="btn-solicitar-recup" class="w-full bg-[#1E5E3A] hover:bg-[#164E2E] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition">
-          Gerar Código de Recuperação
+        <button type="submit" id="btn-solicitar-recup" class="w-full bg-[#15803d] hover:bg-[#166534] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2">
+          <i class="ph-bold ph-whatsapp-logo text-base"></i>
+          <span>Gerar e Abrir no WhatsApp</span>
         </button>
       </form>
     </div>
@@ -176,6 +178,10 @@
   <script>
     const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
+
+    // Número de WhatsApp da Base/Suporte da ARVO (com DDI 55 + DDD + Número)
+    // Altere este número para o WhatsApp do Administrador ou Encarregado da Frota:
+    const WHATSAPP_SUPORTE = "5528999839974"; 
 
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: false }
@@ -260,7 +266,7 @@
     }
 
     // =========================================================================
-    // LÓGICA DE RECUPERAÇÃO DE SENHA
+    // LÓGICA DE RECUPERAÇÃO DE SENHA VIA WHATSAPP
     // =========================================================================
 
     function abrirModalEsqueciSenha() {
@@ -278,18 +284,19 @@
       document.getElementById('redef-confirma-senha').value = '';
     }
 
-    async function handleSolicitarRecuperacao(e) {
+    // 1. Gera o código, salva no banco e redireciona para o WhatsApp
+    async function handleSolicitarRecuperacaoWhatsApp(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-solicitar-recup');
       const email = document.getElementById('recup-email').value.trim().toLowerCase();
 
       btn.disabled = true;
-      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Processando...`;
+      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Gerando...`;
 
       try {
         const { data: usuario, error: errU } = await db
           .from('usuarios')
-          .select('id, email')
+          .select('id, email, nome')
           .eq('email', email)
           .maybeSingle();
 
@@ -311,28 +318,35 @@
 
         if (errInsert) throw errInsert;
 
-        // Dispara o e-mail pela Edge Function recém-criada
-      const { error: errFn } = await db.functions.invoke('enviar-codigo-recuperacao', {
-        body: { email: usuario.email, codigo: codigo }
-      });
+        // Prepara texto e URL do WhatsApp
+        const nomeCondutor = usuario.nome || email.split('@')[0];
+        const mensagemWhats = encodeURIComponent(
+          `*ARVOCAR - Solicitação de Recuperação de Senha*\n\n` +
+          `👤 *Condutor:* ${nomeCondutor}\n` +
+          `📧 *E-mail:* ${email}\n` +
+          `🔑 *Código de Verificação:* ${codigo}\n\n` +
+          `_Por favor, insira este código de 6 dígitos no sistema para criar sua nova senha._`
+        );
 
-      if (errFn) {
-        throw new Error("Não foi possível enviar o e-mail com o código. Tente novamente.");
-      }
+        const urlWhatsApp = `https://api.whatsapp.com/send?phone=${WHATSAPP_SUPORTE}&text=${mensagemWhats}`;
 
+        // Transição de modais
         fecharModalEsqueciSenha();
         document.getElementById('redef-email-alvo').value = email;
         document.getElementById('modal-redefinir-senha').classList.remove('hidden');
 
-        alert(`Código gerado com sucesso: ${codigo}\n\nUtilize este código para redefinir sua senha agora.`);
+        // Abre o WhatsApp em uma nova aba
+        window.open(urlWhatsApp, '_blank');
+
       } catch (err) {
         alert("Erro: " + err.message);
       } finally {
         btn.disabled = false;
-        btn.innerText = `Gerar Código de Recuperação`;
+        btn.innerHTML = `<i class="ph-bold ph-whatsapp-logo text-base"></i> <span>Gerar e Abrir no WhatsApp</span>`;
       }
     }
 
+    // 2. Valida o código digitado e atualiza a senha
     async function handleConfirmarNovaSenha(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-redefinir');
@@ -386,121 +400,6 @@
         btn.innerText = `Atualizar Senha`;
       }
     }
-    function abrirModalEsqueciSenha() {
-  document.getElementById('modal-esqueci-senha')?.classList.remove('hidden');
-}
-function fecharModalEsqueciSenha() {
-  document.getElementById('modal-esqueci-senha')?.classList.add('hidden');
-}
-function fecharModalRedefinirSenha() {
-  document.getElementById('modal-redefinir-senha')?.classList.add('hidden');
-}
-
-// 1. Gera o código e grava no banco
-async function handleSolicitarRecuperacao(e) {
-  e.preventDefault();
-  const btn = document.getElementById('btn-solicitar-recup');
-  const email = document.getElementById('recup-email').value.trim().toLowerCase();
-
-  btn.disabled = true;
-  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Processando...`;
-
-  try {
-    const { data: usuario, error: errU } = await db
-      .from('usuarios')
-      .select('id, email')
-      .eq('email', email)
-      .maybeSingle();
-
-    if (errU || !usuario) {
-      throw new Error("E-mail não encontrado no sistema.");
-    }
-
-    // Gera um código de 6 dígitos numéricos
-    const codigo = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiraEm = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hora de validade
-
-    const { error: errInsert } = await db.from('recuperacao_senhas').insert([{
-      usuario_id: usuario.id,
-      email: usuario.email,
-      codigo: codigo,
-      expira_em: expiraEm,
-      usado: false
-    }]);
-
-    if (errInsert) throw errInsert;
-
-    // Transição de modais
-    fecharModalEsqueciSenha();
-    document.getElementById('redef-email-alvo').value = email;
-    document.getElementById('modal-redefinir-senha').classList.remove('hidden');
-
-    // Em ambiente de produção sem servidor de disparo SMTP, exibe o código no popup
-    alert(`Código gerado com sucesso: ${codigo}\n\nUtilize este código para redefinir sua senha agora.`);
-  } catch (err) {
-    alert("Erro: " + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerText = `Gerar Código de Recuperação`;
-  }
-}
-
-// 2. Valida o código e grava a nova senha
-async function handleConfirmarNovaSenha(e) {
-  e.preventDefault();
-  const btn = document.getElementById('btn-redefinir');
-  const email = document.getElementById('redef-email-alvo').value.trim().toLowerCase();
-  const codigo = document.getElementById('redef-codigo').value.trim();
-  const novaSenha = document.getElementById('redef-nova-senha').value.trim();
-  const confirma = document.getElementById('redef-confirma-senha').value.trim();
-
-  if (novaSenha !== confirma) {
-    alert("⚠️ As senhas digitadas não coincidem.");
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Salvando...`;
-
-  try {
-    // Busca o código ativo e não expirado
-    const agora = new Date().toISOString();
-    const { data: recup, error: errBusca } = await db
-      .from('recuperacao_senhas')
-      .select('*')
-      .eq('email', email)
-      .eq('codigo', codigo)
-      .eq('usado', false)
-      .gte('expira_em', agora)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (errBusca || !recup) {
-      throw new Error("Código inválido ou expirado.");
-    }
-
-    // Atualiza a senha na tabela de usuários
-    const { error: errUpdate } = await db
-      .from('usuarios')
-      .update({ senha: novaSenha })
-      .eq('id', recup.usuario_id);
-
-    if (errUpdate) throw errUpdate;
-
-    // Marca o código como utilizado
-    await db.from('recuperacao_senhas').update({ usado: true }).eq('id', recup.id);
-
-    fecharModalRedefinirSenha();
-    alert("✅ Senha redefinida com sucesso! Você já pode entrar com a nova senha.");
-  } catch (err) {
-    alert("Erro: " + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerText = `Atualizar Senha`;
-  }
-}
-
   </script>
 </body>
 
