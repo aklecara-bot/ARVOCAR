@@ -11,6 +11,7 @@ const db = window.db || (window.supabase && typeof window.supabase.createClient 
 let todasRotas = [];
 let rotasFiltradas = [];
 let listaVeiculos = [];
+let listaUsuarios = []; // Cache dos usuários cadastrados no banco
 let periodoAtual = 'mes';
 
 // Instâncias do Chart.js
@@ -19,6 +20,29 @@ let chartCarro = null;
 let chartMotorista = null;
 let chartFinalidade = null;
 let chartTempoUsoCarro = null;
+
+// =========================================================================
+// FUNÇÃO AUXILIAR: RESOLUÇÃO DO NOME DO CONDUTOR
+// =========================================================================
+function obterNomeCondutor(emailOuNome) {
+  if (!emailOuNome) return '-';
+  const emailLimpo = String(emailOuNome).toLowerCase().trim();
+
+  // 1. Procura na lista de condutores/usuários cadastrados
+  const usuario = (listaUsuarios || []).find(u => (u.email || '').toLowerCase().trim() === emailLimpo);
+  if (usuario?.nome && usuario.nome.trim() !== '') {
+    return usuario.nome.trim();
+  }
+
+  // 2. Fallback caso não encontre: formata o prefixo do e-mail com letras maiúsculas
+  const base = emailLimpo.includes('@') ? emailLimpo.split('@')[0] : emailLimpo;
+  return base
+    .replace(/[._]/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
 
 // =========================================================================
 // 1. INICIALIZAÇÃO
@@ -31,17 +55,18 @@ async function initRelatorio() {
   }
 
   try {
-    const { data: dadosVeic, error: errVeic } = await db.from('veiculos').select('*').order('id');
-    if (errVeic) console.warn("Aviso ao buscar veículos:", errVeic);
-    listaVeiculos = dadosVeic || [];
+    const [resVeic, resRotas, resUsuarios] = await Promise.all([
+      db.from('veiculos').select('*').order('id'),
+      db.from('rotas').select('*').order('data_saida', { ascending: true }),
+      db.from('usuarios').select('nome, email') // Resgata o cadastro oficial dos condutores
+    ]);
 
-    const { data, error } = await db
-      .from('rotas')
-      .select('*')
-      .order('data_saida', { ascending: true });
+    if (resVeic.error) console.warn("Aviso ao buscar veículos:", resVeic.error);
+    if (resRotas.error) throw resRotas.error;
 
-    if (error) throw error;
-    todasRotas = data || [];
+    listaVeiculos = resVeic.data || [];
+    todasRotas = resRotas.data || [];
+    listaUsuarios = resUsuarios.data || [];
 
     povoarOpcoesFiltros();
     // Inicializa na escala Mês cobrindo a janela dos 30 dias anteriores
@@ -56,7 +81,14 @@ async function initRelatorio() {
 // 2. POVOAMENTO DOS SELETORES
 // =========================================================================
 function povoarOpcoesFiltros() {
-  const motoristas = [...new Set(todasRotas.map(r => r.responsavel).filter(Boolean))].sort();
+  const motoristasEmails = [...new Set(todasRotas.map(r => r.responsavel).filter(Boolean))];
+  
+  // Mapeia e ordena alfabeticamente pelo nome cadastrado
+  const motoristas = motoristasEmails.map(email => ({
+    email: email,
+    nome: obterNomeCondutor(email)
+  })).sort((a, b) => a.nome.localeCompare(b.nome));
+
   const finalidades = [...new Set(todasRotas.map(r => r.finalidade).filter(Boolean))].sort();
   const origens = [...new Set(todasRotas.map(r => r.origem).filter(Boolean))].sort();
   const veiculos = [...new Set(todasRotas.map(r => r.veiculo_id).filter(Boolean))].sort();
@@ -64,7 +96,10 @@ function povoarOpcoesFiltros() {
   const selMot = document.getElementById('filtro-motorista');
   if (selMot) {
     selMot.innerHTML = '<option value="TODOS">Todos os Motoristas</option>';
-    motoristas.forEach(m => selMot.innerHTML += `<option value="${m}">${m.split('@')[0]}</option>`);
+    motoristas.forEach(m => {
+      // O value continua sendo o e-mail para manter os filtros funcionais; o texto exibido é o nome oficial
+      selMot.innerHTML += `<option value="${m.email}">${m.nome}</option>`;
+    });
   }
 
   const selFin = document.getElementById('filtro-finalidade');
@@ -125,33 +160,28 @@ function setPeriodo(p) {
     return `${ano}-${mes}-${dia}`;
   };
 
-  // --- LÓGICA DE CADA BOTÃO ---
   if (p === 'dia') {
-    // 1. DIA = Dia atual no início e no fim
     dIni = new Date(hoje);
     dFim = new Date(hoje);
     if (labelEscala) labelEscala.innerText = 'Escala: Dia Atual';
 
   } else if (p === 'semana') {
-    // 2. SEMANA = Marca a semana atual e abre gaveta de semanas passadas do ano
     if (painelSubfiltro) painelSubfiltro.classList.remove('hidden');
     if (subSemanas) subSemanas.classList.remove('hidden');
     popularSemanasDoAno(hoje);
 
-    const diaSem = hoje.getDay(); // 0 = Domingo, 1 = Segunda...
+    const diaSem = hoje.getDay();
     const difSegunda = (diaSem === 0 ? -6 : 1) - diaSem;
     dIni.setDate(hoje.getDate() + difSegunda);
     dFim = new Date(hoje);
     if (labelEscala) labelEscala.innerText = 'Escala: Semana Atual';
 
   } else if (p === 'mes') {
-    // 3. MÊS = 30 dias corridos anteriores à data atual
     dIni.setDate(hoje.getDate() - 30);
     dFim = new Date(hoje);
     if (labelEscala) labelEscala.innerText = 'Escala: Mês (Últimos 30 dias)';
 
   } else if (p === 'trimestre') {
-    // 4. TRIMESTRE = Abre pequena aba com escolha dos 4 trimestres do ano
     if (painelSubfiltro) painelSubfiltro.classList.remove('hidden');
     if (subTrimestres) subTrimestres.classList.remove('hidden');
 
@@ -164,7 +194,6 @@ function setPeriodo(p) {
     if (labelEscala) labelEscala.innerText = `Escala: ${trimAtual}º Trimestre de ${hoje.getFullYear()}`;
 
   } else if (p === 'ano') {
-    // 5. ANO = Ano corrente
     dIni = new Date(hoje.getFullYear(), 0, 1);
     dFim = new Date(hoje);
     if (labelEscala) labelEscala.innerText = `Escala: Ano ${hoje.getFullYear()}`;
@@ -283,7 +312,7 @@ function selecionarTrimestreEspecifico(t) {
 // 4. APLICAÇÃO GERAL DOS FILTROS (AFETA TODOS OS GRÁFICOS)
 // =========================================================================
 function aplicarFiltrosEAtualizar() {
-  const mot = document.getElementById('filtro-motorista')?.value || 'TODOS';
+  const mot = (document.getElementById('filtro-motorista')?.value || 'TODOS').toLowerCase().trim();
   const fin = document.getElementById('filtro-finalidade')?.value || 'TODOS';
   const ori = document.getElementById('filtro-origem')?.value || 'TODOS';
   const vei = document.getElementById('filtro-veiculo')?.value || 'TODOS';
@@ -291,7 +320,10 @@ function aplicarFiltrosEAtualizar() {
   const dtFim = document.getElementById('filtro-data-fim')?.value || '';
 
   rotasFiltradas = todasRotas.filter(r => {
-    if (mot !== 'TODOS' && r.responsavel !== mot) return false;
+    if (mot !== 'todos') {
+      const resp = (r.responsavel || '').toLowerCase().trim();
+      if (resp !== mot && !resp.includes(mot) && !mot.includes(resp)) return false;
+    }
     if (fin !== 'TODOS' && r.finalidade !== fin) return false;
     if (ori !== 'TODOS' && r.origem !== ori) return false;
     if (vei !== 'TODOS' && r.veiculo_id !== vei) return false;
@@ -386,7 +418,6 @@ function atualizarTickerTelemetria() {
   const totalKm = rotasValidas.reduce((acc, r) => acc + (Number(r.km_total) || 0), 0);
   const ultimaRota = (rotasFiltradas || [])[rotasFiltradas.length - 1];
 
-  // Tratamento seguro para evitar ReferenceError caso a lista de auditorias não esteja carregada
   const listaAuditorias = (typeof auditorias !== 'undefined' && Array.isArray(auditorias)) ? auditorias : [];
   const alertasPendentes = listaAuditorias.filter(a => a.status_resolucao === 'PENDENTE');
   
@@ -400,7 +431,7 @@ function atualizarTickerTelemetria() {
   let textoUltima = "Sem rotas recentes no período";
   if (ultimaRota) {
     const veic = ultimaRota.veiculo_id || 'ARVO';
-    const condutor = (ultimaRota.responsavel || '').split('@')[0];
+    const condutor = obterNomeCondutor(ultimaRota.responsavel);
     const km = Number(ultimaRota.km_total || 0);
     textoUltima = `${veic} com ${condutor} (${km} km percorrido)`;
   }
@@ -430,9 +461,7 @@ function renderizarGraficos() {
   renderizarGraficoMotorista();
 }
 
-// =========================================================================
-// 7.1 GRÁFICO DE QUILOMETRAGEM ACUMULADA NO TEMPO (LINHA / ÁREA SUAVE)
-// =========================================================================
+// 7.1 Gráfico de Quilometragem no Tempo
 function renderizarGraficoTempo() {
   const canvas = document.getElementById('chartTempo');
   if (!canvas) return;
@@ -522,7 +551,7 @@ function renderizarGraficoTempo() {
   });
 }
 
-// 7.2 Gráfico por Veículo (KM no período filtrado)
+// 7.2 Gráfico por Veículo
 function renderizarGraficoCarro() {
   const canvas = document.getElementById('chartCarro');
   if (!canvas) return;
@@ -562,7 +591,7 @@ function renderizarGraficoCarro() {
   });
 }
 
-// 7.3 Tempo do Carro em Uso (Horas no período filtrado)
+// 7.3 Tempo do Carro em Uso
 function renderizarGraficoTempoUsoCarro() {
   const canvas = document.getElementById('chartTempoUsoCarro');
   if (!canvas) return;
@@ -617,7 +646,7 @@ function renderizarGraficoTempoUsoCarro() {
   });
 }
 
-// 7.4 Demandas & Projetos (No período filtrado)
+// 7.4 Demandas & Projetos
 function renderizarGraficoFinalidade() {
   const canvas = document.getElementById('chartFinalidade');
   if (!canvas) return;
@@ -664,7 +693,7 @@ function renderizarGraficoFinalidade() {
   });
 }
 
-// 7.5 Ranking de Condutores (No período filtrado)
+// 7.5 Ranking de Condutores (Usa o nome cadastrado)
 function renderizarGraficoMotorista() {
   const canvas = document.getElementById('chartMotorista');
   if (!canvas) return;
@@ -673,7 +702,7 @@ function renderizarGraficoMotorista() {
   const porMotorista = {};
 
   rotasFiltradas.forEach(r => {
-    const m = (r.responsavel || 'Desconhecido').split('@')[0];
+    const m = obterNomeCondutor(r.responsavel);
     porMotorista[m] = (porMotorista[m] || 0) + (Number(r.km_total) || 0);
   });
 
@@ -708,7 +737,7 @@ function renderizarGraficoMotorista() {
 }
 
 // =========================================================================
-// 8. TABELA ANALÍTICA
+// 8. TABELA ANALÍTICA (Com nome cadastrado do condutor)
 // =========================================================================
 function renderizarTabela() {
   const tbody = document.getElementById('tabelaRelatorioRotas');
@@ -729,7 +758,7 @@ function renderizarTabela() {
     tr.innerHTML = `
       <td class="py-3 px-3 font-mono font-bold text-slate-400">${r.id}</td>
       <td class="py-3 px-3 font-mono font-bold text-white">${r.veiculo_id || '-'}</td>
-      <td class="py-3 px-3 text-slate-300 font-medium">${(r.responsavel || '').split('@')[0]}</td>
+      <td class="py-3 px-3 text-slate-300 font-medium">${obterNomeCondutor(r.responsavel)}</td>
       <td class="py-3 px-3 text-emerald-400 font-semibold">${r.origem || '-'}</td>
       <td class="py-3 px-3"><span class="bg-slate-800 text-slate-300 px-2 py-0.5 rounded text-[10px]">${r.finalidade || '-'}</span></td>
       <td class="py-3 px-3 text-center font-mono font-bold text-white">${Number(r.km_total || 0).toLocaleString('pt-BR')} km</td>

@@ -14,6 +14,7 @@ let dadosBrutosVeiculos = [];
 let dadosBrutosManutencoes = [];
 let dadosBrutosContratosAluguel = [];
 let cacheListaVeiculos = [];
+let cacheUsuarios = []; // Lista de condutores cadastrados no banco
 let periodoAtual = 'mes';
 
 // Instâncias Globais do Chart.js
@@ -39,16 +40,40 @@ function logout() {
 }
 
 // =========================================================================
+// FUNÇÃO AUXILIAR: RESOLUÇÃO DO NOME DO CONDUTOR
+// =========================================================================
+function obterNomeCondutor(emailOuNome) {
+  if (!emailOuNome) return 'Não registrado';
+  const emailLimpo = String(emailOuNome).toLowerCase().trim();
+
+  // 1. Procura o condutor cadastrado na tabela de usuários
+  const usuario = (cacheUsuarios || []).find(u => (u.email || '').toLowerCase().trim() === emailLimpo);
+  if (usuario?.nome && usuario.nome.trim() !== '') {
+    return usuario.nome.trim();
+  }
+
+  // 2. Fallback caso não encontre cadastro: formata o prefixo do e-mail
+  const base = emailLimpo.includes('@') ? emailLimpo.split('@')[0] : emailLimpo;
+  return base
+    .replace(/[._]/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+// =========================================================================
 // 1. CARREGAMENTO CENTRALIZADO DO BANCO
 // =========================================================================
 async function carregarMetricasFinanceiras() {
   try {
-    const [resAbast, resRotas, resVeiculos, resManut, resContratos] = await Promise.all([
+    const [resAbast, resRotas, resVeiculos, resManut, resContratos, resUsuarios] = await Promise.all([
       db.from('abastecimentos').select('*').order('data_hora', { ascending: false }),
       db.from('rotas').select('*').eq('status', 'Concluida').order('data_retorno', { ascending: false }),
       db.from('veiculos').select('*'),
       db.from('manutencoes_preventivas').select('*').order('data_ultima_troca', { ascending: false }),
-      db.from('contratos_aluguel').select('*')
+      db.from('contratos_aluguel').select('*'),
+      db.from('usuarios').select('nome, email') // Resgata os nomes criados dos condutores
     ]);
 
     if (resAbast.error) throw resAbast.error;
@@ -61,6 +86,7 @@ async function carregarMetricasFinanceiras() {
     dadosBrutosVeiculos = resVeiculos.data || [];
     dadosBrutosManutencoes = resManut.data || [];
     dadosBrutosContratosAluguel = resContratos.data || [];
+    cacheUsuarios = resUsuarios?.data || [];
     cacheListaVeiculos = dadosBrutosVeiculos;
 
     povoarOpcoesFiltrosDinamicos();
@@ -80,13 +106,18 @@ function povoarOpcoesFiltrosDinamicos() {
   dadosBrutosRotas.forEach(r => { if (r.responsavel) motoristasSet.add(r.responsavel.trim().toLowerCase()); });
   dadosBrutosAbastecimentos.forEach(a => { if (a.responsavel) motoristasSet.add(a.responsavel.trim().toLowerCase()); });
 
-  const motoristas = [...motoristasSet].sort();
+  // Associa o e-mail ao nome cadastrado para ordenar em ordem alfabética de exibição
+  const motoristas = [...motoristasSet].map(email => ({
+    email: email,
+    nome: obterNomeCondutor(email)
+  })).sort((a, b) => a.nome.localeCompare(b.nome));
+
   const selMot = document.getElementById('filtro-motorista');
   if (selMot) {
     selMot.innerHTML = '<option value="TODOS">Todos os Motoristas</option>';
     motoristas.forEach(m => {
-      const rotulo = m.includes('@') ? m.split('@')[0] : m;
-      selMot.innerHTML += `<option value="${m}">${rotulo}</option>`;
+      // O value permanece o e-mail para manter os filtros funcionais; o texto é o nome cadastrado
+      selMot.innerHTML += `<option value="${m.email}">${m.nome}</option>`;
     });
   }
 
@@ -924,7 +955,7 @@ function renderizarAuditoriaCupons(abastecimentos, veiculos) {
       <td class="py-2.5 px-3 font-mono font-bold text-[#f4f1e5]">${Number(a.quantidade_litros || 0).toFixed(2)} L</td>
       <td class="py-2.5 px-3 font-mono text-[#b0b9ab]">R$ ${Number(a.preco_litro || 0).toFixed(2)}</td>
       <td class="py-2.5 px-3 font-mono font-black text-[#8fb855]">${Number(a.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-      <td class="py-2.5 px-3 text-[11px] text-[#b0b9ab]">${(a.responsavel || '').split('@')[0]}</td>
+      <td class="py-2.5 px-3 text-[11px] text-[#b0b9ab] font-medium">${obterNomeCondutor(a.responsavel)}</td>
       <td class="py-2.5 px-3 text-center">
         ${a.url_comprovante ? `
           <button type="button" onclick="abrirModalComprovante('${a.url_comprovante}')" class="text-[#d88c5a] hover:text-[#f4f1e5] font-bold inline-flex items-center gap-1 bg-[#1c2a1e] hover:bg-[#253828] border border-[#556b2f]/30 px-2 py-0.5 rounded-lg transition text-xs shadow-xs">
@@ -1029,7 +1060,6 @@ async function salvarContratoAluguel(e) {
     return;
   }
 
-  // Resgata o usuário logado para preencher 'responsavel'
   let emailResponsavel = 'financeiro@arvo.tec.br';
   try {
     const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
@@ -1047,7 +1077,6 @@ async function salvarContratoAluguel(e) {
   }
 
   try {
-    // Objeto contendo APENAS colunas confirmadas no Supabase
     const payload = {
       veiculo_id: String(veiculoId),
       locadora: locadora,
@@ -1055,11 +1084,10 @@ async function salvarContratoAluguel(e) {
       tarifa_mensal: tarifaMensal,
       valor_km_excedente: kmExcedente,
       franquia_km_mes: franquiaKm,
-      data_inicio: new Date().toISOString().split('T')[0], // Envia YYYY-MM-DD para satisfazer colunas do tipo date
+      data_inicio: new Date().toISOString().split('T')[0],
       updated_at: new Date().toISOString()
     };
 
-    // Verifica se já existe um contrato cadastrado para este carro
     const contratoExistente = dadosBrutosContratosAluguel.find(c => String(c.veiculo_id) === String(veiculoId));
 
     let erroGravacao = null;
@@ -1073,7 +1101,6 @@ async function salvarContratoAluguel(e) {
 
     if (erroGravacao) throw erroGravacao;
 
-    // Atualiza status do veículo para ALUGADO
     try {
       await db.from('veiculos').update({ tipo_frota: 'ALUGADO' }).eq('id', veiculoId);
     } catch (veicErr) {
