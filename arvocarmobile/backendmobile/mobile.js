@@ -2113,6 +2113,164 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// =========================================================================
+// GESTÃO DE RECUPERAÇÃO DE SENHA MOBILE (SUPABASE)
+// =========================================================================
+
+function abrirModalEsqueciSenhaMobile() {
+  document.getElementById('modal-esqueci-senha')?.classList.remove('hidden');
+}
+
+function fecharModalEsqueciSenhaMobile() {
+  document.getElementById('modal-esqueci-senha')?.classList.add('hidden');
+}
+
+function fecharModalRedefinirSenhaMobile() {
+  document.getElementById('modal-redefinir-senha')?.classList.add('hidden');
+  const cd = document.getElementById('redef-codigo');
+  const nv = document.getElementById('redef-nova-senha');
+  const cf = document.getElementById('redef-confirma-senha');
+  if (cd) cd.value = '';
+  if (nv) nv.value = '';
+  if (cf) cf.value = '';
+}
+
+// 1. Gera código no Supabase e abre modal de nova senha
+async function handleSolicitarRecuperacaoMobile(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  const btn = document.getElementById('btn-solicitar-recup');
+  const emailInput = document.getElementById('recup-email');
+  const email = (emailInput?.value || '').trim().toLowerCase();
+
+  if (!email) {
+    alert("Informe seu e-mail cadastrado.");
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Processando...`;
+  }
+
+  try {
+    const { data: usuario, error: errU } = await db
+      .from('usuarios')
+      .select('id, email')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (errU || !usuario) {
+      throw new Error("E-mail não encontrado no sistema.");
+    }
+
+    // Gera código de 6 dígitos numéricos
+    const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiraEm = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hora
+
+    const { error: errInsert } = await db.from('recuperacao_senhas').insert([{
+      usuario_id: usuario.id,
+      email: usuario.email,
+      codigo: codigo,
+      expira_em: expiraEm,
+      usado: false
+    }]);
+
+    if (errInsert) throw errInsert;
+
+    fecharModalEsqueciSenhaMobile();
+    const emailAlvo = document.getElementById('redef-email-alvo');
+    if (emailAlvo) emailAlvo.value = email;
+
+    document.getElementById('modal-redefinir-senha')?.classList.remove('hidden');
+
+    alert(`Código gerado com sucesso: ${codigo}\n\nUtilize este código para redefinir sua senha.`);
+  } catch (err) {
+    alert("Erro: " + (err.message || "Falha ao gerar código."));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = `Gerar Código de Recuperação`;
+    }
+  }
+}
+
+// 2. Valida o código de 6 dígitos e grava a nova senha no banco
+async function handleConfirmarNovaSenhaMobile(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  const btn = document.getElementById('btn-redefinir');
+  const email = (document.getElementById('redef-email-alvo')?.value || '').trim().toLowerCase();
+  const codigo = (document.getElementById('redef-codigo')?.value || '').trim();
+  const novaSenha = (document.getElementById('redef-nova-senha')?.value || '').trim();
+  const confirma = (document.getElementById('redef-confirma-senha')?.value || '').trim();
+
+  if (!codigo || codigo.length < 6) {
+    alert("Informe o código de 6 dígitos enviado.");
+    return;
+  }
+
+  if (novaSenha.length < 4) {
+    alert("A nova senha deve ter no mínimo 4 caracteres.");
+    return;
+  }
+
+  if (novaSenha !== confirma) {
+    alert("⚠️ As senhas digitadas não coincidem.");
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Gravando...`;
+  }
+
+  try {
+    const agora = new Date().toISOString();
+
+    // Busca o código ativo e não expirado
+    const { data: recup, error: errBusca } = await db
+      .from('recuperacao_senhas')
+      .select('*')
+      .eq('email', email)
+      .eq('codigo', codigo)
+      .eq('usado', false)
+      .gte('expira_em', agora)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (errBusca || !recup) {
+      throw new Error("Código inválido ou expirado.");
+    }
+
+    // Atualiza a senha na tabela de usuários
+    const { error: errUpdate } = await db
+      .from('usuarios')
+      .update({ senha: novaSenha })
+      .eq('id', recup.usuario_id);
+
+    if (errUpdate) throw errUpdate;
+
+    // Invalida o código utilizado
+    await db.from('recuperacao_senhas').update({ usado: true }).eq('id', recup.id);
+
+    fecharModalRedefinirSenhaMobile();
+    alert("✅ Senha redefinida com sucesso! Você já pode entrar com a nova senha.");
+  } catch (err) {
+    alert("Erro: " + (err.message || "Não foi possível alterar a senha."));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = `Atualizar Senha`;
+    }
+  }
+}
+
+// Bindings globais no window
+window.abrirModalEsqueciSenhaMobile = abrirModalEsqueciSenhaMobile;
+window.fecharModalEsqueciSenhaMobile = fecharModalEsqueciSenhaMobile;
+window.fecharModalRedefinirSenhaMobile = fecharModalRedefinirSenhaMobile;
+window.handleSolicitarRecuperacaoMobile = handleSolicitarRecuperacaoMobile;
+window.handleConfirmarNovaSenhaMobile = handleConfirmarNovaSenhaMobile;
 // Bindings globais no escopo window (garante total compatibilidade com inline HTML)
 window.abrirModalTrocarSenha = abrirModalTrocarSenha;
 window.fecharModalTrocarSenha = fecharModalTrocarSenha;

@@ -193,11 +193,15 @@
     <div class="bg-[#FAF7F2] rounded-3xl p-6 shadow-[0_20px_45px_rgba(0,0,0,0.6)] border border-[#EFE9DF] text-slate-800">
       
       <div class="text-center mb-6">
-        <div class="w-14 h-14 rounded-2xl bg-[#1c2e1f] border border-[#556b2f]/40 flex items-center justify-center text-[#8fb855] mx-auto mb-2 shadow-inner">
-          <i class="ph-bold ph-steering-wheel text-3xl"></i>
+        <div class="w-full max-w-[180px] mx-auto mb-3 flex items-center justify-center bg-transparent">
+          <img 
+            src="/imagens/arvocarblack.png" 
+            alt="ARVOCAR Logo" 
+            class="w-full h-auto object-contain block bg-transparent" 
+          />
         </div>
-        <h1 class="text-xl font-black text-slate-900">ARVOCAR Mobile</h1>
-        <p class="text-xs font-bold uppercase tracking-wider text-[#395237]">Controle de Rotas</p>
+          <h1 class="text-xl font-black text-slate-900">ARVOCAR Mobile</h1>
+          <p class="text-xs font-bold uppercase tracking-wider text-[#395237]">Controle de Rotas</p>
       </div>
 
       <div id="erro-login-box" class="hidden mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
@@ -647,6 +651,78 @@
     </form>
   </div>
 </div>
+
+<!-- =========================================================================
+       MODAIS DE RECUPERAÇÃO DE SENHA (MOBILE)
+       ========================================================================= -->
+
+  <!-- Modal 1: Solicitar Código de Redefinição -->
+  <div id="modal-esqueci-senha" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+        <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+          <i class="ph-bold ph-key text-[#395237] text-lg"></i> Recuperar Senha
+        </h3>
+        <button type="button" onclick="fecharModalEsqueciSenhaMobile()" class="text-slate-400 hover:text-slate-600">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-500 mb-4">Informe seu e-mail cadastrado para gerar o código de recuperação.</p>
+
+      <form onsubmit="handleSolicitarRecuperacaoMobile(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">E-mail</label>
+          <input type="email" id="recup-email" required placeholder="seuemail@arvo.tec.br" 
+                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#395237]" />
+        </div>
+        <button type="submit" id="btn-solicitar-recup" 
+                class="w-full bg-[#395237] hover:bg-[#2e432c] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition active:scale-95">
+          Gerar Código de Recuperação
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Inserir Código e Redefinir Nova Senha -->
+  <div id="modal-redefinir-senha" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+        <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+          <i class="ph-bold ph-lock-key text-[#395237] text-lg"></i> Nova Senha
+        </h3>
+        <button type="button" onclick="fecharModalRedefinirSenhaMobile()" class="text-slate-400 hover:text-slate-600">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleConfirmarNovaSenhaMobile(event)" class="space-y-3.5">
+        <input type="hidden" id="redef-email-alvo" />
+        
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Código (6 dígitos)</label>
+          <input type="text" id="redef-codigo" maxlength="6" required placeholder="123456" 
+                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-mono text-center tracking-widest outline-none focus:ring-2 focus:ring-[#395237]" />
+        </div>
+        
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nova Senha</label>
+          <input type="password" id="redef-nova-senha" minlength="4" required placeholder="••••••••" 
+                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#395237]" />
+        </div>
+        
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Confirmar Nova Senha</label>
+          <input type="password" id="redef-confirma-senha" minlength="4" required placeholder="••••••••" 
+                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#395237]" />
+        </div>
+        
+        <button type="submit" id="btn-redefinir" 
+                class="w-full bg-[#395237] hover:bg-[#2e432c] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition active:scale-95">
+          Atualizar Senha
+        </button>
+      </form>
+    </div>
+  </div>
 
   <!-- SCRIPT DE REGRAS MOBILE -->
   <script src="/arvocarmobile/backendmobile/mobile.js"></script>

@@ -488,80 +488,61 @@ async function carregarHistoricoReservas() {
 }
 
 function renderHistoricoCards() {
-  const container = document.getElementById('lista-reservas');
+  const container = document.getElementById('lista-reservas') || document.getElementById('lista-reservas-mobile');
   const badge = document.getElementById('badge-total-reservas');
   if (!container) return;
 
   const agora = new Date().getTime();
-  const ativasEFuturas = [];
-  const passadas = [];
 
-  (listaReservas || []).forEach(r => {
+  // Filtra ESTRITAMENTE agendamentos cujo término ainda não ocorreu e não foram cancelados
+  const agendamentosFuturos = (listaReservas || []).filter(r => {
     const tFim = new Date(r.data_fim).getTime();
-    if (tFim >= agora && r.status !== 'CANCELADA') {
-      ativasEFuturas.push(r);
-    } else {
-      passadas.push(r);
-    }
+    return tFim >= agora && r.status !== 'CANCELADA' && r.status !== 'CONCLUIDA';
   });
 
-  ativasEFuturas.sort((a, b) => new Date(a.data_inicio) - new Date(b.data_inicio));
-  passadas.sort((a, b) => new Date(b.data_fim) - new Date(a.data_fim));
+  // Ordena do mais próximo para o mais distante
+  agendamentosFuturos.sort((a, b) => new Date(a.data_inicio) - new Date(b.data_inicio));
 
-  const reservasExibicao = [...ativasEFuturas, ...passadas].slice(0, 10);
-  if (badge) badge.innerText = `${reservasExibicao.length} reservas`;
+  if (badge) badge.innerText = `${agendamentosFuturos.length} reservas`;
 
-  if (reservasExibicao.length === 0) {
-    container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Nenhum agendamento ativo no momento.</div>`;
+  if (agendamentosFuturos.length === 0) {
+    container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">Nenhum agendamento futuro no momento.</div>`;
+    if (calendar) calendar.refetchEvents();
     return;
   }
 
   const ehAdmin = (usuarioLogado?.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
   container.innerHTML = '';
 
-  reservasExibicao.forEach(r => {
+  // Todos os usuários visualizam todos os agendamentos da lista
+  agendamentosFuturos.forEach(r => {
     const ehDono = (usuarioLogado?.email || '').toLowerCase() === (r.responsavel || '').toLowerCase();
     const dataIni = formatarDataHora(r.data_inicio);
     const dataFim = formatarDataHora(r.data_fim);
-
-    const veic = (veiculosReserva || []).find(v =>
-      String(v.id) === String(r.veiculo_id) ||
-      String(v.placa) === String(r.veiculo_id) ||
-      String(v.nome_frota) === String(r.veiculo_id) ||
-      String(v.uuid_veiculos) === String(r.uuid_veiculos || r.veiculo_id)
-    );
-
-    const nomeExibicao = veic?.nome_frota || r.nome_frota || r.veiculo_id || 'Veículo';
-    const placaExibicao = veic?.placa ? `(${veic.placa})` : (r.placa ? `(${r.placa})` : '');
-    const condutorNome = obterNomeMotoristaFormatado(r.responsavel);
-    const isPendenteOffline = String(r.id).startsWith('temp_');
+    const condutorNome = (r.responsavel || '').split('@')[0];
 
     const card = document.createElement('div');
-    card.className = "bg-[#1E293B] border border-slate-700/70 rounded-2xl p-3 flex items-center justify-between shadow-xs transition hover:border-slate-600";
-
+    card.className = "bg-[#182319] border border-[#556b2f]/30 rounded-2xl p-3 flex items-center justify-between shadow-sm";
     card.innerHTML = `
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-          <i class="ph-bold ph-car text-lg"></i>
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+          <i class="ph-bold ph-car text-base"></i>
         </div>
         <div>
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="font-extrabold text-xs text-white">${nomeExibicao}</span>
-            <span class="text-[10px] text-slate-400 font-mono">${placaExibicao}</span>
-            ${isPendenteOffline ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1 rounded font-mono">📶 Pendente</span>' : ''}
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-black text-white">${r.nome_frota || r.veiculo_id}</span>
+            <span class="text-[10px] text-slate-400 font-mono">(${r.placa || ''})</span>
           </div>
-          <p class="text-[11px] text-slate-300">Condutor: <b class="text-emerald-400">${condutorNome}</b></p>
+          <span class="text-[11px] text-slate-300 block">Condutor: <strong class="text-emerald-400">${condutorNome}</strong></span>
         </div>
       </div>
 
-      <div class="text-right shrink-0">
-        <span class="text-[10px] font-mono font-bold text-slate-300 block" title="${dataIni} até ${dataFim}">
-          ${dataIni.split(',')[0]} → ${dataFim.split(',')[0]}
-        </span>
-        <span class="text-[9px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-semibold border border-slate-700 inline-block mt-0.5 max-w-[120px] truncate" title="${r.finalidade || 'Demandas'}">
+      <div class="text-right">
+        <span class="text-[10px] font-mono text-slate-300 block">${dataIni.split(',')[0]} → ${dataFim.split(',')[0]}</span>
+        <span class="text-[9px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-semibold border border-slate-700 inline-block mt-0.5 max-w-[120px] truncate">
           ${r.finalidade || 'Demandas'}
         </span>
-        ${(ehAdmin || ehDono) && r.status !== 'CANCELADA' ? `
+        ${(ehAdmin || ehDono) ? `
           <button onclick="cancelarReservaMobile('${r.id}', '${r.responsavel}')" class="block text-rose-400 hover:text-rose-300 text-[10px] font-bold mt-1 ml-auto">
             Cancelar
           </button>
@@ -570,6 +551,8 @@ function renderHistoricoCards() {
     `;
     container.appendChild(card);
   });
+
+  if (calendar) calendar.refetchEvents();
 }
 
 function initCalendario() {

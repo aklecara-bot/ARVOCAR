@@ -186,27 +186,23 @@ function trocarAba(aba) {
     viewNovo.classList.remove('hidden');
     viewHist.classList.add('hidden');
     if (btnNovo) {
-      btnNovo.classList.remove('mobile-subtab-btn-inactive');
-      btnNovo.classList.add('mobile-subtab-btn-active');
-      btnNovo.style.cssText = "color: #fde047 !important; border-bottom-color: #fde047 !important;";
+      btnNovo.classList.remove('text-[#b0b9ab]', 'border-transparent');
+      btnNovo.classList.add('text-[#8fb855]', 'border-[#8fb855]');
     }
     if (btnHist) {
-      btnHist.classList.remove('mobile-subtab-btn-active');
-      btnHist.classList.add('mobile-subtab-btn-inactive');
-      btnHist.style.cssText = "color: rgba(255,255,255,0.6) !important; border-bottom-color: transparent !important;";
+      btnHist.classList.remove('text-[#8fb855]', 'border-[#8fb855]');
+      btnHist.classList.add('text-[#b0b9ab]', 'border-transparent');
     }
   } else {
     viewNovo.classList.add('hidden');
     viewHist.classList.remove('hidden');
     if (btnHist) {
-      btnHist.classList.remove('mobile-subtab-btn-inactive');
-      btnHist.classList.add('mobile-subtab-btn-active');
-      btnHist.style.cssText = "color: #fde047 !important; border-bottom-color: #fde047 !important;";
+      btnHist.classList.remove('text-[#b0b9ab]', 'border-transparent');
+      btnHist.classList.add('text-[#8fb855]', 'border-[#8fb855]');
     }
     if (btnNovo) {
-      btnNovo.classList.remove('mobile-subtab-btn-active');
-      btnNovo.classList.add('mobile-subtab-btn-inactive');
-      btnNovo.style.cssText = "color: rgba(255,255,255,0.6) !important; border-bottom-color: transparent !important;";
+      btnNovo.classList.remove('text-[#8fb855]', 'border-[#8fb855]');
+      btnNovo.classList.add('text-[#b0b9ab]', 'border-transparent');
     }
     carregarHistoricoAbastecimento();
   }
@@ -539,7 +535,7 @@ function renderCardsHistorico(container) {
 }
 
 // =========================================================================
-// 7. MODAL DE DETALHES E COMPROVANTE
+// 7. MODAL DE DETALHES E COMPROVANTE (CORREÇÃO DE PLACAS E SUBTÍTULO)
 // =========================================================================
 function abrirModalAbastecimento(index) {
   const item = listaAbastecimentosCache[index];
@@ -547,6 +543,7 @@ function abrirModalAbastecimento(index) {
 
   urlComprovanteAtual = item.url_comprovante || null;
 
+  // Localiza veículo no cache para obter nome limpo e placa oficial
   const veic = (veiculosAbast || []).find(v =>
     String(v.id) === String(item.veiculo_id) ||
     String(v.uuid_veiculos) === String(item.uuid_veiculos || item.veiculo_id) ||
@@ -554,10 +551,18 @@ function abrirModalAbastecimento(index) {
     String(v.nome_frota) === String(item.veiculo_id)
   );
 
-  const nomeExibicaoModal = veic?.nome_frota || item.nome_frota || item.veiculo_id || 'Veículo';
-  const placaModal = item.placa ? ` [${item.placa}]` : (veic?.placa ? ` [${veic.placa}]` : '');
+  // Nome do carro sem sufixo de placa concatenado
+  let nomeCarro = veic?.nome_frota || item.nome_frota || item.veiculo_id || 'ARVO';
+  // Remove eventual padrão "[PLACA]" se o nome_frota já veio concatenado
+  nomeCarro = nomeCarro.replace(/\[.*?\]/g, '').trim();
+
+  // Placa oficial do veículo
+  const placaReal = (item.placa || veic?.placa || 'ARVO-CAR').trim().toUpperCase();
 
   const elVeiculo = document.getElementById('modal-abast-veiculo');
+  const elSubtitulo = document.getElementById('modal-abast-subtitulo');
+  const elPlaca = document.getElementById('modal-abast-placa');
+
   const elPosto = document.getElementById('modal-abast-posto');
   const elTipo = document.getElementById('modal-abast-tipo');
   const elResp = document.getElementById('modal-abast-resp');
@@ -566,7 +571,14 @@ function abrirModalAbastecimento(index) {
   const elTotal = document.getElementById('modal-abast-total');
   const elData = document.getElementById('modal-abast-data');
 
-  if (elVeiculo) elVeiculo.innerText = `${nomeExibicaoModal}${placaModal}`;
+  // Ajustes solicitados:
+  // 1. Título: apenas o nome do carro (ex: "ARVO 13")
+  // 2. Embaixo de "ARVO 13": "ARVOCAR"
+  // 3. Estampa da placa Mercosul: número real da placa (ex: "RNI0D20")
+  if (elVeiculo) elVeiculo.innerText = nomeCarro;
+  if (elSubtitulo) elSubtitulo.innerText = 'ARVOCAR';
+  if (elPlaca) elPlaca.innerText = placaReal;
+
   if (elPosto) elPosto.innerText = item.local_posto || '-';
   if (elTipo) elTipo.innerText = item.tipo_combustivel || 'Não informado';
   if (elResp) elResp.innerText = item.responsavel || '-';

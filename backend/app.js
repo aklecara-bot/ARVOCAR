@@ -10,6 +10,7 @@ const db = (window.supabase && typeof window.supabase.createClient === 'function
 
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 const FIN_ADMIN_EMAIL = "admfin@arvo.tec.br";
+const DESV = "dev@arvo.tec.br";
 
 const validarNumeroCNH = (cnh) => {
   if (!cnh) return false;
@@ -82,11 +83,18 @@ function ehAdminMaster() {
   return (sessao?.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
 }
 
+
 function ehGestorOuAdmin() {
   const sessao = verificarSessaoUsuario();
   const email = (sessao?.email || '').toLowerCase().trim();
   return email === ADMIN_EMAIL.toLowerCase().trim() || email === FIN_ADMIN_EMAIL.toLowerCase().trim();
 }
+
+function ehAdminMaster() {
+  const sessao = verificarSessaoUsuario();
+  return (sessao?.email || '').toLowerCase().trim() === DESV.toLowerCase().trim();
+}
+
 
 function aplicarPermissoesUsuario() {
   const sessao = verificarSessaoUsuario();

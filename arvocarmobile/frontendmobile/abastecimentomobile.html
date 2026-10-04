@@ -43,6 +43,12 @@
       appearance: none;
     }
 
+    /* Blindagem contra sobreposição ou vazamento de inputs em telas menores */
+    input, select, textarea {
+      box-sizing: border-box !important;
+      max-width: 100% !important;
+    }
+
     /* Placa Oficial Mercosul para o Modal */
     .placa-mercosul-card {
       background: #ffffff;
@@ -55,6 +61,7 @@
       min-width: 104px;
       overflow: hidden;
       line-height: 1;
+      flex-shrink: 0;
     }
     .placa-mercosul-header {
       background: #003399;
@@ -82,10 +89,11 @@
     .placa-mercosul-texto {
       font-family: 'Courier New', Courier, monospace;
       font-weight: 900;
-      font-size: 12px;
+      font-size: 13px;
       color: #000000;
-      letter-spacing: 1px;
-      padding: 2px 5px;
+      letter-spacing: 1.5px;
+      padding: 3px 5px;
+      text-transform: uppercase;
     }
   </style>
 </head>
@@ -136,7 +144,7 @@
   <!-- ==================== 2. CONTEÚDO PRINCIPAL ==================== -->
   <main class="flex-1 p-4 pb-24 max-w-md mx-auto w-full space-y-4">
 
-    <!-- ==================== ABA 1: FORMULÁRIO (CARD BEGE CLARO PRESERVADO) ==================== -->
+    <!-- ==================== ABA 1: FORMULÁRIO (CARD BEGE CLARO) ==================== -->
     <section id="view-novo" class="space-y-4">
       <div class="bg-[#FAF7F2] rounded-3xl p-5 shadow-[0_12px_30px_-5px_rgba(0,0,0,0.7)] border border-[#EFE9DF] text-slate-800 space-y-4">
 
@@ -217,9 +225,9 @@
             </div>
           </div>
 
-          <!-- Grid Duplo: Litros & Preço por Litro -->
-          <div class="grid grid-cols-2 gap-3">
-            <div>
+          <!-- Grid Duplo Responsivo: Litros & Preço por Litro -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+            <div class="min-w-0">
               <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
                 Litros (L) <span class="text-[#395237]">*</span>
               </label>
@@ -227,7 +235,7 @@
                      class="w-full bg-white/95 border border-[#DDD8CE] text-slate-800 font-mono font-bold rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] focus:border-[#395237] outline-none transition shadow-xs" />
             </div>
 
-            <div>
+            <div class="min-w-0">
               <label class="block text-xs font-extrabold tracking-wide uppercase text-slate-600 mb-1.5">
                 Preço / Litro (R$) <span class="text-[#395237]">*</span>
               </label>
@@ -301,69 +309,71 @@
   <div id="modal-detalhes-abast" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-[#FAF7F2] w-full max-w-sm rounded-[28px] shadow-[0_25px_60px_rgba(0,0,0,0.7)] border border-[#EFE9DF] p-5 space-y-4 text-slate-800 relative max-h-[90vh] overflow-y-auto">
       
-      <!-- Topo: Identificação do Veículo com Placa Mercosul e Botão Fechar -->
-      <div class="flex items-start justify-between pb-3 border-b border-[#EAE3D6]">
-        <div class="flex items-center gap-2.5">
+      <!-- Topo: Identificação com Nome do Carro, Subtítulo ARVOCAR e Placa Real -->
+      <div class="flex items-start justify-between pb-3 border-b border-[#EAE3D6] gap-2">
+        <div class="flex items-center gap-2.5 min-w-0">
           <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-[#D97706] shadow-inner shrink-0">
             <i class="ph-bold ph-receipt text-xl"></i>
           </div>
-          <div>
-            <span id="modal-abast-veiculo" class="text-base font-black text-slate-900 leading-tight block">ARVO</span>
-            <span id="modal-abast-subtitulo" class="text-[11px] text-slate-500 font-medium">Frota Regular ARVO</span>
+          <div class="min-w-0">
+            <!-- Apenas o nome do carro (ex: ARVO 13) -->
+            <span id="modal-abast-veiculo" class="text-base font-black text-slate-900 leading-tight block truncate">ARVO 13</span>
+            <!-- Subtítulo fixo ARVOCAR embaixo do nome do veículo -->
+            <span id="modal-abast-subtitulo" class="text-[11px] text-slate-500 font-bold tracking-wide uppercase block">ARVOCAR</span>
           </div>
         </div>
 
-        <div class="flex items-center gap-2">
-          <!-- Placa Mercosul Estilizada -->
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Estampa Mercosul contendo o NÚMERO REAL da Placa -->
           <div class="placa-mercosul-card">
             <div class="placa-mercosul-header">
               <span class="placa-mercosul-pais">BRASIL</span>
               <span class="placa-mercosul-bandeira"></span>
             </div>
-            <span id="modal-abast-placa" class="placa-mercosul-texto">ARVO-CAR</span>
+            <span id="modal-abast-placa" class="placa-mercosul-texto">RNI0D20</span>
           </div>
 
           <!-- Botão Fechar -->
           <button type="button" onclick="fecharModalAbastecimento()" 
-                  class="w-7 h-7 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-500 hover:text-slate-800 flex items-center justify-center transition ml-1">
+                  class="w-7 h-7 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-500 hover:text-slate-800 flex items-center justify-center transition">
             <i class="ph-bold ph-x text-sm"></i>
           </button>
         </div>
       </div>
 
-      <!-- Tabela Harmônica de Informações do Abastecimento -->
+      <!-- Tabela de Informações do Abastecimento -->
       <div class="bg-white/95 rounded-2xl p-3.5 border border-[#E5DFD3] shadow-xs space-y-2 text-xs">
         
         <!-- Posto / Local -->
-        <div class="flex justify-between items-baseline">
-          <span class="text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">Posto / Local:</span>
-          <span id="modal-abast-posto" class="font-bold text-slate-800 text-right truncate max-w-[180px]">-</span>
+        <div class="flex justify-between items-baseline gap-2">
+          <span class="text-slate-400 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Posto / Local:</span>
+          <span id="modal-abast-posto" class="font-bold text-slate-800 text-right truncate">-</span>
         </div>
 
         <!-- Combustível -->
-        <div class="flex justify-between items-baseline">
-          <span class="text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">Combustível:</span>
-          <span id="modal-abast-tipo" class="font-semibold text-slate-800 text-right">-</span>
+        <div class="flex justify-between items-baseline gap-2">
+          <span class="text-slate-400 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Combustível:</span>
+          <span id="modal-abast-tipo" class="font-semibold text-slate-800 text-right truncate">-</span>
         </div>
 
         <!-- Responsável -->
-        <div class="flex justify-between items-baseline">
-          <span class="text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">Responsável:</span>
-          <span id="modal-abast-resp" class="font-mono text-[11px] text-slate-700 text-right font-medium truncate max-w-[180px]">-</span>
+        <div class="flex justify-between items-baseline gap-2">
+          <span class="text-slate-400 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Responsável:</span>
+          <span id="modal-abast-resp" class="font-mono text-[11px] text-slate-700 text-right font-medium truncate">-</span>
         </div>
 
         <!-- Odômetro -->
-        <div class="flex justify-between items-baseline">
-          <span class="text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">Odômetro (KM):</span>
+        <div class="flex justify-between items-baseline gap-2">
+          <span class="text-slate-400 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Odômetro (KM):</span>
           <span id="modal-abast-km" class="font-mono font-bold text-slate-900 text-right bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
             -
           </span>
         </div>
 
         <!-- Litros e Preço Unitário -->
-        <div class="flex justify-between items-baseline">
-          <span class="text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">Litros / Preço:</span>
-          <span id="modal-abast-litros-preco" class="font-mono font-semibold text-slate-800 text-right">
+        <div class="flex justify-between items-baseline gap-2">
+          <span class="text-slate-400 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Litros / Preço:</span>
+          <span id="modal-abast-litros-preco" class="font-mono font-semibold text-slate-800 text-right truncate">
             -
           </span>
         </div>

@@ -76,22 +76,19 @@
       </div>
 
       <div>
-        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Senha</label>
+        <label class="block text-xs font-black uppercase text-slate-600 mb-1">Senha</label>
         <div class="relative">
-          <span class="absolute left-3.5 top-3 text-slate-400">
-            <i class="ph-bold ph-lock-key text-base"></i>
-          </span>
-          <input type="password" id="login-senha" required placeholder="••••••••"
-            class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white outline-none transition" />
-          <button type="button" onclick="toggleVerSenha()"
-            class="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none">
-            <i id="icone-senha" class="ph-bold ph-eye text-base"></i>
+          <input type="password" id="m-senha" required placeholder="••••••••"
+            class="w-full bg-white border border-[#E2DDD5] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-[#395237] font-semibold outline-none pr-10" />
+          <button type="button" onclick="toggleSenhaMobile()" class="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600">
+            <i id="m-icone-senha" class="ph-bold ph-eye text-base"></i>
           </button>
         </div>
       </div>
 
+      <!-- Botão Esqueceu a Senha -->
       <div class="flex justify-end pt-1">
-        <button type="button" onclick="abrirModalEsqueciSenha()" class="text-[11px] font-semibold text-brand-700 hover:underline">
+        <button type="button" onclick="abrirModalEsqueciSenha()" class="text-[11px] font-bold text-[#395237] hover:underline">
           Esqueceu a senha?
         </button>
       </div>
