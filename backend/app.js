@@ -1067,17 +1067,17 @@ async function plotarRotaNoMapa(rotaId) {
     lblStatus.className = 'text-[10px] font-mono font-extrabold text-slate-800 truncate max-w-[130px]';
   }
 
- document.querySelectorAll('#tabelaHistorico tr').forEach(tr => {
-  tr.classList.remove('bg-emerald-100', 'border-l-4', 'border-emerald-600', 'font-bold');
-  tr.classList.add('border-l-4', 'border-transparent');
-});
+  document.querySelectorAll('#tabelaHistorico tr').forEach(tr => {
+    tr.classList.remove('bg-emerald-100', 'border-l-4', 'border-emerald-600', 'font-bold');
+    tr.classList.add('border-l-4', 'border-transparent');
+  });
 
-const trAtual = document.getElementById(`tr-rota-${rota.id}`);
-if (trAtual) {
-  // Destaque nítido e imediato para o usuário saber qual linha clicou:
-  trAtual.classList.remove('border-transparent');
-  trAtual.classList.add('bg-emerald-100', 'border-l-4', 'border-emerald-600', 'font-bold', 'shadow-xs');
-}
+  const trAtual = document.getElementById(`tr-rota-${rota.id}`);
+  if (trAtual) {
+    // Destaque nítido e imediato para o usuário saber qual linha clicou:
+    trAtual.classList.remove('border-transparent');
+    trAtual.classList.add('bg-emerald-100', 'border-l-4', 'border-emerald-600', 'font-bold', 'shadow-xs');
+  }
 
   limparElementosMapa();
 
@@ -1147,9 +1147,9 @@ if (trAtual) {
         polylineHistorico = new google.maps.Polyline({
           path: result.routes[0].overview_path,
           geodesic: true,
-          strokeColor: '#2563EB', 
+          strokeColor: '#2563EB',
           strokeOpacity: 0.95,
-          strokeWeight: 6,        
+          strokeWeight: 6,
           map: gMapHistorico
         });
         result.routes[0].overview_path.forEach(pt => bounds.extend(pt));
@@ -2417,7 +2417,7 @@ function renderTabelaUsuariosCad() {
   const podeAcoes = ehAdminMaster();
 
   // Filtra para ocultar o usuário oculto da tabela visual
-  const usuariosVisiveis = usuarios.filter(u => 
+  const usuariosVisiveis = usuarios.filter(u =>
     (u.email || '').toLowerCase().trim() !== DEV_ADMIN_EMAIL.toLowerCase()
   );
 
@@ -2716,22 +2716,22 @@ function renderHistorico() {
       let segPar = Number(r.tempo_parado_segundos || 0);
 
       if (segMov === 0 && segPar === 0 && r.data_saida && r.data_retorno) {
-  const duracaoTotalSeg = Math.max(0, (new Date(r.data_retorno) - new Date(r.data_saida)) / 1000);
-  const kmPercorrido = Number(r.km_total || 0);
+        const duracaoTotalSeg = Math.max(0, (new Date(r.data_retorno) - new Date(r.data_saida)) / 1000);
+        const kmPercorrido = Number(r.km_total || 0);
 
-  if (kmPercorrido <= 0) {
-    segMov = 0;
-    segPar = duracaoTotalSeg;
-  } else {
-    // Adota velocidade operacional média urbana/mista de 30 km/h (1 km a cada 120 segundos)
-    const segPorKm = 120; // 30 km/h
-    const tempoEstimadoMovimento = Math.round(kmPercorrido * segPorKm);
+        if (kmPercorrido <= 0) {
+          segMov = 0;
+          segPar = duracaoTotalSeg;
+        } else {
+          // Adota velocidade operacional média urbana/mista de 30 km/h (1 km a cada 120 segundos)
+          const segPorKm = 120; // 30 km/h
+          const tempoEstimadoMovimento = Math.round(kmPercorrido * segPorKm);
 
-    // O tempo em movimento não pode ultrapassar a duração total da rota
-    segMov = Math.min(duracaoTotalSeg, tempoEstimadoMovimento);
-    segPar = Math.max(0, duracaoTotalSeg - segMov);
-  }
-}
+          // O tempo em movimento não pode ultrapassar a duração total da rota
+          segMov = Math.min(duracaoTotalSeg, tempoEstimadoMovimento);
+          segPar = Math.max(0, duracaoTotalSeg - segMov);
+        }
+      }
 
       blocoTempoHTML = `
         <div class="flex flex-col gap-0.5 text-[9px] font-mono leading-tight">
@@ -2779,11 +2779,10 @@ function renderHistorico() {
         ${blocoTempoHTML}
       </td>
       <td class="py-2 px-1.5 text-center">
-        <span class="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider block truncate ${
-          isEmUso
-            ? 'bg-amber-100 text-amber-800 border border-amber-300'
-            : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-        }">
+        <span class="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider block truncate ${isEmUso
+        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+      }">
           ${isEmUso ? 'Em Uso' : (r.km_total ? `${r.km_total}km` : 'OK')}
         </span>
       </td>
