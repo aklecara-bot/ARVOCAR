@@ -11,6 +11,7 @@ const db = window.db || (window.supabase && typeof window.supabase.createClient 
   : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
 
 const ADMIN_EMAIL = "admin@arvo.tec.br";
+const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str || ''));
 
 let usuarioLogado = null;
 let veiculos = [];
@@ -830,7 +831,6 @@ function renderizarOpcoesVeiculos() {
       const isExterno = (v.tipo_frota || '').toUpperCase() === 'EXTERNO' || (v.proprietario || '').toUpperCase() === 'EXTERNO';
       const condutorExclusivo = (v.motorista_autorizado || '').toLowerCase().trim();
 
-      // Regra de segurança: Carros externos não aparecem para condutores que não respondem por eles
       if (isExterno && condutorExclusivo !== emailUser && !isAdmin) {
         return false;
       }
@@ -936,7 +936,6 @@ async function handleMobileInicioRota(e) {
     return;
   }
 
-  // Permissão de GPS solicitada e lembrada obrigatoriamente a cada rota
   let posGps;
   try {
     posGps = await solicitarPermissaoGPSObrigatoria();
@@ -1021,15 +1020,19 @@ async function handleMobileInicioRota(e) {
       localStorage.removeItem(`arvo_gps_rota_${tempId}`);
     }
 
-    let qVeic = db.from('veiculos').update({ status: 'Em Uso' });
-    if (uuidVeiculo) {
-      qVeic = qVeic.eq('uuid_veiculos', uuidVeiculo);
-    } else if (veiculo.placa) {
-      qVeic = qVeic.eq('placa', veiculo.placa);
-    } else {
-      qVeic = qVeic.eq('id', veiculo.id);
+    let veicOk = false;
+    if (uuidVeiculo && isUUID(uuidVeiculo)) {
+      const { error: errU } = await db.from('veiculos').update({ status: 'Em Uso' }).eq('uuid_veiculos', uuidVeiculo);
+      if (!errU) veicOk = true;
     }
-    await qVeic;
+    if (!veicOk && (placaVeiculo || veiculo.placa)) {
+      const p = placaVeiculo || veiculo.placa;
+      const { error: errP } = await db.from('veiculos').update({ status: 'Em Uso' }).eq('placa', p);
+      if (!errP) veicOk = true;
+    }
+    if (!veicOk && veiculo.id) {
+      await db.from('veiculos').update({ status: 'Em Uso' }).eq('id', veiculo.id);
+    }
 
     alert(`✅ Rota iniciada com sucesso com o veículo ${veiculo.nome_frota || veiculoId}!`);
     e.target.reset();
@@ -1107,7 +1110,7 @@ function calcularKmPercorridoMobile() {
 }
 
 // =========================================================================
-// FINALIZAÇÃO DA ROTA
+// FINALIZAÇÃO DA ROTA (CORREÇÃO DE FECHAMENTO NO MOBILE)
 // =========================================================================
 async function handleMobileFimRota(e) {
   e.preventDefault();
@@ -1297,27 +1300,31 @@ async function handleMobileFimRota(e) {
       payloadVeiculo.anomalias = payloadFim.anomalia || veiculoAlvo.anomalias;
     }
 
-    const condicoesVeiculo = [];
-    if (rota.uuid_veiculos) condicoesVeiculo.push(`uuid_veiculos.eq.${rota.uuid_veiculos}`);
-    if (veiculoAlvo.uuid_veiculos) condicoesVeiculo.push(`uuid_veiculos.eq.${veiculoAlvo.uuid_veiculos}`);
-    if (veiculoAlvo.id) condicoesVeiculo.push(`id.eq.${veiculoAlvo.id}`);
-    if (rota.veiculo_id) condicoesVeiculo.push(`nome_frota.eq.${rota.veiculo_id}`);
-    if (rota.placa) condicoesVeiculo.push(`placa.eq.${rota.placa}`);
-
-    if (condicoesVeiculo.length > 0) {
-      await db.from('veiculos').update(payloadVeiculo).or(condicoesVeiculo.join(','));
+    // Atualização segura do veículo sem cláusulas `.or` quebradas
+    let veiculoAtualizado = false;
+    if (veiculoAlvo.uuid_veiculos && isUUID(veiculoAlvo.uuid_veiculos)) {
+      const { error: errU } = await db.from('veiculos').update(payloadVeiculo).eq('uuid_veiculos', veiculoAlvo.uuid_veiculos);
+      if (!errU) veiculoAtualizado = true;
+    }
+    if (!veiculoAtualizado && (veiculoAlvo.placa || rota.placa)) {
+      const p = veiculoAlvo.placa || rota.placa;
+      const { error: errP } = await db.from('veiculos').update(payloadVeiculo).eq('placa', p);
+      if (!errP) veiculoAtualizado = true;
+    }
+    if (!veiculoAtualizado && (veiculoAlvo.nome_frota || rota.veiculo_id)) {
+      const n = veiculoAlvo.nome_frota || rota.veiculo_id;
+      const { error: errN } = await db.from('veiculos').update(payloadVeiculo).eq('nome_frota', n);
+      if (!errN) veiculoAtualizado = true;
+    }
+    if (!veiculoAtualizado && veiculoAlvo.id) {
+      await db.from('veiculos').update(payloadVeiculo).eq('id', veiculoAlvo.id);
     }
 
+    // Encerramento de reservas pendentes
     try {
-      const condicoesReserva = [];
-      if (rota.veiculo_id) condicoesReserva.push(`veiculo_id.eq.${rota.veiculo_id}`);
-      if (veiculoAlvo.nome_frota) condicoesReserva.push(`veiculo_id.eq.${veiculoAlvo.nome_frota}`);
-      if (rota.placa) condicoesReserva.push(`placa.eq.${rota.placa}`);
-      if (veiculoAlvo.placa) condicoesReserva.push(`placa.eq.${veiculoAlvo.placa}`);
-      if (rota.uuid_veiculos) condicoesReserva.push(`uuid_veiculos.eq.${rota.uuid_veiculos}`);
-      if (veiculoAlvo.uuid_veiculos) condicoesReserva.push(`uuid_veiculos.eq.${veiculoAlvo.uuid_veiculos}`);
-
       const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
+      const placaRes = veiculoAlvo.placa || rota.placa;
+      const nomeRes = veiculoAlvo.nome_frota || rota.veiculo_id;
 
       let queryReservas = db.from('reservas')
         .update({ 
@@ -1330,8 +1337,10 @@ async function handleMobileFimRota(e) {
         .lte('data_inicio', dataRetornoIso)
         .gte('data_fim', limiteToleranciaFim);
 
-      if (condicoesReserva.length > 0) {
-        queryReservas = queryReservas.or(condicoesReserva.join(','));
+      if (placaRes) {
+        queryReservas = queryReservas.eq('placa', placaRes);
+      } else if (nomeRes) {
+        queryReservas = queryReservas.eq('veiculo_id', nomeRes);
       }
 
       await queryReservas;
@@ -1412,13 +1421,18 @@ async function sincronizarFilaRotas() {
 
         const idRealCriado = (inserido && inserido[0]) ? inserido[0].id : null;
 
-        let qVeic = db.from('veiculos').update({ status: 'Em Uso' });
-        if (payload.placa) {
-          qVeic = qVeic.eq('placa', payload.placa);
-        } else {
-          qVeic = qVeic.or(`nome_frota.eq.${payload.veiculo_id},id.eq.${payload.veiculo_id}`);
+        let okV = false;
+        if (payload.uuid_veiculos && isUUID(payload.uuid_veiculos)) {
+          const { error: errU } = await db.from('veiculos').update({ status: 'Em Uso' }).eq('uuid_veiculos', payload.uuid_veiculos);
+          if (!errU) okV = true;
         }
-        await qVeic;
+        if (!okV && payload.placa) {
+          const { error: errP } = await db.from('veiculos').update({ status: 'Em Uso' }).eq('placa', payload.placa);
+          if (!errP) okV = true;
+        }
+        if (!okV && payload.veiculo_id) {
+          await db.from('veiculos').update({ status: 'Em Uso' }).eq('nome_frota', payload.veiculo_id);
+        }
 
         if (idRealCriado && tempId) {
           fila.forEach(outroItem => {
@@ -1445,24 +1459,34 @@ async function sincronizarFilaRotas() {
 
         const placaAlvo = item.placa || item.payload?.placa;
         const veicAlvo = item.veiculo_id || item.payload?.veiculo_id;
+        const uuidAlvo = item.uuid_veiculos || item.payload?.uuid_veiculos;
+
         const payloadUpdateVeic = {
           status: 'Disponivel'
         };
         if (dadosFim.km_retorno) payloadUpdateVeic.km_atual = dadosFim.km_retorno;
         if (item.tanque_virtual !== undefined) payloadUpdateVeic.tanque_virtual = item.tanque_virtual;
 
-        let qVeicFim = db.from('veiculos').update(payloadUpdateVeic);
-        if (placaAlvo) {
-          qVeicFim = qVeicFim.eq('placa', placaAlvo);
-        } else if (veicAlvo) {
-          qVeicFim = qVeicFim.or(`nome_frota.eq.${veicAlvo},id.eq.${veicAlvo}`);
+        let atualizouVeic = false;
+        if (uuidAlvo && isUUID(uuidAlvo)) {
+          const { error: errU } = await db.from('veiculos').update(payloadUpdateVeic).eq('uuid_veiculos', uuidAlvo);
+          if (!errU) atualizouVeic = true;
         }
-        await qVeicFim;
+        if (!atualizouVeic && placaAlvo) {
+          const { error: errP } = await db.from('veiculos').update(payloadUpdateVeic).eq('placa', placaAlvo);
+          if (!errP) atualizouVeic = true;
+        }
+        if (!atualizouVeic && veicAlvo) {
+          await db.from('veiculos').update(payloadUpdateVeic).eq('nome_frota', veicAlvo);
+        }
 
         try {
-          await db.from('reservas').update({ status: 'CONCLUIDA' })
-            .eq('veiculo_id', veicAlvo)
-            .eq('status', 'CONFIRMADA');
+          let qRes = db.from('reservas').update({ status: 'CONCLUIDA' }).eq('status', 'CONFIRMADA');
+          if (placaAlvo) {
+            await qRes.eq('placa', placaAlvo);
+          } else if (veicAlvo) {
+            await qRes.eq('veiculo_id', veicAlvo);
+          }
         } catch (resErr) {
           console.warn("Aviso ao liberar reserva sincronizada:", resErr);
         }
@@ -2059,7 +2083,7 @@ async function handleAlterarMinhaSenha(e) {
   const senhaConfirma = document.getElementById('senha-confirma-usuario').value.trim();
 
   if (senhaNova !== senhaConfirma) {
-    alert("⚠️️ A confirmação da nova senha não confere.");
+    alert("⚠️ A confirmação da nova senha não confere.");
     return;
   }
 
@@ -2135,7 +2159,6 @@ function fecharModalRedefinirSenhaMobile() {
   if (cf) cf.value = '';
 }
 
-// 1. Gera código no Supabase e abre modal de nova senha
 async function handleSolicitarRecuperacaoMobile(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
   const btn = document.getElementById('btn-solicitar-recup');
@@ -2163,9 +2186,8 @@ async function handleSolicitarRecuperacaoMobile(e) {
       throw new Error("E-mail não encontrado no sistema.");
     }
 
-    // Gera código de 6 dígitos numéricos
     const codigo = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiraEm = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hora
+    const expiraEm = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
     const { error: errInsert } = await db.from('recuperacao_senhas').insert([{
       usuario_id: usuario.id,
@@ -2194,7 +2216,6 @@ async function handleSolicitarRecuperacaoMobile(e) {
   }
 }
 
-// 2. Valida o código de 6 dígitos e grava a nova senha no banco
 async function handleConfirmarNovaSenhaMobile(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
   const btn = document.getElementById('btn-redefinir');
@@ -2226,7 +2247,6 @@ async function handleConfirmarNovaSenhaMobile(e) {
   try {
     const agora = new Date().toISOString();
 
-    // Busca o código ativo e não expirado
     const { data: recup, error: errBusca } = await db
       .from('recuperacao_senhas')
       .select('*')
@@ -2242,7 +2262,6 @@ async function handleConfirmarNovaSenhaMobile(e) {
       throw new Error("Código inválido ou expirado.");
     }
 
-    // Atualiza a senha na tabela de usuários
     const { error: errUpdate } = await db
       .from('usuarios')
       .update({ senha: novaSenha })
@@ -2250,7 +2269,6 @@ async function handleConfirmarNovaSenhaMobile(e) {
 
     if (errUpdate) throw errUpdate;
 
-    // Invalida o código utilizado
     await db.from('recuperacao_senhas').update({ usado: true }).eq('id', recup.id);
 
     fecharModalRedefinirSenhaMobile();
@@ -2265,13 +2283,12 @@ async function handleConfirmarNovaSenhaMobile(e) {
   }
 }
 
-// Bindings globais no window
+// Bindings globais no escopo window
 window.abrirModalEsqueciSenhaMobile = abrirModalEsqueciSenhaMobile;
 window.fecharModalEsqueciSenhaMobile = fecharModalEsqueciSenhaMobile;
 window.fecharModalRedefinirSenhaMobile = fecharModalRedefinirSenhaMobile;
 window.handleSolicitarRecuperacaoMobile = handleSolicitarRecuperacaoMobile;
 window.handleConfirmarNovaSenhaMobile = handleConfirmarNovaSenhaMobile;
-// Bindings globais no escopo window (garante total compatibilidade com inline HTML)
 window.abrirModalTrocarSenha = abrirModalTrocarSenha;
 window.fecharModalTrocarSenha = fecharModalTrocarSenha;
 window.handleAlterarMinhaSenha = handleAlterarMinhaSenha;
