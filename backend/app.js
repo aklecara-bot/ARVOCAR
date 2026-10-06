@@ -3117,6 +3117,220 @@ async function resolverAlertaAuditoria(alertaId) {
   }
 }
 
+function previewImagemManutencao(e) {
+  const file = e.target.files[0];
+  const preview = document.getElementById('img-preview-manut');
+  const placeholder = document.getElementById('box-preview-placeholder-manut');
+
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function (evt) {
+      if (preview) {
+        preview.src = evt.target.result;
+        preview.classList.remove('hidden');
+      }
+      if (placeholder) placeholder.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+async function salvarConfirmacaoManutencaoAba(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  
+  const btn = document.getElementById('btn-submit-manut-aba');
+  const veiculoId = document.getElementById('manut-aba-veiculo')?.value;
+  const itemServico = document.getElementById('manut-aba-item')?.value;
+  const kmTroca = parseFloat(document.getElementById('manut-aba-km')?.value) || 0;
+  const valorTotal = parseFloat(document.getElementById('manut-aba-valor')?.value) || 0;
+  const oficina = document.getElementById('manut-aba-oficina')?.value?.trim() || '';
+  const obs = document.getElementById('manut-aba-obs')?.value?.trim() || '';
+
+  if (!veiculoId) {
+    alert("Selecione um veículo.");
+    return;
+  }
+
+  // Localiza o veículo para garantir a placa correta
+  const veic = (veiculos || []).find(v => 
+    String(v.placa) === String(veiculoId) ||
+    String(v.nome_frota) === String(veiculoId) ||
+    String(v.id) === String(veiculoId) ||
+    String(v.uuid_veiculos) === String(veiculoId)
+  );
+
+  const placaFinal = veic?.placa || veiculoId;
+  const dataHoje = new Date().toISOString().split('T')[0];
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
+  }
+
+  let urlComprovanteFinal = null;
+
+  try {
+    // A. Upload da imagem para o bucket existente "comprovantes"
+    if (arquivoFoto) {
+      try {
+        const fileExt = arquivoFoto.name.split('.').pop();
+        const fileName = `manut_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+        const { error: uploadError } = await db.storage
+          .from('comprovantes')
+          .upload(fileName, arquivoFoto, { cacheControl: '3600', upsert: false });
+
+        if (!uploadError) {
+          const { data: publicUrlData } = db.storage
+            .from('comprovantes')
+            .getPublicUrl(fileName);
+          urlComprovanteFinal = publicUrlData?.publicUrl || null;
+        } else {
+          console.warn("Aviso no upload do comprovante:", uploadError.message);
+        }
+      } catch (imgErr) {
+        console.warn("Falha no upload da imagem:", imgErr);
+      }
+    }
+
+
+  const payload = {
+    placa: placaFinal,
+    item: itemServico,
+    km_ultima_troca: kmTroca,
+    data_ultima_troca: dataHoje,
+    valor_total: valorTotal,
+    oficina: oficina,
+    observacoes: obs,
+    url_comprovante: urlComprovanteFinal
+  };
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Gravando...`;
+  }
+
+  try {
+    // 1. Grava o histórico de manutenção
+    const { error: erroManut } = await db
+      .from('manutencoes_preventivas')
+      .insert([payload]);
+
+    if (erroManut) throw erroManut;
+
+    // 2. Atualiza a quilometragem da última revisão no cadastro do veículo
+    if (veic) {
+      const payloadVeic = { km_ultima_revisao: kmTroca };
+      if (kmTroca > Number(veic.km_atual || 0)) {
+        payloadVeic.km_atual = kmTroca;
+      }
+      await db.from('veiculos')
+        .update(payloadVeic)
+        .or(`id.eq.${veic.id},placa.eq.${placaFinal}`);
+    }
+
+    alert("✅ Manutenção registrada com sucesso!");
+    document.getElementById('form-registro-manutencao-aba')?.reset();
+    
+    // Limpa o formulário e o preview da imagem
+    document.getElementById('form-registro-manutencao-aba')?.reset();
+    const imgPreview = document.getElementById('img-preview-manut');
+    const placeholder = document.getElementById('box-preview-placeholder-manut');
+    if (imgPreview) {
+      imgPreview.src = '';
+      imgPreview.classList.add('hidden');
+    }
+    if (placeholder) placeholder.classList.remove('hidden');
+
+    await carregarTodosDadosDoBanco();
+    await carregarHistoricoManutencoes();
+  } catch (err) {
+    console.error("Erro ao salvar manutenção:", err);
+    alert("Erro ao gravar manutenção: " + (err.message || 'Verifique sua conexão.'));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check"></i> Registrar e Atualizar Contadores`;
+    }
+  }
+    
+    // Recarrega os dados e a listagem histórica
+    await carregarTodosDadosDoBanco();
+    if (typeof carregarHistoricoManutencoes === 'function') {
+      carregarHistoricoManutencoes();
+    }
+  } catch (err) {
+    console.error("Erro ao salvar manutenção:", err);
+    alert("Erro ao gravar manutenção: " + (err.message || 'Verifique o console do navegador.'));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check"></i> Registrar e Atualizar Contadores`;
+    }
+  }
+}
+
+async function carregarHistoricoManutencoes() {
+  const tbody = document.getElementById('grid-historico-manutencoes');
+  if (!tbody) return;
+
+  try {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400 text-xs"><i class="ph-bold ph-spinner animate-spin text-base"></i> Carregando manutenções...</td></tr>`;
+
+    const { data, error } = await db
+      .from('manutencoes_preventivas')
+      .select('*')
+      .order('id', { ascending: false });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400 text-xs">Nenhuma manutenção registrada até o momento.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = '';
+    data.forEach(m => {
+      // Formata a data DD/MM/AAAA
+      let dataFmt = '-';
+      if (m.data_ultima_troca) {
+        const partes = m.data_ultima_troca.split('-');
+        if (partes.length === 3) dataFmt = `${partes[2]}/${partes[1]}/${partes[0]}`;
+        else dataFmt = m.data_ultima_troca;
+      }
+
+      const kmFmt = m.km_ultima_troca ? `${Number(m.km_ultima_troca).toLocaleString('pt-BR')} km` : '-';
+      const valorFmt = Number(m.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+      let cupomHTML = `<span class="text-[10px] text-slate-400">Sem anexo</span>`;
+      if (m.url_comprovante) {
+        cupomHTML = `
+          <a href="${m.url_comprovante}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold transition">
+            <i class="ph-bold ph-file-text"></i> Ver Nota
+          </a>
+        `;
+      }
+
+      const tr = document.createElement('tr');
+      tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+      tr.innerHTML = `
+        <td class="py-3 px-3 font-mono text-xs text-slate-600">${dataFmt}</td>
+        <td class="py-3 px-3 font-bold text-slate-800">${m.placa || '-'}</td>
+        <td class="py-3 px-3 text-slate-700 text-xs">${m.item || '-'}</td>
+        <td class="py-3 px-3 font-mono font-bold text-slate-800 text-xs">${kmFmt}</td>
+        <td class="py-3 px-3 font-mono text-emerald-700 font-bold text-xs">${valorFmt}</td>
+        <td class="py-3 px-3 text-slate-600 text-xs">${m.oficina || '-'}</td>
+        <td class="py-3 px-3 text-center">${cupomHTML}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error("Erro ao carregar histórico de manutenções:", err);
+    tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-rose-500 text-xs">Erro ao carregar manutenções: ${err.message}</td></tr>`;
+  }
+}
+
+
 // =========================================================================
 // 10. EXPOSIÇÃO GLOBAL (WINDOW)
 // =========================================================================
@@ -3168,6 +3382,10 @@ window.fecharModalTrocarSenha = fecharModalTrocarSenha;
 window.handleAlterarMinhaSenha = handleAlterarMinhaSenha;
 window.obterNomeMotoristaFormatado = obterNomeMotoristaFormatado;
 window.formatarTempoSegundos = formatarTempoSegundos;
+window.salvarConfirmacaoManutencaoAba = salvarConfirmacaoManutencaoAba;
+window.previewImagemManutencao = previewImagemManutencao;
+window.salvarConfirmacaoManutencaoAba = salvarConfirmacaoManutencaoAba;
+window.carregarHistoricoManutencoes = carregarHistoricoManutencoes;
 
 // =========================================================================
 // INICIALIZAÇÃO
