@@ -3137,22 +3137,26 @@ function previewImagemManutencao(e) {
 
 async function salvarConfirmacaoManutencaoAba(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
-  
+
   const btn = document.getElementById('btn-submit-manut-aba');
   const veiculoId = document.getElementById('manut-aba-veiculo')?.value;
   const itemServico = document.getElementById('manut-aba-item')?.value;
   const kmTroca = parseFloat(document.getElementById('manut-aba-km')?.value) || 0;
   const valorTotal = parseFloat(document.getElementById('manut-aba-valor')?.value) || 0;
-  const oficina = document.getElementById('manut-aba-oficina')?.value?.trim() || '';
-  const obs = document.getElementById('manut-aba-obs')?.value?.trim() || '';
+  const oficina = (document.getElementById('manut-aba-oficina')?.value || '').trim().toUpperCase();
+  const obs = (document.getElementById('manut-aba-obs')?.value || '').trim();
+
+  // Captura o input da foto antes de qualquer validação
+  const fileInput = document.getElementById('manut-aba-foto');
+  const arquivoFoto = (fileInput && fileInput.files && fileInput.files[0]) ? fileInput.files[0] : null;
 
   if (!veiculoId) {
     alert("Selecione um veículo.");
     return;
   }
 
-  // Localiza o veículo para garantir a placa correta
-  const veic = (veiculos || []).find(v => 
+  // Localiza o veículo para capturar a placa
+  const veic = (veiculos || []).find(v =>
     String(v.placa) === String(veiculoId) ||
     String(v.nome_frota) === String(veiculoId) ||
     String(v.id) === String(veiculoId) ||
@@ -3170,7 +3174,7 @@ async function salvarConfirmacaoManutencaoAba(e) {
   let urlComprovanteFinal = null;
 
   try {
-    // A. Upload da imagem para o bucket existente "comprovantes"
+    // 1. Upload da imagem para o bucket existente "comprovantes"
     if (arquivoFoto) {
       try {
         const fileExt = arquivoFoto.name.split('.').pop();
@@ -3189,36 +3193,29 @@ async function salvarConfirmacaoManutencaoAba(e) {
           console.warn("Aviso no upload do comprovante:", uploadError.message);
         }
       } catch (imgErr) {
-        console.warn("Falha no upload da imagem:", imgErr);
+        console.warn("Falha no upload da foto:", imgErr);
       }
     }
 
+    // 2. Inserção na tabela de manutenções
+    const payload = {
+      placa: placaFinal,
+      item: itemServico,
+      km_ultima_troca: kmTroca,
+      data_ultima_troca: dataHoje,
+      valor_total: valorTotal,
+      oficina: oficina,
+      observacoes: obs,
+      url_comprovante: urlComprovanteFinal
+    };
 
-  const payload = {
-    placa: placaFinal,
-    item: itemServico,
-    km_ultima_troca: kmTroca,
-    data_ultima_troca: dataHoje,
-    valor_total: valorTotal,
-    oficina: oficina,
-    observacoes: obs,
-    url_comprovante: urlComprovanteFinal
-  };
-
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Gravando...`;
-  }
-
-  try {
-    // 1. Grava o histórico de manutenção
     const { error: erroManut } = await db
       .from('manutencoes_preventivas')
       .insert([payload]);
 
     if (erroManut) throw erroManut;
 
-    // 2. Atualiza a quilometragem da última revisão no cadastro do veículo
+    // 3. Atualiza os dados de revisão do veículo
     if (veic) {
       const payloadVeic = { km_ultima_revisao: kmTroca };
       if (kmTroca > Number(veic.km_atual || 0)) {
@@ -3230,9 +3227,8 @@ async function salvarConfirmacaoManutencaoAba(e) {
     }
 
     alert("✅ Manutenção registrada com sucesso!");
-    document.getElementById('form-registro-manutencao-aba')?.reset();
-    
-    // Limpa o formulário e o preview da imagem
+
+    // 4. Limpa o formulário e o preview da imagem
     document.getElementById('form-registro-manutencao-aba')?.reset();
     const imgPreview = document.getElementById('img-preview-manut');
     const placeholder = document.getElementById('box-preview-placeholder-manut');
@@ -3240,28 +3236,18 @@ async function salvarConfirmacaoManutencaoAba(e) {
       imgPreview.src = '';
       imgPreview.classList.add('hidden');
     }
-    if (placeholder) placeholder.classList.remove('hidden');
+    if (placeholder) {
+      placeholder.classList.remove('hidden');
+    }
 
+    // 5. Atualiza o banco e recarrega a tabela histórica
     await carregarTodosDadosDoBanco();
-    await carregarHistoricoManutencoes();
+    if (typeof carregarHistoricoManutencoes === 'function') {
+      await carregarHistoricoManutencoes();
+    }
   } catch (err) {
     console.error("Erro ao salvar manutenção:", err);
     alert("Erro ao gravar manutenção: " + (err.message || 'Verifique sua conexão.'));
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="ph-bold ph-check"></i> Registrar e Atualizar Contadores`;
-    }
-  }
-    
-    // Recarrega os dados e a listagem histórica
-    await carregarTodosDadosDoBanco();
-    if (typeof carregarHistoricoManutencoes === 'function') {
-      carregarHistoricoManutencoes();
-    }
-  } catch (err) {
-    console.error("Erro ao salvar manutenção:", err);
-    alert("Erro ao gravar manutenção: " + (err.message || 'Verifique o console do navegador.'));
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -3384,7 +3370,6 @@ window.obterNomeMotoristaFormatado = obterNomeMotoristaFormatado;
 window.formatarTempoSegundos = formatarTempoSegundos;
 window.salvarConfirmacaoManutencaoAba = salvarConfirmacaoManutencaoAba;
 window.previewImagemManutencao = previewImagemManutencao;
-window.salvarConfirmacaoManutencaoAba = salvarConfirmacaoManutencaoAba;
 window.carregarHistoricoManutencoes = carregarHistoricoManutencoes;
 
 // =========================================================================
