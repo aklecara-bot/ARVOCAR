@@ -481,6 +481,16 @@
               <textarea id="m-fim-anomalia" rows="2" placeholder="Descreva o problema observado..."
                 class="hidden w-full bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-xl p-2.5 outline-none resize-none"></textarea>
             </div>
+            <!-- Checkbox de Liberação Temporária no Encerramento -->
+            <div id="box-liberacao-temporaria" class="p-3 bg-amber-50 rounded-xl border border-amber-200 mt-2">
+              <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-amber-900">
+                <input type="checkbox" id="check-liberar-carro-hoje" class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4">
+                <span>Liberar este veículo para rotas de outros condutores até o fim do dia de hoje?</span>
+              </label>
+              <p class="text-[10px] text-amber-700 mt-1 pl-6">
+                Utilize caso possua reserva semanal/mensal e já tenha concluído as atividades com o carro hoje.
+              </p>
+            </div>
 
             <button type="submit" id="btn-m-confirmar-fim"
               class="w-full bg-[#7a4522] hover:bg-[#63371b] text-[#f4f1e5] font-black text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl shadow-lg border border-[#7a4522]/50 transition flex items-center justify-center gap-2 active:scale-95">

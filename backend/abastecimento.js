@@ -25,6 +25,16 @@ async function init() {
     usuarioLogado = { email: sessao, nome: sessao };
   }
 
+  // --- ATUALIZAÇÃO DO CABEÇALHO COM O NOME DO USUÁRIO ---
+  const displayUser = document.getElementById('topUserDisplay');
+  const displayCnh = document.getElementById('topUserCnh');
+  if (displayUser && usuarioLogado) {
+    displayUser.innerText = usuarioLogado.nome || usuarioLogado.email.split('@')[0];
+  }
+  if (displayCnh && usuarioLogado) {
+    displayCnh.innerText = `${usuarioLogado.email}${usuarioLogado.cnh ? ' • CNH: ' + usuarioLogado.cnh : ''}`;
+  }
+  
   const linkVoltar = document.getElementById('link-voltar');
   if (linkVoltar && localStorage.getItem('arvo_mobile_user')) {
     linkVoltar.href = 'paginainicial.html';

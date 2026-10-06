@@ -616,79 +616,106 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   return Number(mediaFabricante.toFixed(2));
 }
 
-async function handleInicioRota(e) {
-  e.preventDefault();
+async function validarDisponibilidadeReservaCarro(veiculo, emailCondutorLogado) {
+  const agora = new Date();
+  const agoraTs = agora.getTime();
+  const emailAtual = (emailCondutorLogado || '').toLowerCase().trim();
+  const nomeCarro = veiculo.nome_frota || veiculo.id;
+  const placaCarro = veiculo.placa;
 
+  const { data: reservasCarro, error } = await db
+    .from('reservas')
+    .select('*')
+    .eq('status', 'CONFIRMADA');
+
+  if (error || !reservasCarro) return { permitido: true };
+
+  // Localiza reserva ativa incidindo neste momento
+  const reservaAtiva = reservasCarro.find(r => {
+    const bateuCarro =
+      String(r.veiculo_id).toUpperCase() === String(nomeCarro).toUpperCase() ||
+      String(r.veiculo_id).toUpperCase() === String(veiculo.id).toUpperCase() ||
+      (placaCarro && String(r.veiculo_id).toUpperCase() === String(placaCarro).toUpperCase()) ||
+      (placaCarro && String(r.placa).toUpperCase() === String(placaCarro).toUpperCase());
+
+    if (!bateuCarro) return false;
+
+    const ini = new Date(r.data_inicio).getTime();
+    const fim = new Date(r.data_fim).getTime();
+    return (agoraTs >= ini && agoraTs <= fim);
+  });
+
+  if (!reservaAtiva) {
+    return { permitido: true };
+  }
+
+  const emailDono = (reservaAtiva.responsavel || '').toLowerCase().trim();
+  const ehDonoReserva = (emailDono === emailAtual);
+
+  // Se o próprio responsável pela reserva estiver abrindo a rota: permitido
+  if (ehDonoReserva) {
+    return { permitido: true };
+  }
+
+  // Se outro motorista tentar usar, verifica se há liberação temporária válida cobrindo o dia
+  if (reservaAtiva.liberado_ate) {
+    const liberadoAteTs = new Date(reservaAtiva.liberado_ate).getTime();
+    if (agoraTs <= liberadoAteTs) {
+      return {
+        permitido: true,
+        aviso: `⚠️ Veículo em reserva de ${typeof obterNomeMotoristaFormatado === 'function' ? obterNomeMotoristaFormatado(reservaAtiva.responsavel) : reservaAtiva.responsavel}, porém liberado temporariamente para uso até o fim do dia.`
+      };
+    }
+  }
+
+  // Fora da condição de liberação: bloqueio total
+  const dataFimFmt = new Date(reservaAtiva.data_fim).toLocaleString('pt-BR');
+  return {
+    permitido: false,
+    mensagem: `⛔ VEÍCULO BLOQUEADO POR RESERVA!\n\n` +
+      `O veículo ${nomeCarro} [${placaCarro || 'S/ Placa'}] está reservado para:\n` +
+      `👤 Titular: ${typeof obterNomeMotoristaFormatado === 'function' ? obterNomeMotoristaFormatado(reservaAtiva.responsavel) : reservaAtiva.responsavel}\n` +
+      `🎯 Modalidade: ${reservaAtiva.tipo_reserva || 'Reserva'} (${reservaAtiva.finalidade})\n` +
+      `📅 Vigência até: ${dataFimFmt}\n\n` +
+      `O titular não realizou a liberação temporária deste veículo para hoje.`
+  };
+}
+
+async function handleInicioRota(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
   const btn = document.getElementById('btn-submit-inicio');
   const veiculoId = document.getElementById('form-inicio-veiculo')?.value;
+
+  if (!veiculoId) {
+    alert("Por favor, selecione um veículo.");
+    return;
+  }
 
   const veiculo = (veiculos || []).find(v =>
     String(v.id) === String(veiculoId) ||
     String(v.uuid_veiculos) === String(veiculoId) ||
-    String(v.placa) === String(veiculoId) ||
-    String(v.nome_frota) === String(veiculoId)
+    String(v.nome_frota) === String(veiculoId) ||
+    String(v.placa) === String(veiculoId)
   );
 
-  const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
-  let user = (usuarios && usuarios[currentUserIndex]) ? usuarios[currentUserIndex] : null;
-  if (!user && rawSessao) {
-    try { user = JSON.parse(rawSessao); } catch { user = { email: rawSessao }; }
-  }
-
   if (!veiculo) {
-    alert("Por favor, selecione um veículo válido.");
+    alert("Veículo não encontrado.");
     return;
   }
 
-  if (!user?.email) {
-    alert("Condutor não identificado. Faça login novamente.");
+  const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
+  let sessao;
+  try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
+  const emailAtual = (sessao?.email || '').toLowerCase().trim();
+
+  // Validação de Reserva com suporte à liberação temporária diária
+  const checagem = await validarDisponibilidadeReservaCarro(veiculo, emailAtual);
+  if (!checagem.permitido) {
+    alert(checagem.mensagem);
     return;
   }
-
-  const agoraTimestamp = new Date().getTime();
-  const emailAtual = user.email.toLowerCase().trim();
-  const nomeCarro = veiculo.nome_frota || veiculo.id;
-  const placaCarro = veiculo.placa;
-
-  // Trava de Reserva Ativa
-  try {
-    const { data: reservasCarro, error: errRes } = await db
-      .from('reservas')
-      .select('*')
-      .eq('status', 'CONFIRMADA');
-
-    if (!errRes && reservasCarro) {
-      const reservaAtiva = reservasCarro.find(r => {
-        const bateuCarro = String(r.veiculo_id) === String(nomeCarro) ||
-          String(r.veiculo_id) === String(veiculo.id) ||
-          String(r.veiculo_id) === String(placaCarro) ||
-          String(r.placa) === String(placaCarro);
-
-        const ini = new Date(r.data_inicio).getTime();
-        const fim = new Date(r.data_fim).getTime();
-        return bateuCarro && agoraTimestamp >= ini && agoraTimestamp <= fim;
-      });
-
-      if (reservaAtiva) {
-        const emailDono = (reservaAtiva.responsavel || '').toLowerCase().trim();
-        if (emailDono !== emailAtual && !ehGestorOuAdmin()) {
-          const dataFimFmt = new Date(reservaAtiva.data_fim).toLocaleString('pt-BR', {
-            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-          });
-
-          alert(
-            `⛔ VEÍCULO BLOQUEADO POR RESERVA!\n\n` +
-            `O veículo ${nomeCarro} [${placaCarro}] está reservado para:\n` +
-            `👤 Condutor: ${reservaAtiva.responsavel}\n` +
-            `🎯 Finalidade: ${reservaAtiva.finalidade}\n` +
-            `📅 Reservado até: ${dataFimFmt}`
-          );
-          return;
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("Aviso na verificação de reserva:", err);
+  if (checagem.aviso) {
+    console.log(checagem.aviso);
   }
 
   const selectOrigem = document.getElementById('form-inicio-origem')?.value;
@@ -701,84 +728,58 @@ async function handleInicioRota(e) {
   }
 
   const isExterno = (veiculo.tipo_frota || '').toUpperCase() === 'EXTERNO';
-  const kmInformadoInput = parseFloat(document.getElementById('form-inicio-km')?.value);
-  const kmBanco = Number(veiculo.km_atual || 0);
-  const condutorAutorizado = (veiculo.motorista_autorizado || '').toLowerCase().trim();
-  const condutorLogado = (user?.email || '').toLowerCase().trim();
-  const ehAdmin = condutorLogado === ADMIN_EMAIL.toLowerCase().trim();
+  const kmInformadoInput = document.getElementById('form-inicio-km')?.value;
+  const kmInicial = isExterno ? Number(kmInformadoInput || 0) : Number(veiculo.km_atual || 0);
 
-  if (isExterno) {
-    if (!condutorAutorizado) {
-      alert("⚠️ Este veículo externo não possui condutor autorizado configurado. Contate o Administrador.");
-      return;
-    }
-
-    if (condutorLogado !== condutorAutorizado && !ehAdmin) {
-      alert(
-        `⛔ ACESSO RESTRITO!\n\n` +
-        `Este veículo externo é de uso exclusivo do condutor:\n` +
-        `👤 ${veiculo.motorista_autorizado}\n\n` +
-        `Por favor, utilize um veículo da frota regular.`
-      );
-      return;
-    }
+  if (isNaN(kmInicial) || kmInicial < 0) {
+    alert("KM Inicial inválido.");
+    return;
   }
-
-  const kmSaidaFinal = (isExterno && !isNaN(kmInformadoInput) && kmInformadoInput > 0) ? kmInformadoInput : kmBanco;
 
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Gravando...`;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Iniciando...`;
   }
 
-  const dataHoraSaidaAtual = new Date().toISOString();
-  const coordsPartida = await obterCoordenadasPartida(origemFinal);
+  const dataSaidaAtual = new Date().toISOString();
+  const coordsOrigem = (typeof obterCoordenadasPartida === 'function')
+    ? await obterCoordenadasPartida(origemFinal)
+    : [];
 
   const novaRota = {
-    veiculo_id: nomeCarro,
-    placa: placaCarro,
+    veiculo_id: veiculo.nome_frota || veiculo.id,
     uuid_veiculos: veiculo.uuid_veiculos || null,
-    responsavel: user.email,
+    placa: veiculo.placa || null,
+    responsavel: emailAtual,
     origem: origemFinal,
-    destino: null,
-    finalidade: document.getElementById('form-inicio-finalidade')?.value || 'DEMANDAS INTERNAS',
-    data_saida: dataHoraSaidaAtual,
-    data_retorno: null,
-    km_saida: kmSaidaFinal,
-    km_retorno: null,
-    km_total: 0,
-    consumo_litros: null,
-    anomalia: '',
+    km_saida: kmInicial,
+    data_saida: dataSaidaAtual,
     status: 'Em Uso',
-    gps_autorizado: Boolean(coordsPartida?.tipo === 'GPS_REAL'),
-    tempo_movimento_segundos: 0,
-    tempo_parado_segundos: 0,
-    coords_origem: coordsPartida,
-    coordenadas: coordsPartida ? [{ lat: coordsPartida.lat, lng: coordsPartida.lng, timestamp: dataHoraSaidaAtual }] : []
+    coordenadas: coordsOrigem
   };
 
   try {
-    const { data: inserido, error: erroRota } = await db
-      .from('rotas')
-      .insert([novaRota])
-      .select('id');
+    const { data: rotaInserida, error: errInsert } = await db.from('rotas').insert([novaRota]).select('id');
+    if (errInsert) throw errInsert;
 
-    if (erroRota) throw erroRota;
+    const rotaIdCriada = (rotaInserida && rotaInserida[0]) ? rotaInserida[0].id : null;
 
-    const rotaIdCriada = (inserido && inserido[0]) ? inserido[0].id : '';
-
+    // Atualiza status do veículo para 'Em Uso'
     const payloadUpdateVeiculo = { status: 'Em Uso' };
-    if (isExterno && kmSaidaFinal > kmBanco) {
-      payloadUpdateVeiculo.km_atual = kmSaidaFinal;
-    }
+    if (isExterno) payloadUpdateVeiculo.km_atual = kmInicial;
 
-    let qVeic = db.from('veiculos').update(payloadUpdateVeiculo);
-    if (placaCarro) {
-      qVeic = qVeic.eq('placa', placaCarro);
-    } else {
-      qVeic = qVeic.eq('id', veiculo.id);
+    let veiculoAtualizado = false;
+    if (veiculo.uuid_veiculos) {
+      const { error: errU } = await db.from('veiculos').update(payloadUpdateVeiculo).eq('uuid_veiculos', veiculo.uuid_veiculos);
+      if (!errU) veiculoAtualizado = true;
     }
-    await qVeic;
+    if (!veiculoAtualizado && veiculo.placa) {
+      const { error: errP } = await db.from('veiculos').update(payloadUpdateVeiculo).eq('placa', veiculo.placa);
+      if (!errP) veiculoAtualizado = true;
+    }
+    if (!veiculoAtualizado && veiculo.id) {
+      await db.from('veiculos').update(payloadUpdateVeiculo).eq('id', veiculo.id);
+    }
 
     e.target.reset();
     if (typeof toggleOutroOrigem === 'function') toggleOutroOrigem('');
@@ -798,23 +799,25 @@ async function handleInicioRota(e) {
 }
 
 async function handleFimRota(e) {
-  e.preventDefault();
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+
   const btn = document.getElementById('btn-submit-fim');
   const rotaId = document.getElementById('form-fim-rota-select')?.value;
-  const kmFinal = parseFloat(document.getElementById('form-fim-km')?.value);
+  const kmFinalInput = document.getElementById('form-fim-km')?.value;
+  const kmFinal = Number(kmFinalInput);
 
   const selectDestino = document.getElementById('form-fim-destino')?.value;
   const textoDestino = document.getElementById('form-fim-destino-texto')?.value?.trim().toUpperCase() || '';
   const destinoFinal = selectDestino === 'OUTRO' ? textoDestino : selectDestino;
 
   if (!destinoFinal) {
-    alert("Por favor, digite o local de devolução.");
+    alert("Por favor, selecione ou digite o local de devolução.");
     return;
   }
 
   const rota = (rotas || []).find(r => String(r.id) === String(rotaId));
   if (!rota) {
-    alert("Erro: Rota não encontrada na lista.");
+    alert("Erro: Rota ativa não encontrada na lista.");
     return;
   }
 
@@ -823,22 +826,16 @@ async function handleFimRota(e) {
   try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
   const emailLogado = (sessao?.email || '').toLowerCase().trim();
   const responsavelRota = (rota.responsavel || '').toLowerCase().trim();
-  const podeFinalizar = ehGestorOuAdmin() || (emailLogado === responsavelRota);
+  const podeFinalizar = (typeof ehGestorOuAdmin === 'function' && ehGestorOuAdmin()) || (emailLogado === responsavelRota);
 
   if (!podeFinalizar) {
     alert(`⛔ Permissão Negada: Apenas o condutor responsável (${rota.responsavel}) ou os administradores podem encerrar esta rota.`);
     return;
   }
 
-  const veiculo = (veiculos || []).find(v =>
-    String(v.id) === String(rota?.veiculo_id) ||
-    String(v.uuid_veiculos) === String(rota?.veiculo_id) ||
-    String(v.nome_frota) === String(rota?.veiculo_id) ||
-    String(v.placa) === String(rota?.veiculo_id)
-  ) || {};
-
-  if (kmFinal < Number(rota.km_saida)) {
-    alert("Erro: O KM Final não pode ser inferior ao KM de Saída!");
+  const kmSaidaNum = Number(rota.km_saida || 0);
+  if (isNaN(kmFinal) || kmFinal < kmSaidaNum) {
+    alert(`Erro: O KM Final (${kmFinal}) não pode ser inferior ao KM de Saída (${kmSaidaNum})!`);
     return;
   }
 
@@ -847,32 +844,59 @@ async function handleFimRota(e) {
     btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Gravando...`;
   }
 
+  // Localização resiliente do veículo
+  const veiculo = (veiculos || []).find(v =>
+    (rota.uuid_veiculos && String(v.uuid_veiculos) === String(rota.uuid_veiculos)) ||
+    (rota.placa && String(v.placa).toUpperCase() === String(rota.placa).toUpperCase()) ||
+    String(v.id) === String(rota.veiculo_id) ||
+    String(v.nome_frota) === String(rota.veiculo_id) ||
+    String(v.uuid_veiculos) === String(rota.veiculo_id) ||
+    String(v.placa).toUpperCase() === String(rota.veiculo_id).toUpperCase()
+  ) || {};
+
+  const placaAlvo = rota.placa || veiculo.placa || null;
   const situacao = document.querySelector('input[name="situacao_carro"]:checked')?.value || 'SEM';
   const anomaliaTexto = situacao === 'COM' ? (document.getElementById('form-fim-anomalia')?.value?.trim() || '') : '';
-  const deltaKm = kmFinal - Number(rota.km_saida);
+  const deltaKm = Math.max(0, kmFinal - kmSaidaNum);
 
-  let histAbast = (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos) && abastecimentos.length > 0)
-    ? abastecimentos
-    : [];
-
+  // Média dinâmica de consumo
+  let histAbast = (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos)) ? abastecimentos : [];
   let medConsumo = 12.3;
   try {
-    medConsumo = obterMediaConsumoEsperada(veiculo, null, histAbast);
+    if (typeof obterMediaConsumoEsperada === 'function') {
+      medConsumo = obterMediaConsumoEsperada(veiculo, null, histAbast);
+    } else {
+      medConsumo = (Number(veiculo.consumo_min || 10) + Number(veiculo.consumo_max || 14)) / 2 || 12.3;
+    }
   } catch (e) {
     medConsumo = 12.3;
   }
   if (!medConsumo || isNaN(medConsumo) || medConsumo <= 0) medConsumo = 12.3;
 
-  const litrosEst = Number((deltaKm / medConsumo).toFixed(2));
-  const capTanque = Number(veiculo.tanque || 45);
-  const tanqueAnterior = (veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined)
-    ? Number(veiculo.tanque_virtual)
-    : capTanque;
+  const litrosConsumidos = deltaKm > 0 ? Number((deltaKm / medConsumo).toFixed(2)) : 0;
+  const capacidadeTanque = Number(veiculo.tanque || 47);
 
-  const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosEst).toFixed(2));
+  // Busca do saldo virtual atualizado no banco
+  let tanqueAnterior = (veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined)
+    ? Number(veiculo.tanque_virtual)
+    : capacidadeTanque;
+
+  try {
+    let qCheckTanque = db.from('veiculos').select('tanque_virtual, tanque');
+    if (veiculo.id) qCheckTanque = qCheckTanque.eq('id', veiculo.id);
+    else if (placaAlvo) qCheckTanque = qCheckTanque.eq('placa', placaAlvo);
+    const { data: vBanco } = await qCheckTanque.maybeSingle();
+    if (vBanco && vBanco.tanque_virtual !== null && vBanco.tanque_virtual !== undefined) {
+      tanqueAnterior = Number(vBanco.tanque_virtual);
+    }
+  } catch (errCheck) {
+    console.warn("Utilizando tanque em cache de memória:", errCheck);
+  }
+
+  const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosConsumidos).toFixed(2));
   const dataHoraRetornoAtual = new Date().toISOString();
 
-  // Cálculo de tempos com suporte a telemetria GPS e proporcionalidade de rota
+  // Telemetria e apuração de tempos
   let segMov = Number(rota.tempo_movimento_segundos || 0);
   let segPar = Number(rota.tempo_parado_segundos || 0);
   if (segMov === 0 && segPar === 0 && rota.data_saida) {
@@ -881,40 +905,18 @@ async function handleFimRota(e) {
     segPar = Math.round(totalSeg * 0.25);
   }
 
-  // Eficiência Eco-score
   const mediaEsperada = medConsumo;
-  const mediaRealRota = (deltaKm > 0 && litrosEst > 0) ? Number((deltaKm / litrosEst).toFixed(2)) : mediaEsperada;
-  const scoreEco = Number(Math.min(100, Math.max(0, (mediaRealRota / mediaEsperada) * 100)).toFixed(1));
+  const mediaRealRota = (deltaKm > 0 && litrosConsumidos > 0) ? Number((deltaKm / litrosConsumidos).toFixed(2)) : mediaEsperada;
+  const scoreEco = Number(Math.min(100, Math.max(20, Math.round((mediaRealRota / mediaEsperada) * 100))));
 
-  // Alerta preditivo de revisão
-  const kmRevisaoBase = Number(veiculo.km_ultima_revisao || 0);
-  const intervalo = Number(veiculo.km_intervalo_revisao || 10000);
-  const kmProximaRevisao = kmRevisaoBase + intervalo;
-  const kmRestantesRevisao = kmProximaRevisao - kmFinal;
-
-  if (kmRestantesRevisao <= 500) {
-    try {
-      await db.from('auditoria_alertas').insert([{
-        veiculo_id: veiculo.id || veiculo.nome_frota,
-        placa: veiculo.placa,
-        responsavel: rota.responsavel,
-        tipo_alerta: 'REVISAO_VENCIDA',
-        detalhes: kmRestantesRevisao <= 0
-          ? `Revisão ULTRAPASSADA em ${Math.abs(kmRestantesRevisao)} km!`
-          : `Veículo próximo da revisão preventiva (${kmRestantesRevisao} km restantes).`
-      }]);
-    } catch (alertaErr) {
-      console.warn("Aviso ao registrar alerta de revisão:", alertaErr);
-    }
-  }
-
-  const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str));
+  const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str || ''));
 
   try {
+    // 1. Atualiza a tabela de rotas
     const { error: erroRota } = await db.from('rotas').update({
       km_retorno: kmFinal,
       km_total: deltaKm,
-      consumo_litros: litrosEst,
+      consumo_litros: litrosConsumidos,
       destino: destinoFinal,
       status: 'Concluida',
       anomalia: anomaliaTexto,
@@ -928,16 +930,7 @@ async function handleFimRota(e) {
 
     if (erroRota) throw erroRota;
 
-    const condicoesVeiculo = [];
-    if (veiculo.uuid_veiculos && isUUID(veiculo.uuid_veiculos)) condicoesVeiculo.push(`uuid_veiculos.eq.${veiculo.uuid_veiculos}`);
-    if (veiculo.id && isUUID(veiculo.id)) condicoesVeiculo.push(`id.eq.${veiculo.id}`);
-    if (veiculo.nome_frota) condicoesVeiculo.push(`nome_frota.eq.${veiculo.nome_frota}`);
-    if (veiculo.placa) condicoesVeiculo.push(`placa.eq.${veiculo.placa}`);
-    if (rota.veiculo_id) {
-      if (isUUID(rota.veiculo_id)) condicoesVeiculo.push(`id.eq.${rota.veiculo_id}`);
-      else condicoesVeiculo.push(`nome_frota.eq.${rota.veiculo_id}`);
-    }
-
+    // 2. Atualiza o veículo
     const payloadVeiculo = {
       km_atual: kmFinal,
       status: 'Disponivel',
@@ -947,55 +940,107 @@ async function handleFimRota(e) {
       payloadVeiculo.anomalias = anomaliaTexto || veiculo.anomalias;
     }
 
-    if (condicoesVeiculo.length > 0) {
-      await db.from('veiculos')
-        .update(payloadVeiculo)
-        .or(condicoesVeiculo.join(','));
+    let veiculoAtualizado = false;
+    if (veiculo.uuid_veiculos && isUUID(veiculo.uuid_veiculos)) {
+      const { error: errU } = await db.from('veiculos').update(payloadVeiculo).eq('uuid_veiculos', veiculo.uuid_veiculos);
+      if (!errU) veiculoAtualizado = true;
+    }
+    if (!veiculoAtualizado && (veiculo.id && isUUID(veiculo.id))) {
+      const { error: errId } = await db.from('veiculos').update(payloadVeiculo).eq('id', veiculo.id);
+      if (!errId) veiculoAtualizado = true;
+    }
+    if (!veiculoAtualizado && placaAlvo) {
+      const { error: errP } = await db.from('veiculos').update(payloadVeiculo).eq('placa', placaAlvo);
+      if (!errP) veiculoAtualizado = true;
+    }
+    if (!veiculoAtualizado && veiculo.id) {
+      await db.from('veiculos').update(payloadVeiculo).eq('id', veiculo.id);
     }
 
-    // Encerramento de reservas pendentes
+    // 3. Atualização de Reservas e Liberação Temporária Diária
     try {
-      const condicoesReserva = [];
-      if (rota.veiculo_id) condicoesReserva.push(`veiculo_id.eq.${rota.veiculo_id}`);
-      if (veiculo.nome_frota) condicoesReserva.push(`veiculo_id.eq.${veiculo.nome_frota}`);
-      if (veiculo.placa) condicoesReserva.push(`placa.eq.${veiculo.placa}`);
-      if (veiculo.uuid_veiculos && isUUID(veiculo.uuid_veiculos)) {
-        condicoesReserva.push(`uuid_veiculos.eq.${veiculo.uuid_veiculos}`);
-      }
+      const querLiberarRestoDoDia = document.getElementById('check-liberar-carro-hoje')?.checked || false;
+      const agoraData = new Date();
+      const fimDoDiaHoje = new Date(
+        agoraData.getFullYear(),
+        agoraData.getMonth(),
+        agoraData.getDate(),
+        23, 59, 59, 999
+      ).toISOString();
 
-      const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
-
-      let queryReservas = db.from('reservas')
-        .update({
-          status: 'CONCLUIDA',
-          updated_at: dataHoraRetornoAtual,
-          updated_by: (sessao?.email || rota.responsavel).toLowerCase().trim()
-        })
+      // Busca reservas ativas do condutor
+      const { data: reservasMotorista } = await db.from('reservas')
+        .select('*')
         .eq('responsavel', rota.responsavel)
         .eq('status', 'CONFIRMADA')
         .lte('data_inicio', dataHoraRetornoAtual)
-        .gte('data_fim', limiteToleranciaFim);
+        .gt('data_fim', dataHoraRetornoAtual);
 
-      if (condicoesReserva.length > 0) {
-        queryReservas = queryReservas.or(condicoesReserva.join(','));
+      if (reservasMotorista && reservasMotorista.length > 0) {
+        for (const resv of reservasMotorista) {
+          const isLongoPrazo = ['SEMANAL', 'MENSAL', 'DIAS'].includes((resv.tipo_reserva || '').toUpperCase());
+          const fimReserva = new Date(resv.data_fim).getTime();
+          const fimHojeTs = new Date(fimDoDiaHoje).getTime();
+
+          if (isLongoPrazo && fimReserva > fimHojeTs) {
+            if (querLiberarRestoDoDia) {
+              // Concede a liberação até as 23:59:59 mantendo o agendamento ativo
+              await db.from('reservas').update({
+                liberado_ate: fimDoDiaHoje,
+                liberado_por: rota.responsavel,
+                updated_at: dataHoraRetornoAtual
+              }).eq('id', resv.id);
+            }
+          } else {
+            // Reserva que finaliza no dia atual é concluída
+            await db.from('reservas').update({
+              status: 'CONCLUIDA',
+              updated_at: dataHoraRetornoAtual,
+              updated_by: (sessao?.email || rota.responsavel).toLowerCase().trim()
+            }).eq('id', resv.id);
+          }
+        }
+      } else {
+        // Encerramento pontual de reserva expirando no momento
+        const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
+        const placaReserva = placaAlvo || rota.placa || veiculo.placa;
+        const veicIdReserva = rota.veiculo_id || veiculo.nome_frota || veiculo.id;
+
+        let queryReservas = db.from('reservas')
+          .update({
+            status: 'CONCLUIDA',
+            updated_at: dataHoraRetornoAtual,
+            updated_by: (sessao?.email || rota.responsavel).toLowerCase().trim()
+          })
+          .eq('responsavel', rota.responsavel)
+          .eq('status', 'CONFIRMADA')
+          .lte('data_inicio', dataHoraRetornoAtual)
+          .gte('data_fim', limiteToleranciaFim);
+
+        if (placaReserva) {
+          queryReservas = queryReservas.or(`placa.eq.${placaReserva},veiculo_id.eq.${placaReserva}`);
+        } else if (veicIdReserva) {
+          queryReservas = queryReservas.eq('veiculo_id', veicIdReserva);
+        }
+
+        await queryReservas;
       }
-
-      await queryReservas;
     } catch (resErr) {
-      console.warn("Aviso ao atualizar reservas pendentes:", resErr);
+      console.warn("Aviso ao processar reservas vinculadas:", resErr);
     }
 
+    // 4. Limpeza da interface e recarregamento dos dados
     e.target.reset();
     if (typeof toggleOutroDestino === 'function') toggleOutroDestino('');
     document.getElementById('fim-detalhes-viagem')?.classList.add('hidden');
     if (typeof toggleAnomaliaInput === 'function') toggleAnomaliaInput(false);
 
-    alert(`Rota #${rota.id} encerrada com sucesso!\nConsumo estimado: ~${litrosEst} L (Média: ${medConsumo} km/L)\nTanque virtual: ~${novoTanqueVirtual} L restantes\nScore Eco: ${scoreEco} pts`);
+    alert(`Rota #${rota.id} finalizada!\nConsumo: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque Virtual: ~${novoTanqueVirtual} L\nScore Eco: ${scoreEco} pts`);
     await carregarTodosDadosDoBanco();
     setSubTab('operacao', 'minhas-rotas');
   } catch (err) {
-    console.error("Erro ao encerrar rota:", err);
-    alert("Erro ao gravar retorno: " + err.message);
+    console.error("Erro ao encerrar rota Web:", err);
+    alert("Erro ao gravar retorno: " + (err.message || 'Verifique sua conexão.'));
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -2713,25 +2758,31 @@ function renderHistorico() {
       `;
     } else {
       let segMov = Number(r.tempo_movimento_segundos || 0);
-      let segPar = Number(r.tempo_parado_segundos || 0);
+  let segPar = Number(r.tempo_parado_segundos || 0);
 
-      if (segMov === 0 && segPar === 0 && r.data_saida && r.data_retorno) {
-        const duracaoTotalSeg = Math.max(0, (new Date(r.data_retorno) - new Date(r.data_saida)) / 1000);
-        const kmPercorrido = Number(r.km_total || 0);
+  if (segMov === 0 && segPar === 0) {
+    const kmPercorrido = Number(r.km_total || 0);
+    let duracaoTotalSeg = 0;
 
-        if (kmPercorrido <= 0) {
-          segMov = 0;
-          segPar = duracaoTotalSeg;
-        } else {
-          // Adota velocidade operacional média urbana/mista de 30 km/h (1 km a cada 120 segundos)
-          const segPorKm = 120; // 30 km/h
-          const tempoEstimadoMovimento = Math.round(kmPercorrido * segPorKm);
+    if (r.data_saida && r.data_retorno) {
+      duracaoTotalSeg = Math.max(0, (new Date(r.data_retorno).getTime() - new Date(r.data_saida).getTime()) / 1000);
+    }
 
-          // O tempo em movimento não pode ultrapassar a duração total da rota
-          segMov = Math.min(duracaoTotalSeg, tempoEstimadoMovimento);
-          segPar = Math.max(0, duracaoTotalSeg - segMov);
-        }
-      }
+    // 🛡️ PROTEÇÃO CONTRA DATAS SIMULTÂNEAS / CORROMPIDAS:
+    // Se a rota durou menos de 1 minuto no sistema, mas o carro rodou quilometragem:
+    if (duracaoTotalSeg <= 60 && kmPercorrido > 0) {
+      segMov = Math.round(kmPercorrido * 80); // Estima média rodoviária (~45 km/h)
+      segPar = Math.round(segMov * 0.15);     // Estima 15% de tempo parado
+    } else if (kmPercorrido > 0) {
+      const segPorKm = 100;
+      const tempoEstimadoMovimento = Math.round(kmPercorrido * segPorKm);
+      segMov = Math.min(duracaoTotalSeg, tempoEstimadoMovimento);
+      segPar = Math.max(0, duracaoTotalSeg - segMov);
+    } else {
+      segMov = 0;
+     segPar = duracaoTotalSeg;
+   }
+  }
 
       blocoTempoHTML = `
         <div class="flex flex-col gap-0.5 text-[9px] font-mono leading-tight">

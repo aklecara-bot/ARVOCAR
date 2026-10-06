@@ -272,10 +272,78 @@ function ajustarCamposModalidade(tipo) {
 // =========================================================================
 // 5. GRAVAÇÃO & FILA OFFLINE
 // =========================================================================
+
+// HELPER COMPARTILHADO: Valida se o veículo está liberado para iniciar rota agora
+async function validarDisponibilidadeReservaCarro(veiculo, emailCondutorLogado) {
+  const agora = new Date();
+  const agoraTs = agora.getTime();
+  const emailAtual = (emailCondutorLogado || '').toLowerCase().trim();
+  const nomeCarro = veiculo.nome_frota || veiculo.id;
+  const placaCarro = veiculo.placa;
+
+  const { data: reservasCarro, error } = await db
+    .from('reservas')
+    .select('*')
+    .eq('status', 'CONFIRMADA');
+
+  if (error || !reservasCarro) return { permitido: true };
+
+  // Localiza reserva ativa incidindo neste momento
+  const reservaAtiva = reservasCarro.find(r => {
+    const bateuCarro =
+      String(r.veiculo_id).toUpperCase() === String(nomeCarro).toUpperCase() ||
+      String(r.veiculo_id).toUpperCase() === String(veiculo.id).toUpperCase() ||
+      (placaCarro && String(r.veiculo_id).toUpperCase() === String(placaCarro).toUpperCase()) ||
+      (placaCarro && String(r.placa).toUpperCase() === String(placaCarro).toUpperCase());
+
+    if (!bateuCarro) return false;
+
+    const ini = new Date(r.data_inicio).getTime();
+    const fim = new Date(r.data_fim).getTime();
+    return (agoraTs >= ini && agoraTs <= fim);
+  });
+
+  if (!reservaAtiva) {
+    return { permitido: true };
+  }
+
+  const emailDono = (reservaAtiva.responsavel || '').toLowerCase().trim();
+  const ehDonoReserva = (emailDono === emailAtual);
+
+  // Se o próprio responsável pela reserva estiver abrindo a rota: permitido
+  if (ehDonoReserva) {
+    return { permitido: true };
+  }
+
+  // Se outro motorista tentar usar, verifica se há liberação temporária válida cobrindo o dia
+  if (reservaAtiva.liberado_ate) {
+    const liberadoAteTs = new Date(reservaAtiva.liberado_ate).getTime();
+    if (agoraTs <= liberadoAteTs) {
+      // O veículo foi liberado temporariamente pelo titular até as 23:59:59 de hoje
+      return { 
+        permitido: true, 
+        aviso: `⚠️ Veículo em reserva de ${obterNomeMotoristaFormatado(reservaAtiva.responsavel)}, porém liberado temporariamente para uso até o fim do dia.` 
+      };
+    }
+  }
+
+  // Fora da condição de liberação: BLOQUEIO TOTAL
+  const dataFimFmt = new Date(reservaAtiva.data_fim).toLocaleString('pt-BR');
+  return {
+    permitido: false,
+    mensagem: `⛔ VEÍCULO BLOQUEADO POR RESERVA!\n\n` +
+      `O veículo ${nomeCarro} [${placaCarro || 'S/ Placa'}] está reservado para:\n` +
+      `👤 Titular: ${obterNomeMotoristaFormatado(reservaAtiva.responsavel)}\n` +
+      `🎯 Modalidade: ${reservaAtiva.tipo_reserva || 'Reserva'} (${reservaAtiva.finalidade})\n` +
+      `📅 Vigência até: ${dataFimFmt}\n\n` +
+      `O titular não realizou a liberação temporária deste veículo para hoje.`
+  };
+}
+
 async function salvarReservaMobile(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
   const btn = document.getElementById('btn-submit');
-  const selVeiculo = document.getElementById('res-veiculo');
+  const selVeiculo = document.getElementById('res-veiculo') || document.getElementById('m-res-veiculo');
   const opt = selVeiculo ? selVeiculo.options[selVeiculo.selectedIndex] : null;
   const veiculo_id = selVeiculo ? selVeiculo.value : '';
 
@@ -291,42 +359,19 @@ async function salvarReservaMobile(e) {
   const dtInicioStr = document.getElementById('res-data-inicio')?.value;
   let dtFimStr = document.getElementById('res-data-fim')?.value || dtInicioStr;
 
-  if (!dtInicioStr) {
-    alert("Informe a data de início do agendamento.");
-    return;
-  }
-
   let dInicio, dFim;
-
   if (tipo_reserva === 'HORAS') {
     const hIni = document.getElementById('res-hora-inicio')?.value || '08:00';
     const hFim = document.getElementById('res-hora-fim')?.value || '12:00';
     dInicio = parseDataLocal(dtInicioStr, `${hIni}:00`);
     dFim = parseDataLocal(dtInicioStr, `${hFim}:00`);
-  } else if (tipo_reserva === 'TURNO') {
-    const turno = document.getElementById('res-turno-sel')?.value || 'MANHA';
-    if (turno === 'MANHA') {
-      dInicio = parseDataLocal(dtInicioStr, '07:00:00');
-      dFim = parseDataLocal(dtInicioStr, '12:00:00');
-    } else if (turno === 'TARDE') {
-      dInicio = parseDataLocal(dtInicioStr, '13:00:00');
-      dFim = parseDataLocal(dtInicioStr, '18:00:00');
-    } else {
-      dInicio = parseDataLocal(dtInicioStr, '18:00:00');
-      const dSeg = parseDataLocal(dtInicioStr);
-      dSeg.setDate(dSeg.getDate() + 1);
-      dFim = parseDataLocal(`${dSeg.getFullYear()}-${String(dSeg.getMonth() + 1).padStart(2, '0')}-${String(dSeg.getDate()).padStart(2, '0')}`, '06:00:00');
-    }
-  } else if (tipo_reserva === 'SEMANAS') {
+  } else if (tipo_reserva === 'SEMANAL') {
     dInicio = parseDataLocal(dtInicioStr, '00:00:00');
-    const dFimSem = parseDataLocal(dtInicioStr);
-    dFimSem.setDate(dFimSem.getDate() + 6);
-    dFim = parseDataLocal(`${dFimSem.getFullYear()}-${String(dFimSem.getMonth() + 1).padStart(2, '0')}-${String(dFimSem.getDate()).padStart(2, '0')}`, '23:59:59');
-  } else if (tipo_reserva === 'MES') {
-    const base = parseDataLocal(dtInicioStr);
-    const primDia = new Date(base.getFullYear(), base.getMonth(), 1);
-    const ultDia = new Date(base.getFullYear(), base.getMonth() + 1, 0);
-    dInicio = parseDataLocal(`${primDia.getFullYear()}-${String(primDia.getMonth() + 1).padStart(2, '0')}-${String(primDia.getDate()).padStart(2, '0')}`, '00:00:00');
+    const dSemana = new Date(dInicio.getTime() + (7 * 24 * 60 * 60 * 1000));
+    dFim = parseDataLocal(`${dSemana.getFullYear()}-${String(dSemana.getMonth() + 1).padStart(2, '0')}-${String(dSemana.getDate()).padStart(2, '0')}`, '23:59:59');
+  } else if (tipo_reserva === 'MENSAL') {
+    dInicio = parseDataLocal(dtInicioStr, '00:00:00');
+    const ultDia = new Date(dInicio.getFullYear(), dInicio.getMonth() + 1, 0);
     dFim = parseDataLocal(`${ultDia.getFullYear()}-${String(ultDia.getMonth() + 1).padStart(2, '0')}-${String(ultDia.getDate()).padStart(2, '0')}`, '23:59:59');
   } else {
     dInicio = parseDataLocal(dtInicioStr, '00:00:00');
@@ -338,13 +383,26 @@ async function salvarReservaMobile(e) {
     return;
   }
 
-  // Checagem de sobreposição
+  const agoraTs = Date.now();
+  const nIniTs = dInicio.getTime();
+  const nFimTs = dFim.getTime();
+
+  // Checagem no array em cache local
   const conflito = listaReservas.some(r => {
     if (r.status === 'CANCELADA') return false;
-    if (String(r.veiculo_id) !== String(veiculo_id) && String(r.placa) !== String(placa)) return false;
+    const mesmoCarro = (String(r.veiculo_id) === String(veiculo_id) || (placa && String(r.placa) === String(placa)));
+    if (!mesmoCarro) return false;
+
     const rIni = new Date(r.data_inicio).getTime();
     const rFim = new Date(r.data_fim).getTime();
-    return (dInicio.getTime() < rFim && dFim.getTime() > rIni);
+    const sobrepoe = (nIniTs < rFim && nFimTs > rIni);
+    if (!sobrepoe) return false;
+
+    if (r.liberado_ate) {
+      const libAte = new Date(r.liberado_ate).getTime();
+      if (agoraTs <= libAte && nFimTs <= libAte) return false;
+    }
+    return true;
   });
 
   if (conflito) {
@@ -363,7 +421,7 @@ async function salvarReservaMobile(e) {
     veiculo_id,
     uuid_veiculos,
     placa,
-    responsavel: (usuarioLogado && usuarioLogado.email) ? usuarioLogado.email : 'admin@arvo.tec.br',
+    responsavel: (usuarioLogado && usuarioLogado.email) ? usuarioLogado.email.toLowerCase().trim() : 'admin@arvo.tec.br',
     finalidade,
     tipo_reserva,
     data_inicio: dInicio.toISOString(),
@@ -387,22 +445,23 @@ async function salvarReservaMobile(e) {
   }
 
   try {
-    delete payload.id;
-    const { error: insErr } = await db.from('reservas').insert([payload]);
-    if (insErr) throw insErr;
+    const payloadEnvio = { ...payload };
+    delete payloadEnvio.id;
+    const { error: insErr } = await db.from('reservas').insert([payloadEnvio]);
+    if (insErr) {
+      if (insErr.code === '23P01' || insErr.message?.includes('no_overlapping_reservas')) {
+        alert("⛔ Conflito de reserva detectado pelo banco de dados.");
+        return;
+      }
+      throw insErr;
+    }
 
-    alert('✅ Reserva agendada com sucesso!');
+    alert('✅ Reserva realizada com sucesso!');
     limparFormularioReserva();
     await carregarHistoricoReservas();
     trocarAba('calendario');
   } catch (err) {
-    payload.id = tempId;
-    salvarFilaReserva(payload);
-    listaReservas.unshift(payload);
-    localStorage.setItem('arvo_cache_reservas', JSON.stringify(listaReservas));
-    alert('📶 Gravado localmente devido a oscilações no sinal.');
-    limparFormularioReserva();
-    trocarAba('calendario');
+    alert("Erro ao gravar agendamento: " + err.message);
   } finally {
     if (btn) {
       btn.disabled = false;
