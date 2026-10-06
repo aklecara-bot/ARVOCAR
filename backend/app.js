@@ -746,12 +746,16 @@ async function handleInicioRota(e) {
     ? await obterCoordenadasPartida(origemFinal)
     : [];
 
+  // Captura a finalidade selecionada no HTML com fallback de contingência
+  const finalidadeSelecionada = document.getElementById('form-inicio-finalidade')?.value || 'DEMANDAS INTERNAS';
+
   const novaRota = {
     veiculo_id: veiculo.nome_frota || veiculo.id,
     uuid_veiculos: veiculo.uuid_veiculos || null,
     placa: veiculo.placa || null,
     responsavel: emailAtual,
     origem: origemFinal,
+    finalidade: finalidadeSelecionada,
     km_saida: kmInicial,
     data_saida: dataSaidaAtual,
     status: 'Em Uso',
