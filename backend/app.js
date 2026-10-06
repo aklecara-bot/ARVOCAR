@@ -1779,6 +1779,13 @@ async function handleSalvarEditVeiculo(e) {
     return;
   }
 
+  // Captura o modelo homologado selecionado no dropdown:
+  const selectRef = document.getElementById('edit-v-referencia');
+  let textoModelo = '';
+  if (selectRef && selectRef.selectedIndex >= 0 && selectRef.value) {
+    textoModelo = selectRef.options[selectRef.selectedIndex].text.split('(')[0].trim();
+  }
+  
   const dadosAtualizados = {
     placa: placaVal,
     marca: getVal('edit-v-marca'),
