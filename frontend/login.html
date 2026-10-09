@@ -297,57 +297,50 @@
     } 
 
     async function handleRedefinicaoSimples(e) {
-      e.preventDefault();
-      const btn = document.getElementById('btn-redefinir-simples');
-      const email = document.getElementById('recup-email').value.trim().toLowerCase();
-      const cnhDigitada = document.getElementById('recup-cnh').value.replace(/\D/g, '').trim();
-      const novaSenha = document.getElementById('recup-nova-senha').value.trim();
-      const confirmaSenha = document.getElementById('recup-confirma-senha').value.trim();
+  e.preventDefault();
+  const btn = document.getElementById('btn-redefinir-simples');
+  const email = document.getElementById('recup-email').value.trim().toLowerCase();
+  const cnhDigitada = document.getElementById('recup-cnh').value.replace(/\D/g, '').trim();
+  const novaSenha = document.getElementById('recup-nova-senha').value.trim();
+  const confirmaSenha = document.getElementById('recup-confirma-senha').value.trim();
 
-      if (novaSenha !== confirmaSenha) {
-        alert("⚠️ A confirmação da nova senha não confere.");
-        return;
-      }
+  if (novaSenha.length < 4) {
+    alert("⚠️ A nova senha deve ter no mínimo 4 caracteres.");
+    return;
+  }
 
-      btn.disabled = true;
-      btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Verificando dados...`;
+  if (novaSenha !== confirmaSenha) {
+    alert("⚠️ A confirmação da nova senha não confere.");
+    return;
+  }
 
-      try {
-        // 1. Busca o usuário pelo e-mail
-        const { data: usuario, error: errBusca } = await db
-          .from('usuarios')
-          .select('id, email, cnh')
-          .eq('email', email)
-          .maybeSingle();
-      
-        if (errBusca || !usuario) {
-          throw new Error("E-mail não encontrado no sistema.");
-        }
-      
-        // 2. Limpa e valida a CNH cadastrada
-        const cnhCadastrada = String(usuario.cnh || '').replace(/\D/g, '').trim();
+  btn.disabled = true;
+  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Verificando dados...`;
 
-        if (!cnhCadastrada || cnhCadastrada !== cnhDigitada) {
-          throw new Error("O número da CNH não confere com o cadastro deste condutor.");
-        }
+  try {
+    // Valida E-mail + CNH e altera a senha diretamente no Supabase Authentication
+    const { data, error } = await db.rpc('redefinir_senha_cnh', {
+      p_email: email,
+      p_cnh: cnhDigitada,
+      p_nova_senha: novaSenha
+    });
 
-        // 3. Atualiza a senha na tabela usuarios
-        const { error: errUpdate } = await db
-          .from('usuarios')
-          .update({ senha: novaSenha })
-          .eq('id', usuario.id);
-      
-        if (errUpdate) throw errUpdate;
-      
-        fecharModalEsqueciSenha();
-        alert("✅ Senha atualizada com sucesso! Você já pode fazer login.");
-      } catch (err) {
-        alert("Erro: " + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<span>Atualizar Minha Senha</span> <i class="ph-bold ph-check text-base"></i>`;
-      }
+    if (error) throw error;
+
+    if (!data || !data.success) {
+      throw new Error(data?.message || "E-mail ou CNH não conferem com o cadastro.");
     }
+
+    fecharModalEsqueciSenha();
+    alert("✅ Senha atualizada com sucesso! Você já pode fazer login.");
+  } catch (err) {
+    alert("Erro: " + (err.message || "Falha ao atualizar a senha."));
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<span>Atualizar Minha Senha</span> <i class="ph-bold ph-check text-base"></i>`;
+  }
+}
+
     function fecharModalRedefinirSenha() {
       document.getElementById('modal-redefinir-senha')?.classList.add('hidden');
       document.getElementById('redef-codigo').value = '';
