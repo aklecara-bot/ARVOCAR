@@ -1,5 +1,5 @@
 // =========================================================================
-// 1. CONFIGURAÇÃO DO SUPABASE E ESTADOS GLOBAIS
+// 1. CONFIGURAÇÃO DO SUPABASE E ESTADOS GLOBAIS 1
 // =========================================================================
 const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";

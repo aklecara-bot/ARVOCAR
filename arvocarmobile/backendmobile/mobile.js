@@ -36,7 +36,7 @@ let rotas = [];
 let usuarios = [];
 let listaModelosReferencia = [];
 
-// Dicionário com coordenadas padrão das bases e municípios de operação
+// Dicionário com coordenadas padrão das bases e municípios de operação 1
 const COORDENADAS_BASES = {
   "BASE CENTRAL ALEGRE": { lat: -20.761921, lng: -41.533884 },
   "ALEGRE": { lat: -20.761921, lng: -41.533884 },
