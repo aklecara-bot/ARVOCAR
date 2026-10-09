@@ -10,19 +10,22 @@ const db = (window.supabase && typeof window.supabase.createClient === 'function
 
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 const FIN_ADMIN_EMAIL = "admfin@arvo.tec.br";
-const DEV_ADMIN_EMAIL = "desv@arvo.tec.br"; // Novo usuário com privilégios completos
+const DEV_ADMIN_EMAIL = "desv@arvo.tec.br"; 
+const DAYANE_ADMIN_EMAIL = "dayane@arvo.tec.br";
 
 // Lista com privilégios de Admin Master (gerenciamento total)
 const ADMINS_MASTERS = [
   ADMIN_EMAIL.toLowerCase(),
-  DEV_ADMIN_EMAIL.toLowerCase()
+  DEV_ADMIN_EMAIL.toLowerCase(),
+  DAYANE_ADMIN_EMAIL.toLowerCase()
 ];
 
 // Lista com privilégios de Gestão/Painel
 const GESTORES_EMAILS = [
   ADMIN_EMAIL.toLowerCase(),
   FIN_ADMIN_EMAIL.toLowerCase(),
-  DEV_ADMIN_EMAIL.toLowerCase()
+  DEV_ADMIN_EMAIL.toLowerCase(),
+  DAYANE_ADMIN_EMAIL.toLowerCase()
 ];
 
 const validarNumeroCNH = (cnh) => {

@@ -227,7 +227,12 @@
             </button>
           </div>
         </div>
-
+        <!-- >>> O BOTÃO ENTRA EXATAMENTE AQUI <<< -->
+        <div class="flex justify-end pt-1">
+          <button type="button" onclick="abrirModalEsqueciSenhaMobile()" class="text-[11px] font-bold text-[#395237] hover:underline">
+            Esqueceu a senha?
+          </button>
+        </div>
         <button type="submit" id="btn-m-login" 
           class="w-full bg-[#395237] hover:bg-[#2e432c] text-white font-black text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl shadow-lg shadow-black/40 transition flex items-center justify-center gap-2 active:scale-95 border border-[#556b2f]/40">
           <span>Entrar no Sistema</span>
@@ -667,73 +672,55 @@
        ========================================================================= -->
 
   <!-- Modal 1: Solicitar Código de Redefinição -->
-  <div id="modal-esqueci-senha" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-        <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
-          <i class="ph-bold ph-key text-[#395237] text-lg"></i> Recuperar Senha
-        </h3>
-        <button type="button" onclick="fecharModalEsqueciSenhaMobile()" class="text-slate-400 hover:text-slate-600">
-          <i class="ph-bold ph-x text-lg"></i>
-        </button>
-      </div>
-      <p class="text-xs text-slate-500 mb-4">Informe seu e-mail cadastrado para gerar o código de recuperação.</p>
-
-      <form onsubmit="handleSolicitarRecuperacaoMobile(event)" class="space-y-3.5">
-        <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">E-mail</label>
-          <input type="email" id="recup-email" required placeholder="seuemail@arvo.tec.br" 
-                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#395237]" />
-        </div>
-        <button type="submit" id="btn-solicitar-recup" 
-                class="w-full bg-[#395237] hover:bg-[#2e432c] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition active:scale-95">
-          Gerar Código de Recuperação
-        </button>
-      </form>
+ <!-- Modal de Recuperação por CNH (Mobile) -->
+<div id="modal-esqueci-senha" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+      <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+        <i class="ph-bold ph-key text-[#395237] text-lg"></i> Redefinir Senha
+      </h3>
+      <button type="button" onclick="fecharModalEsqueciSenhaMobile()" class="text-slate-400 hover:text-slate-600">
+        <i class="ph-bold ph-x text-lg"></i>
+      </button>
     </div>
-  </div>
 
-  <!-- Modal 2: Inserir Código e Redefinir Nova Senha -->
-  <div id="modal-redefinir-senha" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-slate-800">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-        <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
-          <i class="ph-bold ph-lock-key text-[#395237] text-lg"></i> Nova Senha
-        </h3>
-        <button type="button" onclick="fecharModalRedefinirSenhaMobile()" class="text-slate-400 hover:text-slate-600">
-          <i class="ph-bold ph-x text-lg"></i>
-        </button>
+    <p class="text-xs text-slate-500 mb-4">Confirme seu e-mail e os números da sua CNH cadastrada para criar uma nova senha.</p>
+
+    <form onsubmit="handleRedefinicaoSimplesMobile(event)" class="space-y-3">
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">E-mail Cadastrado</label>
+        <input type="email" id="m-recup-email" required placeholder="seuemail@arvo.tec.br"
+          class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-[#395237]" />
       </div>
 
-      <form onsubmit="handleConfirmarNovaSenhaMobile(event)" class="space-y-3.5">
-        <input type="hidden" id="redef-email-alvo" />
-        
-        <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Código (6 dígitos)</label>
-          <input type="text" id="redef-codigo" maxlength="6" required placeholder="123456" 
-                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-mono text-center tracking-widest outline-none focus:ring-2 focus:ring-[#395237]" />
-        </div>
-        
-        <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nova Senha</label>
-          <input type="password" id="redef-nova-senha" minlength="4" required placeholder="••••••••" 
-                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#395237]" />
-        </div>
-        
-        <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Confirmar Nova Senha</label>
-          <input type="password" id="redef-confirma-senha" minlength="4" required placeholder="••••••••" 
-                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-[#395237]" />
-        </div>
-        
-        <button type="submit" id="btn-redefinir" 
-                class="w-full bg-[#395237] hover:bg-[#2e432c] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition active:scale-95">
-          Atualizar Senha
-        </button>
-      </form>
-    </div>
-  </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Número da CNH (apenas números)</label>
+        <input type="text" id="m-recup-cnh" required placeholder="Ex: 05598393715" maxlength="11"
+          class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-[#395237] font-mono" />
+      </div>
 
+      <div class="pt-1">
+        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nova Senha</label>
+        <input type="password" id="m-recup-nova-senha" minlength="4" required placeholder="••••••••"
+          class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-[#395237]" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Confirmar Nova Senha</label>
+        <input type="password" id="m-recup-confirma-senha" minlength="4" required placeholder="••••••••"
+          class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-[#395237]" />
+      </div>
+
+      <div class="pt-2">
+        <button type="submit" id="btn-m-redefinir"
+          class="w-full bg-[#395237] hover:bg-[#2e432c] text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1.5">
+          <span>Atualizar Minha Senha</span>
+          <i class="ph-bold ph-check text-base"></i>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
   <!-- SCRIPT DE REGRAS MOBILE -->
   <script src="/arvocarmobile/backendmobile/mobile.js"></script>
 </body>

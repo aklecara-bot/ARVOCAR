@@ -1,6 +1,6 @@
 // =========================================================================
 // MÓDULO: OPERAÇÃO MOBILE DE ROTAS - ARVO (INTEGRAL COM SUPORTE OFFLINE,
-// TELEMETRIA AVANÇADA, CONSUMO VIRTUAL E AUDITORIA)
+// TELEMETRIA AVANÇADA, CONSUMO VIRTUAL, AUDITORIA E RECUPERAÇÃO VIA CNH)
 // =========================================================================
 const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
@@ -11,6 +11,23 @@ const db = window.db || (window.supabase && typeof window.supabase.createClient 
   : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
 
 const ADMIN_EMAIL = "admin@arvo.tec.br";
+const FIN_ADMIN_EMAIL = "admfin@arvo.tec.br";
+const DEV_ADMIN_EMAIL = "desv@arvo.tec.br";
+const DAYANE_ADMIN_EMAIL = "dayane@arvo.tec.br";
+
+const ADMINS_MASTERS = [
+  ADMIN_EMAIL.toLowerCase(),
+  DEV_ADMIN_EMAIL.toLowerCase(),
+  DAYANE_ADMIN_EMAIL.toLowerCase()
+];
+
+const GESTORES_EMAILS = [
+  ADMIN_EMAIL.toLowerCase(),
+  FIN_ADMIN_EMAIL.toLowerCase(),
+  DEV_ADMIN_EMAIL.toLowerCase(),
+  DAYANE_ADMIN_EMAIL.toLowerCase()
+];
+
 const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str || ''));
 
 let usuarioLogado = null;
@@ -39,7 +56,6 @@ function obterNomeMotoristaFormatado(identificador) {
   if (!identificador) return 'Condutor';
   const idLimpo = String(identificador).toLowerCase().trim();
 
-  // 1. Procura na lista cadastrada de usuários do banco
   if (Array.isArray(usuarios) && usuarios.length > 0) {
     const u = usuarios.find(user =>
       (user.email || '').toLowerCase().trim() === idLimpo ||
@@ -50,14 +66,12 @@ function obterNomeMotoristaFormatado(identificador) {
     }
   }
 
-  // 2. Se for o próprio motorista autenticado
   if (usuarioLogado && (usuarioLogado.email || '').toLowerCase().trim() === idLimpo) {
     if (usuarioLogado.nome && !usuarioLogado.nome.includes('@')) {
       return usuarioLogado.nome;
     }
   }
 
-  // 3. Fallback inteligente: converte formato "nome.sobrenome" para "Nome Sobrenome"
   const prefixo = idLimpo.includes('@') ? idLimpo.split('@')[0] : idLimpo;
   return prefixo
     .replace(/[._-]+/g, ' ')
@@ -99,42 +113,6 @@ function toggleSenhaMobile() {
   }
 }
 
-async function auditarAbastecimento(veiculo, litrosAbastecidos, kmInformado, responsavel) {
-  const capTanque = Number(veiculo.tanque || 47);
-  const saldoVirtualAtual = Number(veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined ? veiculo.tanque_virtual : capTanque);
-  const kmAtualBanco = Number(veiculo.km_atual || 0);
-
-  const alertas = [];
-
-  // Trava 1: Litros abastecidos superam o espaço livre real do tanque (+5% margem de gargalo)
-  const espacoLivre = capTanque - saldoVirtualAtual;
-  if (litrosAbastecidos > (espacoLivre * 1.05) + 3) {
-    alertas.push({
-      veiculo_id: veiculo.id || veiculo.nome_frota,
-      placa: veiculo.placa,
-      responsavel: responsavel,
-      tipo_alerta: 'DESVIO_COMBUSTIVEL',
-      detalhes: `Suspeita de desvio: abastecidos ${litrosAbastecidos}L com espaço estimado de apenas ${espacoLivre.toFixed(1)}L (Tanque Virtual: ${saldoVirtualAtual}L / Capacidade: ${capTanque}L).`
-    });
-  }
-
-  // Trava 2: KM no abastecimento inferior ao KM de encerramento da última rota
-  if (kmInformado && kmInformado < kmAtualBanco) {
-    alertas.push({
-      veiculo_id: veiculo.id || veiculo.nome_frota,
-      placa: veiculo.placa,
-      responsavel: responsavel,
-      tipo_alerta: 'ODOMETRO_INCONSISTENTE',
-      detalhes: `KM informado no posto (${kmInformado} km) menor que o KM registrado na base (${kmAtualBanco} km).`
-    });
-  }
-
-  if (alertas.length > 0) {
-    await db.from('auditoria_alertas').insert(alertas);
-    console.warn("⚠️ Alerta de auditoria registrado:", alertas);
-  }
-}
-
 async function handleMobileLogin(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
 
@@ -171,25 +149,35 @@ async function handleMobileLogin(e) {
       throw new Error("Sem conexão para validar novo login.");
     }
 
-    const { data, error } = await db
+    // 1. Autenticação nativa oficial no GoTrue / Supabase Auth
+    const { data: authData, error: authError } = await db.auth.signInWithPassword({
+      email: email,
+      password: senha
+    });
+
+    if (authError) throw authError;
+
+    // 2. Busca perfil cadastral complementar
+    const { data: perfilData, error: perfilError } = await db
       .from('usuarios')
-      .select('*')
+      .select('id, nome, email, cnh, status, perfil')
       .eq('email', email)
       .maybeSingle();
 
-    if (error) throw error;
-    if (!data) throw new Error("Usuário não cadastrado.");
-    if (String(data.senha).trim() !== senha) throw new Error("Senha incorreta.");
-    if (data.status && data.status.toLowerCase() === 'inativo') {
+    if (perfilError) throw perfilError;
+
+    if (perfilData && perfilData.status && perfilData.status.toLowerCase() === 'inativo') {
+      await db.auth.signOut();
       throw new Error("Usuário inativo no sistema.");
     }
 
     usuarioLogado = {
-      id: data.id,
-      nome: data.nome || email.split('@')[0],
-      email: data.email,
-      cnh: data.cnh || '',
-      cargo: data.cargo || 'Condutor'
+      id: perfilData?.id || authData.user.id,
+      auth_id: authData.user.id,
+      nome: perfilData?.nome || email.split('@')[0],
+      email: authData.user.email,
+      cnh: perfilData?.cnh || '',
+      cargo: perfilData?.perfil || 'Condutor'
     };
 
     salvarSessaoUnificada(usuarioLogado);
@@ -208,6 +196,7 @@ async function handleMobileLogin(e) {
 
 function handleMobileLogout() {
   if (confirm("Deseja realmente sair da sua conta no aplicativo?")) {
+    if (db && db.auth) db.auth.signOut();
     localStorage.removeItem('arvo_mobile_user');
     localStorage.removeItem('arvo_usuario_logado');
     usuarioLogado = null;
@@ -266,12 +255,11 @@ function switchMobileTab(tab) {
     activeBtn.classList.add('text-brand-700', 'font-bold');
   }
 
-  // Ao abrir a aba finalizar
   if (tab === 'finalizar') {
     renderizarOpcoesRotasAtivas();
 
     const emailAtual = (usuarioLogado?.email || '').toLowerCase().trim();
-    const ehAdmin = emailAtual === ADMIN_EMAIL.toLowerCase().trim() || emailAtual === 'admfin@arvo.tec.br';
+    const ehAdmin = GESTORES_EMAILS.includes(emailAtual);
 
     const rotaAberta = (rotas || []).find(r => 
       r.status === 'Em Uso' && 
@@ -293,7 +281,6 @@ function switchMobileTab(tab) {
     }
   }
 
-  // Ao abrir o histórico, renderiza as rotas e atualiza os KPIs filtrados
   if (tab === 'historico') {
     renderizarHistoricoMobile();
     if (typeof atualizarKpisMotoristaMobile === 'function') {
@@ -301,124 +288,6 @@ function switchMobileTab(tab) {
     }
   }
 }
-
-function mostrarPopupCustom(tipo, titulo, mensagem, onClose = null) {
-  const modalId = `app-modal-${Date.now()}`;
-
-  const temas = {
-    sucesso: { icon: 'ph-check-circle', bg: '#dcfce7', text: '#15803d', btn: '#15803d' },
-    erro:    { icon: 'ph-x-circle',     bg: '#ffe4e6', text: '#e11d48', btn: '#e11d48' },
-    aviso:   { icon: 'ph-warning',      bg: '#fef3c7', text: '#d97706', btn: '#d97706' },
-    info:    { icon: 'ph-info',         bg: '#e0f2fe', text: '#0284c7', btn: '#0284c7' }
-  };
-
-  const config = temas[tipo] || temas.aviso;
-
-  const backdrop = document.createElement('div');
-  backdrop.id = modalId;
-  backdrop.style.cssText = `
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    background-color: rgba(15, 23, 42, 0.75) !important;
-    backdrop-filter: blur(4px) !important;
-    -webkit-backdrop-filter: blur(4px) !important;
-    z-index: 999999 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 1rem !important;
-    box-sizing: border-box !important;
-  `;
-
-  backdrop.innerHTML = `
-    <div style="
-      background-color: #ffffff !important;
-      border-radius: 1.5rem !important;
-      width: 100% !important;
-      max-width: 24rem !important;
-      padding: 1.5rem !important;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
-      border: 1px solid #f1f5f9 !important;
-      text-align: center !important;
-      display: flex !important;
-      flex-direction: column !important;
-      align-items: center !important;
-      gap: 1rem !important;
-      box-sizing: border-box !important;
-      font-family: inherit !important;
-    ">
-      <div style="
-        width: 3.5rem !important;
-        height: 3.5rem !important;
-        border-radius: 1rem !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        font-size: 1.75rem !important;
-        background-color: ${config.bg} !important;
-        color: ${config.text} !important;
-      ">
-        <i class="ph-bold ${config.icon}"></i>
-      </div>
-
-      <div style="width: 100% !important;">
-        <h3 style="font-size: 1.05rem !important; font-weight: 900 !important; color: #0f172a !important; margin: 0 0 0.5rem 0 !important; line-height: 1.2 !important;">
-          ${titulo}
-        </h3>
-        <p style="font-size: 0.8125rem !important; color: #475569 !important; margin: 0 !important; line-height: 1.45 !important; word-break: break-word !important;">
-          ${mensagem}
-        </p>
-      </div>
-
-      <button type="button" id="${modalId}-btn" style="
-        width: 100% !important;
-        padding: 0.75rem 1rem !important;
-        border-radius: 0.75rem !important;
-        font-weight: 700 !important;
-        font-size: 0.8125rem !important;
-        border: none !important;
-        cursor: pointer !important;
-        color: #ffffff !important;
-        background-color: ${config.btn} !important;
-        transition: opacity 0.2s ease !important;
-      ">
-        Entendido
-      </button>
-    </div>
-  `;
-
-  document.body.appendChild(backdrop);
-
-  const fechar = () => {
-    backdrop.remove();
-    if (typeof onClose === 'function') onClose();
-  };
-
-  document.getElementById(`${modalId}-btn`).onclick = fechar;
-  backdrop.onclick = (e) => {
-    if (e.target === backdrop) fechar();
-  };
-}
-
-window.alert = function (mensagem) {
-  const texto = String(mensagem || '');
-  let tipo = 'aviso';
-  let titulo = 'Atenção';
-
-  const t = texto.toLowerCase();
-  if (t.includes('sucesso') || t.includes('confirmad') || t.includes('salvo')) {
-    tipo = 'sucesso';
-    titulo = 'Sucesso!';
-  } else if (t.includes('erro') || t.includes('falha') || t.includes('inválid') || t.includes('restr') || t.includes('obrigatório')) {
-    tipo = 'erro';
-    titulo = 'Atenção!';
-  }
-
-  mostrarPopupCustom(tipo, titulo, texto);
-};
 
 // =========================================================================
 // CARREGAMENTO DE DADOS COM CACHE LOCAL
@@ -442,7 +311,7 @@ async function carregarDadosMobile() {
       const [resV, resR, resU, resRef] = await Promise.all([
         db.from('veiculos').select('*').neq('status', 'Fora de Uso').order('nome_frota'),
         db.from('rotas').select('*').order('data_saida', { ascending: false }),
-        db.from('usuarios').select('id, nome, email, cnh, cargo'),
+        db.from('usuarios').select('id, nome, email, cnh, perfil'),
         db.from('modelos_referencia').select('*')
       ]);
 
@@ -512,17 +381,6 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
     return Number(((cUrb + cRod) / 2).toFixed(2));
   }
 
-  if (veiculo?.modelo_referencia_id && listaModelosReferencia.length > 0) {
-    const ref = listaModelosReferencia.find(m => Number(m.id) === Number(veiculo.modelo_referencia_id));
-    if (ref) {
-      const rUrb = Number(ehEtanol ? ref.consumo_etanol_urbano : ref.consumo_gasolina_urbano) || 0;
-      const rRod = Number(ehEtanol ? ref.consumo_etanol_rodoviario : ref.consumo_gasolina_rodoviario) || 0;
-      if (rUrb > 0 && rRod > 0) {
-        return Number(((rUrb + rRod) / 2).toFixed(2));
-      }
-    }
-  }
-
   const cMin = Number(veiculo?.consumo_min) || 10;
   const cMax = Number(veiculo?.consumo_max) || 14;
   let fallback = (cMin + cMax) / 2;
@@ -532,7 +390,7 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
 }
 
 // =========================================================================
-// SISTEMA DE GEOLOCALIZAÇÃO TEMPORIZADA (3 MINUTOS) & AUDITORIA DE PARADA
+// SISTEMA DE GEOLOCALIZAÇÃO TEMPORIZADA & AUDITORIA DE PARADA
 // =========================================================================
 let wakeLock = null;
 let watchIdGps = null;
@@ -552,11 +410,8 @@ async function manterTelaAtiva() {
   try {
     if ('wakeLock' in navigator) {
       wakeLock = await navigator.wakeLock.request('screen');
-      console.log('ARVO GPS: Tela travada ativa para deslocamento.');
     }
-  } catch (err) {
-    console.warn('WakeLock aviso:', err.message);
-  }
+  } catch (err) {}
 }
 
 function liberarTelaAtiva() {
@@ -577,7 +432,6 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-// Obrigatoriedade de permissão GPS em cada rota
 async function solicitarPermissaoGPSObrigatoria() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -592,10 +446,7 @@ async function solicitarPermissaoGPSObrigatoria() {
 }
 
 function iniciarRastreamentoIntervaladoGPS(rotaId) {
-  if (!navigator.geolocation) {
-    console.warn("Geolocalização não suportada no aparelho.");
-    return;
-  }
+  if (!navigator.geolocation) return;
 
   idRotaRastreamentoAtiva = rotaId;
   const chaveCache = `arvo_gps_rota_${rotaId}`;
@@ -630,7 +481,6 @@ function iniciarRastreamentoIntervaladoGPS(rotaId) {
       const coords = pos.coords;
       const velocidadeKmh = coords.speed ? coords.speed * 3.6 : 0;
 
-      // Contabilização de tempo em movimento vs parado
       if (ultimoInstanteGpsCalculado) {
         const deltaSeg = Math.floor((agora - ultimoInstanteGpsCalculado) / 1000);
         if (deltaSeg > 0 && deltaSeg < 600) {
@@ -684,11 +534,7 @@ function iniciarRastreamentoIntervaladoGPS(rotaId) {
       }
     },
     (err) => console.warn("GPS Erro:", err.message),
-    {
-      enableHighAccuracy: true,
-      maximumAge: 5000,
-      timeout: 12000
-    }
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 12000 }
   );
 }
 
@@ -820,7 +666,7 @@ function renderizarOpcoesVeiculos() {
   if (!select || !usuarioLogado) return;
 
   const emailUser = (usuarioLogado.email || '').toLowerCase().trim();
-  const isAdmin = emailUser === ADMIN_EMAIL.toLowerCase().trim() || emailUser === 'admfin@arvo.tec.br';
+  const isAdmin = GESTORES_EMAILS.includes(emailUser);
 
   select.innerHTML = '<option value="">Selecione o veículo...</option>';
 
@@ -898,7 +744,6 @@ function toggleAnomaliaMobile(show) {
   }
 }
 
-// HELPER COMPARTILHADO MOBILE: Valida disponibilidade e liberação temporária
 async function validarDisponibilidadeReservaCarroMobile(veiculo, emailCondutorLogado) {
   const agora = new Date();
   const agoraTs = agora.getTime();
@@ -931,11 +776,8 @@ async function validarDisponibilidadeReservaCarroMobile(veiculo, emailCondutorLo
     if (!reservaAtiva) return { permitido: true };
 
     const emailDono = (reservaAtiva.responsavel || '').toLowerCase().trim();
-    const ehDonoReserva = (emailDono === emailAtual);
+    if (emailDono === emailAtual) return { permitido: true };
 
-    if (ehDonoReserva) return { permitido: true };
-
-    // Se liberado temporariamente pelo titular até às 23:59:59 de hoje
     if (reservaAtiva.liberado_ate) {
       const liberadoAteTs = new Date(reservaAtiva.liberado_ate).getTime();
       if (agoraTs <= liberadoAteTs) {
@@ -957,7 +799,6 @@ async function validarDisponibilidadeReservaCarroMobile(veiculo, emailCondutorLo
         `O titular não realizou a liberação temporária deste veículo para hoje.`
     };
   } catch (e) {
-    console.warn("Aviso ao validar disponibilidade de reserva no mobile:", e);
     return { permitido: true };
   }
 }
@@ -975,23 +816,25 @@ async function handleMobileInicioRota(e) {
   const veiculo = veiculos.find(v => (uuidVeiculo && v.uuid_veiculos === uuidVeiculo) || (v.nome_frota === veiculoId || v.id === veiculoId));
 
   if (btn) {
-  if (btn.disabled) return; // Impede execução duplicada se já estiver em andamento
-  btn.disabled = true;
-  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Abrindo rota...`;
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Abrindo rota...`;
   }
 
   if (!veiculo || !usuarioLogado) {
     alert("Selecione um veículo disponível.");
+    if (btn) btn.disabled = false;
     return;
   }
 
   const emailUser = (usuarioLogado.email || '').toLowerCase().trim();
-  const isAdmin = emailUser === ADMIN_EMAIL.toLowerCase().trim() || emailUser === 'admfin@arvo.tec.br';
+  const isAdmin = GESTORES_EMAILS.includes(emailUser);
   const isExterno = (veiculo.tipo_frota || '').toUpperCase() === 'EXTERNO' || (veiculo.proprietario || '').toUpperCase() === 'EXTERNO';
   const condutorExclusivo = (veiculo.motorista_autorizado || '').toLowerCase().trim();
 
   if (isExterno && condutorExclusivo !== emailUser && !isAdmin) {
     alert("⚠️ Este veículo é de uso exclusivo de outro condutor.");
+    if (btn) btn.disabled = false;
     return;
   }
 
@@ -1007,15 +850,12 @@ async function handleMobileInicioRota(e) {
     }
     return;
   }
-  
-  // --- TRAVA DE RESERVAS & LIBERAÇÃO TEMPORÁRIA NO MOBILE ---
+
   const checagem = await validarDisponibilidadeReservaCarroMobile(veiculo, emailUser);
   if (!checagem.permitido) {
     alert(checagem.mensagem);
+    if (btn) btn.disabled = false;
     return;
-  }
-  if (checagem.aviso) {
-    console.log(checagem.aviso);
   }
 
   const selectOrigem = document.getElementById('m-inicio-origem')?.value;
@@ -1026,6 +866,7 @@ async function handleMobileInicioRota(e) {
 
   if (!origemFinal) {
     alert("Por favor, informe a origem da rota.");
+    if (btn) btn.disabled = false;
     return;
   }
 
@@ -1034,12 +875,8 @@ async function handleMobileInicioRota(e) {
     posGps = await solicitarPermissaoGPSObrigatoria();
   } catch (errGps) {
     alert(errGps.message);
+    if (btn) btn.disabled = false;
     return;
-  }
-
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Gravando...`;
   }
 
   const tempId = `temp_${Date.now()}`;
@@ -1158,7 +995,7 @@ function renderizarOpcoesRotasAtivas() {
   if (!select || !usuarioLogado) return;
 
   const emailUser = (usuarioLogado.email || '').toLowerCase().trim();
-  const isAdmin = emailUser === ADMIN_EMAIL.toLowerCase().trim() || emailUser === 'admfin@arvo.tec.br';
+  const isAdmin = GESTORES_EMAILS.includes(emailUser);
 
   select.innerHTML = '<option value="">Selecione sua rota ativa...</option>';
 
@@ -1202,9 +1039,6 @@ function calcularKmPercorridoMobile() {
   }
 }
 
-// =========================================================================
-// FINALIZAÇÃO DA ROTA (CORREÇÃO DE FECHAMENTO NO MOBILE)
-// =========================================================================
 async function handleMobileFimRota(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
 
@@ -1217,7 +1051,6 @@ async function handleMobileFimRota(e) {
     return;
   }
 
-  // Interrupção e consolidação das coordenadas de telemetria GPS
   const pontosRastreamento = (typeof pararRastreamentoGPS === 'function' ? pararRastreamentoGPS() : []) || [];
   let pontosCache = [];
   try {
@@ -1286,9 +1119,7 @@ async function handleMobileFimRota(e) {
   let histCache = [];
   try {
     histCache = JSON.parse(localStorage.getItem('arvo_cache_abastecimentos') || '[]');
-  } catch (err) {
-    histCache = [];
-  }
+  } catch (err) {}
 
   const medConsumo = (typeof obterMediaConsumoEsperada === 'function')
     ? obterMediaConsumoEsperada(veiculoAlvo, null, histCache)
@@ -1306,7 +1137,6 @@ async function handleMobileFimRota(e) {
   const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosConsumidos).toFixed(2));
   const dataRetornoIso = new Date().toISOString();
 
-  // Definição do término do dia de hoje para liberação temporária
   const agoraData = new Date();
   const fimDoDiaHojeIso = new Date(
     agoraData.getFullYear(),
@@ -1331,11 +1161,6 @@ async function handleMobileFimRota(e) {
     tempo_parado_segundos: acumuladorTempoParadoSegundos
   };
 
-  const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str || ''));
-
-  // =========================================================================
-  // ROTA OFFLINE OU COM ID TEMPORÁRIO
-  // =========================================================================
   if (!navigator.onLine || String(rota.id).startsWith('temp_')) {
     salvarNaFilaRotas({
       tipo: 'FIM',
@@ -1364,40 +1189,10 @@ async function handleMobileFimRota(e) {
       if (payloadFim.anomalia) veiculoAlvo.anomalias = payloadFim.anomalia;
     }
 
-    // Atualização de Reservas no Cache Local Offline
-    try {
-      let reservasLocais = JSON.parse(localStorage.getItem('arvo_cache_reservas') || '[]');
-      const fimHojeTs = new Date(fimDoDiaHojeIso).getTime();
-
-      reservasLocais = reservasLocais.map(resv => {
-        if (
-          String(resv.responsavel).toLowerCase().trim() === String(rota.responsavel).toLowerCase().trim() &&
-          resv.status === 'CONFIRMADA'
-        ) {
-          const isLongoPrazo = ['SEMANAL', 'MENSAL', 'DIAS'].includes((resv.tipo_reserva || '').toUpperCase());
-          const fimReserva = new Date(resv.data_fim).getTime();
-
-          if (isLongoPrazo && fimReserva > fimHojeTs && querLiberarRestoDoDia) {
-            return { ...resv, liberado_ate: fimDoDiaHojeIso, liberado_por: rota.responsavel, updated_at: dataRetornoIso };
-          } else if (fimReserva <= fimHojeTs) {
-            return { ...resv, status: 'CONCLUIDA', updated_at: dataRetornoIso, updated_by: rota.responsavel };
-          }
-        }
-        return resv;
-      });
-      localStorage.setItem('arvo_cache_reservas', JSON.stringify(reservasLocais));
-    } catch (e) {
-      console.warn("Aviso ao atualizar reservas no cache offline:", e);
-    }
-
     salvarCachesLocais();
     alert(`📶 Rota encerrada Offline!\nConsumo: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L.`);
 
     e.target.reset();
-    if (typeof toggleOutroDestinoMobile === 'function') toggleOutroDestinoMobile('');
-    if (typeof toggleAnomaliaMobile === 'function') toggleAnomaliaMobile(false);
-    document.getElementById('m-detalhes-viagem')?.classList.add('hidden');
-
     renderizarHistoricoMobile();
     renderizarOpcoesRotasAtivas();
     renderizarOpcoesVeiculos();
@@ -1411,11 +1206,7 @@ async function handleMobileFimRota(e) {
     return;
   }
 
-  // =========================================================================
-  // ROTA ONLINE (SUPABASE)
-  // =========================================================================
   try {
-    // 1. Atualiza a tabela rotas
     const { error: errRota } = await db.from('rotas').update({
       destino: destinoFinal,
       km_retorno: kmRetorno,
@@ -1431,7 +1222,6 @@ async function handleMobileFimRota(e) {
 
     if (errRota) throw errRota;
 
-    // 2. Atualiza o veículo
     const payloadVeiculo = {
       km_atual: kmRetorno,
       status: 'Disponivel',
@@ -1459,7 +1249,6 @@ async function handleMobileFimRota(e) {
       await db.from('veiculos').update(payloadVeiculo).eq('id', veiculoAlvo.id);
     }
 
-    // 3. Atualização de Reservas: Liberação Temporária vs Conclusão
     try {
       const { data: reservasMotorista } = await db.from('reservas')
         .select('*')
@@ -1490,46 +1279,15 @@ async function handleMobileFimRota(e) {
             }).eq('id', resv.id);
           }
         }
-      } else {
-        // Encerramento pontual com margem de tolerância
-        const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
-        const placaRes = placaAlvo || rota.placa || veiculoAlvo.placa;
-        const nomeRes = veiculoAlvo.nome_frota || rota.veiculo_id;
-
-        let queryReservas = db.from('reservas')
-          .update({
-            status: 'CONCLUIDA',
-            updated_at: dataRetornoIso,
-            updated_by: String(rota.responsavel).toLowerCase().trim()
-          })
-          .eq('responsavel', rota.responsavel)
-          .eq('status', 'CONFIRMADA')
-          .lte('data_inicio', dataRetornoIso)
-          .gte('data_fim', limiteToleranciaFim);
-
-        if (placaRes) {
-          queryReservas = queryReservas.or(`placa.eq.${placaRes},veiculo_id.eq.${placaRes}`);
-        } else if (nomeRes) {
-          queryReservas = queryReservas.eq('veiculo_id', nomeRes);
-        }
-
-        await queryReservas;
       }
-    } catch (errRes) {
-      console.warn("Aviso ao processar reservas no mobile:", errRes);
-    }
+    } catch (errRes) {}
 
     alert(`✅ Rota concluída!\nConsumo: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L.`);
 
     e.target.reset();
-    if (typeof toggleOutroDestinoMobile === 'function') toggleOutroDestinoMobile('');
-    if (typeof toggleAnomaliaMobile === 'function') toggleAnomaliaMobile(false);
-    document.getElementById('m-detalhes-viagem')?.classList.add('hidden');
-
     await carregarDadosMobile();
     switchMobileTab('historico');
   } catch (err) {
-    console.warn("Salvando encerramento na fila offline devido a falha:", err);
     salvarNaFilaRotas({
       tipo: 'FIM',
       payload: payloadFim,
@@ -1539,12 +1297,6 @@ async function handleMobileFimRota(e) {
       tanque_virtual: novoTanqueVirtual,
       anomalia: payloadFim.anomalia
     });
-
-    rota.status = 'Concluida';
-    rota.km_total = kmTotal;
-    rota.consumo_litros = litrosConsumidos;
-    rota.coordenadas = coordenadasFinais;
-    salvarCachesLocais();
     alert(`📶 Conexão instável. Finalização salva localmente.`);
     switchMobileTab('historico');
   } finally {
@@ -1575,7 +1327,6 @@ async function sincronizarFilaRotas() {
   const fila = JSON.parse(localStorage.getItem('arvo_sync_rotas_queue') || '[]');
   if (fila.length === 0) return;
 
-  console.log(`-> Sincronizando ${fila.length} itens de rotas pendentes...`);
   const itensRestantes = [];
 
   for (let i = 0; i < fila.length; i++) {
@@ -1625,20 +1376,14 @@ async function sincronizarFilaRotas() {
           continue;
         }
 
-        const { error: errFim } = await db
-          .from('rotas')
-          .update(dadosFim)
-          .eq('id', rota_id);
-
+        const { error: errFim } = await db.from('rotas').update(dadosFim).eq('id', rota_id);
         if (errFim) throw errFim;
 
         const placaAlvo = item.placa || item.payload?.placa;
         const veicAlvo = item.veiculo_id || item.payload?.veiculo_id;
         const uuidAlvo = item.uuid_veiculos || item.payload?.uuid_veiculos;
 
-        const payloadUpdateVeic = {
-          status: 'Disponivel'
-        };
+        const payloadUpdateVeic = { status: 'Disponivel' };
         if (dadosFim.km_retorno) payloadUpdateVeic.km_atual = dadosFim.km_retorno;
         if (item.tanque_virtual !== undefined) payloadUpdateVeic.tanque_virtual = item.tanque_virtual;
 
@@ -1654,28 +1399,14 @@ async function sincronizarFilaRotas() {
         if (!atualizouVeic && veicAlvo) {
           await db.from('veiculos').update(payloadUpdateVeic).eq('nome_frota', veicAlvo);
         }
-
-        try {
-          let qRes = db.from('reservas').update({ status: 'CONCLUIDA' }).eq('status', 'CONFIRMADA');
-          if (placaAlvo) {
-            await qRes.eq('placa', placaAlvo);
-          } else if (veicAlvo) {
-            await qRes.eq('veiculo_id', veicAlvo);
-          }
-        } catch (resErr) {
-          console.warn("Aviso ao liberar reserva sincronizada:", resErr);
-        }
       }
     } catch (e) {
-      console.error("Falha ao sincronizar item da fila:", item, e);
       itensRestantes.push(item);
     }
   }
 
   localStorage.setItem('arvo_sync_rotas_queue', JSON.stringify(itensRestantes));
-
   if (itensRestantes.length === 0) {
-    console.log("-> Sincronização offline concluída com sucesso!");
     await carregarDadosMobile();
   }
 }
@@ -1786,7 +1517,7 @@ function renderPreviewCardCarroMobile(veiculoId) {
 }
 
 // =========================================================================
-// KPIS DO MOTORISTA NO MOBILE (REATIVO AO FILTRO DE DATAS)
+// KPIS DO MOTORISTA NO MOBILE
 // =========================================================================
 function atualizarKpisMotoristaMobile() {
   const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
@@ -1797,7 +1528,7 @@ function atualizarKpisMotoristaMobile() {
     emailUsuario = String(rawSessao || '').toLowerCase().trim();
   }
 
-  const ehAdmin = emailUsuario === ADMIN_EMAIL.toLowerCase().trim() || emailUsuario === 'admfin@arvo.tec.br';
+  const ehAdmin = GESTORES_EMAILS.includes(emailUsuario);
   const inputIni = document.getElementById('filtro-m-data-inicio')?.value;
   const inputFim = document.getElementById('filtro-m-data-fim')?.value;
 
@@ -1863,34 +1594,6 @@ function limparFiltrosDataMotorista() {
 // =========================================================================
 // HISTÓRICO DE ROTAS
 // =========================================================================
-let categoriaFiltroMobile = 'todas';
-
-function setFiltroCategoriaMobile(categoria) {
-  categoriaFiltroMobile = categoria;
-
-  const botoes = {
-    'todas': document.getElementById('btn-cat-todas'),
-    'avarias': document.getElementById('btn-cat-avarias'),
-    'concluidas': document.getElementById('btn-cat-concluidas')
-  };
-
-  Object.keys(botoes).forEach(k => {
-    if (botoes[k]) {
-      if (k === categoria) {
-        botoes[k].className = "bg-[#1E5E3A] text-white font-bold px-3 py-1.5 rounded-xl whitespace-nowrap shadow-xs";
-      } else {
-        botoes[k].className = "bg-slate-800 text-slate-300 hover:text-white border border-slate-700 font-semibold px-3 py-1.5 rounded-xl whitespace-nowrap";
-      }
-    }
-  });
-
-  renderizarHistoricoMobile();
-}
-
-function filtrarHistoricoMobile() {
-  renderizarHistoricoMobile();
-}
-
 function renderizarHistoricoMobile() {
   const container = document.getElementById('m-lista-historico');
   if (!container) return;
@@ -1903,7 +1606,7 @@ function renderizarHistoricoMobile() {
     emailUsuario = String(rawSessao || '').toLowerCase().trim();
   }
 
-  const ehAdmin = emailUsuario === ADMIN_EMAIL.toLowerCase().trim() || emailUsuario === 'admfin@arvo.tec.br';
+  const ehAdmin = GESTORES_EMAILS.includes(emailUsuario);
   const todasRotas = Array.isArray(rotas) ? rotas : [];
 
   const rotasPermitidas = todasRotas.filter(r => {
@@ -1911,37 +1614,13 @@ function renderizarHistoricoMobile() {
     return (r.responsavel || '').toLowerCase().trim() === emailUsuario;
   });
 
-  const totalRotas = rotasPermitidas.length;
-  const totalComAvarias = rotasPermitidas.filter(r => r.anomalia && r.anomalia.trim() !== '').length;
+  const badgeTotal = document.getElementById('m-total-rotas-badge');
+  if (badgeTotal) badgeTotal.innerText = `${rotasPermitidas.length} rotas`;
 
-  const countTodasEl = document.getElementById('m-count-todas');
-  const countAvariasEl = document.getElementById('m-count-avarias');
-  if (countTodasEl) countTodasEl.innerText = totalRotas;
-  if (countAvariasEl) countAvariasEl.innerText = totalComAvarias;
-
-  const termoBusca = (document.getElementById('filtro-busca-historico')?.value || '').toLowerCase().trim();
-
-  const rotasFiltradas = rotasPermitidas.filter(r => {
-    const isConcluida = r.status !== 'Em Uso' && (r.status === 'Concluida' || r.status === 'CONCLUIDA' || r.data_retorno);
-    const temAvaria = Boolean(r.anomalia && r.anomalia.trim() !== '');
-
-    if (typeof categoriaFiltroMobile !== 'undefined') {
-      if (categoriaFiltroMobile === 'avarias' && !temAvaria) return false;
-      if (categoriaFiltroMobile === 'concluidas' && !isConcluida) return false;
-    }
-
-    if (termoBusca) {
-      const textoParaBusca = `${r.veiculo_id || ''} ${r.nome_frota || ''} ${r.placa || ''} ${r.responsavel || ''} ${r.origem || ''} ${r.destino || ''} ${r.finalidade || ''}`.toLowerCase();
-      if (!textoParaBusca.includes(termoBusca)) return false;
-    }
-
-    return true;
-  });
-
-  if (rotasFiltradas.length === 0) {
+  if (rotasPermitidas.length === 0) {
     container.innerHTML = `
       <div class="bg-[#FAF7F2] rounded-3xl p-6 text-center text-slate-500 text-xs font-semibold border border-[#EFE9DF]">
-        Nenhuma rota encontrada para os filtros selecionados.
+        Nenhuma rota encontrada para o seu usuário.
       </div>
     `;
     return;
@@ -1949,7 +1628,7 @@ function renderizarHistoricoMobile() {
 
   container.innerHTML = '';
 
-  rotasFiltradas.forEach(r => {
+  rotasPermitidas.forEach(r => {
     const isEmUso = r.status === 'Em Uso';
     const temAvaria = Boolean(r.anomalia && r.anomalia.trim() !== '');
     const condutorNome = obterNomeMotoristaFormatado(r.responsavel);
@@ -1972,26 +1651,14 @@ function renderizarHistoricoMobile() {
       tempoFormatado = `${String(horas).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
     }
 
-    const formatarDiaMes = (iso) => {
-      if (!iso) return '';
-      const d = new Date(iso);
-      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-    };
-
-    const dInicio = formatarDiaMes(r.data_saida);
-    const dFim = formatarDiaMes(r.data_retorno);
-    const periodoDatas = dFim ? `${dInicio} - ${dFim}` : `${dInicio} (Em trânsito)`;
-
-    const estiloCard = isEmUso 
-      ? 'background: rgba(234, 88, 12, 0.70); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1.5px solid rgba(254, 215, 170, 0.6); box-shadow: 0 10px 25px rgba(234, 88, 12, 0.35);'
-      : '';
-    const classeCard = isEmUso
+    const card = document.createElement('div');
+    card.className = isEmUso
       ? 'card-item rounded-3xl p-4 shadow-xl text-white space-y-3'
       : 'card-item bg-[#FAF7F2] rounded-3xl p-4 shadow-xl border border-[#EFE9DF] text-slate-800 space-y-3';
 
-    const card = document.createElement('div');
-    card.className = classeCard;
-    if (estiloCard) card.setAttribute('style', estiloCard);
+    if (isEmUso) {
+      card.setAttribute('style', 'background: rgba(234, 88, 12, 0.70); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1.5px solid rgba(254, 215, 170, 0.6); box-shadow: 0 10px 25px rgba(234, 88, 12, 0.35);');
+    }
 
     card.innerHTML = `
       <div class="flex items-start justify-between pb-2 border-b ${isEmUso ? 'border-white/20' : 'border-[#EAE3D6]'}">
@@ -2021,14 +1688,12 @@ function renderizarHistoricoMobile() {
 
       <div class="${isEmUso ? 'bg-black/30 border-white/20' : 'bg-white/90 border-[#E5DFD3]'} rounded-2xl p-3 border shadow-xs space-y-2.5">
         <div class="flex items-center justify-between gap-3">
-          
           <div class="flex items-center gap-2.5 flex-1 min-w-0">
             <div class="flex flex-col items-center shrink-0">
               <span class="w-2.5 h-2.5 rounded-full border-2 ${isEmUso ? 'border-amber-300 bg-black/40' : 'border-[#1E5E3A] bg-white'}"></span>
               <span class="w-0.5 h-3 ${isEmUso ? 'bg-white/40' : 'bg-slate-300'}"></span>
               <span class="w-2.5 h-2.5 rounded-full ${isEmUso ? 'bg-amber-300' : 'bg-[#1E5E3A]'}"></span>
             </div>
-            
             <div class="flex flex-col text-xs leading-tight font-semibold ${isEmUso ? 'text-white' : 'text-slate-800'} truncate">
               <span class="truncate">${r.origem || 'Base'}</span>
               <span class="text-[9px] ${isEmUso ? 'text-orange-200' : 'text-slate-400'} font-normal">Destino</span>
@@ -2036,7 +1701,7 @@ function renderizarHistoricoMobile() {
             </div>
           </div>
 
-          <div class="trip-computer" title="Distância Percorrida">
+          <div class="trip-computer">
             <div class="trip-header">
               <span class="trip-tag">VIAGEM</span>
               <i class="ph-bold ph-gauge text-[9px] text-slate-400"></i>
@@ -2053,15 +1718,9 @@ function renderizarHistoricoMobile() {
           <span class="${isEmUso ? 'bg-black/40 text-orange-100 border border-white/10' : 'bg-[#F1ECE1] text-slate-700'} font-semibold px-2 py-0.5 rounded-md truncate max-w-[130px]">
             ${r.finalidade || 'Demandas Internas'}
           </span>
-
-          <div class="flex flex-col items-end shrink-0">
-            <div class="visor-digital" title="Duração da Rota">
-              <i class="ph-bold ph-timer text-emerald-400 text-xs"></i>
-              <span class="visor-digital-txt">${tempoFormatado}</span>
-            </div>
-            <span class="font-mono ${isEmUso ? 'text-orange-200' : 'text-slate-500'} font-medium text-[10px] mt-1">
-              ${periodoDatas}
-            </span>
+          <div class="visor-digital">
+            <i class="ph-bold ph-timer text-emerald-400 text-xs"></i>
+            <span class="visor-digital-txt">${tempoFormatado}</span>
           </div>
         </div>
       </div>
@@ -2081,45 +1740,16 @@ function renderizarHistoricoMobile() {
         </div>
       `}
     `;
-
     container.appendChild(card);
   });
 }
 
-function abrirFinalizacaoDiretaMobile(rotaId) {
-  switchMobileTab('finalizar');
-  const select = document.getElementById('m-fim-rota-select');
-  if (select) {
-    select.value = rotaId;
-    selecionarRotaFimMobile();
-  }
-}
-
 // =========================================================================
-// NOTIFICAÇÕES NATIVAS E MODAL VISUAL (> 12H)
+// ALERTAS E NOTIFICAÇÕES (> 12H)
 // =========================================================================
 function solicitarPermissaoNotificacao() {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
-  }
-}
-
-function dispararNotificacaoNativa(titulo, corpo) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
-  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.ready.then(reg => {
-      reg.showNotification(titulo, {
-        body: corpo,
-        icon: '/imagens/logo3d192.png',
-        badge: '/imagens/logo3d192.png',
-        vibrate: [200, 100, 200]
-      });
-    });
-  } else {
-    try {
-      new Notification(titulo, { body: corpo, icon: '/imagens/logo3d192.png' });
-    } catch (e) {}
   }
 }
 
@@ -2150,76 +1780,53 @@ function exibirPopUpAlerta(rota, horasAbertas) {
 
   const rawSessao = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
   let emailUsuario = '';
-  let nomeUsuario = '';
-
-  if (rawSessao) {
-    try {
-      const parsed = JSON.parse(rawSessao);
-      emailUsuario = (parsed.email || '').toLowerCase().trim();
-      nomeUsuario = (parsed.nome || '').toLowerCase().trim();
-    } catch {
-      emailUsuario = String(rawSessao).toLowerCase().trim();
-    }
+  try {
+    emailUsuario = (JSON.parse(rawSessao)?.email || rawSessao || '').toLowerCase().trim();
+  } catch {
+    emailUsuario = String(rawSessao).toLowerCase().trim();
   }
 
   const responsavelRota = String(rota.responsavel || '').toLowerCase().trim();
-  const isAdmin = emailUsuario === ADMIN_EMAIL.toLowerCase().trim() || emailUsuario === 'admfin@arvo.tec.br';
-  const isCondutor = (emailUsuario && responsavelRota.includes(emailUsuario)) || (nomeUsuario && responsavelRota.includes(nomeUsuario));
+  const isAdmin = GESTORES_EMAILS.includes(emailUsuario);
+  const isCondutor = emailUsuario === responsavelRota;
   const podeEncerrar = isAdmin || isCondutor;
-
-  if (typeof dispararNotificacaoNativa === 'function') {
-    dispararNotificacaoNativa(
-      "⚠️ Alerta: Rota em Aberto Excedida",
-      `O veículo ${rota.veiculo_id} está com rota em aberto há mais de ${Math.floor(horasAbertas)} horas.`
-    );
-  }
 
   const popUp = document.createElement('div');
   popUp.id = modalId;
-  popUp.className = "modal-alerta-backdrop";
   popUp.style.cssText = "position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(15, 23, 42, 0.75) !important; z-index: 99999 !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 1rem !important; box-sizing: border-box !important;";
 
   popUp.innerHTML = `
-    <div class="modal-alerta-card" style="background: #ffffff !important; border-radius: 1.5rem !important; max-width: 24rem !important; width: 100% !important; padding: 1.5rem !important; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3) !important; text-align: center !important; border: 1px solid #ffe4e6 !important;">
-      <div class="modal-alerta-icon-box" style="width: 3.5rem; height: 3.5rem; background-color: #ffe4e6; color: #e11d48; border-radius: 1rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; font-size: 1.75rem;">
+    <div style="background: #ffffff !important; border-radius: 1.5rem !important; max-width: 24rem !important; width: 100% !important; padding: 1.5rem !important; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3) !important; text-align: center !important; border: 1px solid #ffe4e6 !important;">
+      <div style="width: 3.5rem; height: 3.5rem; background-color: #ffe4e6; color: #e11d48; border-radius: 1rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; font-size: 1.75rem;">
         <i class="ph-bold ph-warning-circle"></i>
       </div>
-
       <div>
-        <h3 class="modal-alerta-titulo" style="font-size: 1rem; font-weight: 900; color: #0f172a; margin: 0;">Atenção: Rota Pendente!</h3>
-        <p class="modal-alerta-texto" style="font-size: 0.75rem; color: #64748b; margin-top: 0.35rem; line-height: 1.3;">
-          A rota <b style="color: #0f172a;">#${rota.id}</b> com o veículo <b style="color: #0f172a;">${rota.veiculo_id} [${rota.placa || '-'}]</b> (Condutor: <b>${obterNomeMotoristaFormatado(rota.responsavel)}</b>) está aberta há mais de <span class="modal-alerta-horas" style="color: #e11d48; font-weight: 700;">${Math.floor(horasAbertas)} horas</span>.
+        <h3 style="font-size: 1rem; font-weight: 900; color: #0f172a; margin: 0;">Atenção: Rota Pendente!</h3>
+        <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.35rem; line-height: 1.3;">
+          A rota <b style="color: #0f172a;">#${rota.id}</b> com o veículo <b style="color: #0f172a;">${rota.veiculo_id} [${rota.placa || '-'}]</b> (Condutor: <b>${obterNomeMotoristaFormatado(rota.responsavel)}</b>) está aberta há mais de <span style="color: #e11d48; font-weight: 700;">${Math.floor(horasAbertas)} horas</span>.
         </p>
       </div>
-
-      <div class="modal-alerta-box-aviso" style="background-color: #fefce8; border: 1px solid #fef08a; color: #854d0e; font-size: 0.75rem; padding: 0.75rem; border-radius: 0.75rem; margin: 1rem 0; line-height: 1.35; text-align: left;">
-        ${podeEncerrar 
-          ? "Por favor, finalize o check-in e registre o KM final para evitar inconsistências no fechamento." 
-          : "Esta rota está aberta há mais de 12 horas. Apenas o condutor responsável ou a administração podem encerrá-la."}
-      </div>
-
-      <div class="modal-alerta-actions" style="display: flex; gap: 0.5rem; width: 100%;">
+      <div style="display: flex; gap: 0.5rem; width: 100%; margin-top: 1rem;">
         ${podeEncerrar ? `
-          <button type="button" onclick="document.getElementById('${modalId}').remove()" class="btn-alerta-lembrar" style="flex: 1; padding: 0.625rem; background-color: #f1f5f9; color: #334155; font-weight: 700; font-size: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer;">
+          <button type="button" onclick="document.getElementById('${modalId}').remove()" style="flex: 1; padding: 0.625rem; background-color: #f1f5f9; color: #334155; font-weight: 700; font-size: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer;">
             Lembrar Depois
           </button>
-          <button type="button" onclick="document.getElementById('${modalId}').remove(); abrirFinalizacaoDiretaMobile('${rota.id}');" class="btn-alerta-finalizar" style="flex: 1; padding: 0.625rem; background-color: #15803d; color: #ffffff; font-weight: 700; font-size: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer;">
+          <button type="button" onclick="document.getElementById('${modalId}').remove(); switchMobileTab('finalizar');" style="flex: 1; padding: 0.625rem; background-color: #15803d; color: #ffffff; font-weight: 700; font-size: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer;">
             Finalizar Agora
           </button>
         ` : `
-          <button type="button" onclick="document.getElementById('${modalId}').remove()" class="btn-alerta-fechar" style="width: 100%; padding: 0.625rem; background-color: #d97706; color: #ffffff; font-weight: 700; font-size: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer; display: block;">
+          <button type="button" onclick="document.getElementById('${modalId}').remove()" style="width: 100%; padding: 0.625rem; background-color: #d97706; color: #ffffff; font-weight: 700; font-size: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer;">
             Fechar
           </button>
         `}
       </div>
     </div>
   `;
-
   document.body.appendChild(popUp);
 }
 
 // =========================================================================
-// GESTÃO DE SENHA DO MOTORISTA
+// GESTÃO DE SENHA DO MOTORISTA LOGADO
 // =========================================================================
 function abrirModalTrocarSenha() {
   document.getElementById('modal-trocar-senha')?.classList.remove('hidden');
@@ -2238,14 +1845,7 @@ function fecharModalTrocarSenha() {
 async function handleAlterarMinhaSenha(e) {
   e.preventDefault();
   const btn = document.getElementById('btn-salvar-senha');
-  const sessaoRaw = localStorage.getItem('arvo_usuario_logado') || localStorage.getItem('arvo_mobile_user');
-  
-  let sessao = null;
-  try {
-    sessao = JSON.parse(sessaoRaw);
-  } catch (err) {
-    sessao = { email: sessaoRaw };
-  }
+  const sessao = obterSessaoAtiva();
 
   if (!sessao || !sessao.email) {
     alert("Sessão inválida. Faça login novamente.");
@@ -2253,9 +1853,13 @@ async function handleAlterarMinhaSenha(e) {
     return;
   }
 
-  const senhaAtual = document.getElementById('senha-atual-usuario').value.trim();
   const senhaNova = document.getElementById('senha-nova-usuario').value.trim();
   const senhaConfirma = document.getElementById('senha-confirma-usuario').value.trim();
+
+  if (senhaNova.length < 4) {
+    alert("A nova senha deve ter no mínimo 4 caracteres.");
+    return;
+  }
 
   if (senhaNova !== senhaConfirma) {
     alert("⚠️ A confirmação da nova senha não confere.");
@@ -2266,28 +1870,13 @@ async function handleAlterarMinhaSenha(e) {
   btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Salvando...`;
 
   try {
-    const { data: usuario, error: erroBusca } = await db
-      .from('usuarios')
-      .select('id, senha')
-      .eq('email', sessao.email.toLowerCase().trim())
-      .single();
-
-    if (erroBusca || !usuario) throw new Error("Usuário não encontrado.");
-    if (String(usuario.senha).trim() !== senhaAtual) {
-      throw new Error("A senha atual informada está incorreta.");
-    }
-
-    const { error: erroUpdate } = await db
-      .from('usuarios')
-      .update({ senha: senhaNova })
-      .eq('id', usuario.id);
-
-    if (erroUpdate) throw erroUpdate;
+    const { error: erroAuth } = await db.auth.updateUser({ password: senhaNova });
+    if (erroAuth) throw erroAuth;
 
     fecharModalTrocarSenha();
-    alert("✅ Senha atualizada com sucesso!");
+    alert("✅ Senha atualizada com sucesso no Supabase Authentication!");
   } catch (err) {
-    alert("Erro: " + err.message);
+    alert("Erro ao alterar senha: " + err.message);
   } finally {
     btn.disabled = false;
     btn.innerHTML = `Salvar`;
@@ -2295,7 +1884,80 @@ async function handleAlterarMinhaSenha(e) {
 }
 
 // =========================================================================
-// INICIALIZAÇÃO NO DOM E EXPORTAÇÃO GLOBAL COMPLETA
+// GESTÃO DE RECUPERAÇÃO DE SENHA MOBILE (CNH + SUPABASE AUTH RPC)
+// =========================================================================
+function abrirModalEsqueciSenhaMobile() {
+  document.getElementById('modal-esqueci-senha')?.classList.remove('hidden');
+}
+
+function fecharModalEsqueciSenhaMobile() {
+  document.getElementById('modal-esqueci-senha')?.classList.add('hidden');
+  const email = document.getElementById('m-recup-email');
+  const cnh = document.getElementById('m-recup-cnh');
+  const nv = document.getElementById('m-recup-nova-senha');
+  const cf = document.getElementById('m-recup-confirma-senha');
+  if (email) email.value = '';
+  if (cnh) cnh.value = '';
+  if (nv) nv.value = '';
+  if (cf) cf.value = '';
+}
+
+async function handleRedefinicaoSimplesMobile(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  const btn = document.getElementById('btn-m-redefinir');
+  const email = (document.getElementById('m-recup-email')?.value || '').trim().toLowerCase();
+  const cnhDigitada = (document.getElementById('m-recup-cnh')?.value || '').replace(/\D/g, '').trim();
+  const novaSenha = (document.getElementById('m-recup-nova-senha')?.value || '').trim();
+  const confirmaSenha = (document.getElementById('m-recup-confirma-senha')?.value || '').trim();
+
+  if (!email || !cnhDigitada) {
+    alert("Informe o e-mail e os números da sua CNH.");
+    return;
+  }
+
+  if (novaSenha.length < 4) {
+    alert("⚠️ A nova senha deve ter no mínimo 4 caracteres.");
+    return;
+  }
+
+  if (novaSenha !== confirmaSenha) {
+    alert("⚠️ A confirmação da nova senha não confere.");
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Verificando dados...`;
+  }
+
+  try {
+    // Invoca a mesma função RPC que acabamos de validar com extensions.crypt e extensions.gen_salt
+    const { data, error } = await db.rpc('redefinir_senha_cnh', {
+      p_email: email,
+      p_cnh: cnhDigitada,
+      p_nova_senha: novaSenha
+    });
+
+    if (error) throw error;
+
+    if (!data || !data.success) {
+      throw new Error(data?.message || "E-mail ou CNH não conferem com o cadastro.");
+    }
+
+    fecharModalEsqueciSenhaMobile();
+    alert("✅ Senha atualizada com sucesso! Você já pode entrar com a nova senha.");
+  } catch (err) {
+    alert("Erro: " + (err.message || "Falha ao atualizar a senha."));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<span>Atualizar Minha Senha</span> <i class="ph-bold ph-check text-base"></i>`;
+    }
+  }
+}
+
+// =========================================================================
+// INICIALIZAÇÃO NO DOM E EXPORTAÇÃO GLOBAL
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   const sessao = obterSessaoAtiva();
@@ -2312,158 +1974,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// =========================================================================
-// GESTÃO DE RECUPERAÇÃO DE SENHA MOBILE (SUPABASE)
-// =========================================================================
-
-function abrirModalEsqueciSenhaMobile() {
-  document.getElementById('modal-esqueci-senha')?.classList.remove('hidden');
-}
-
-function fecharModalEsqueciSenhaMobile() {
-  document.getElementById('modal-esqueci-senha')?.classList.add('hidden');
-}
-
-function fecharModalRedefinirSenhaMobile() {
-  document.getElementById('modal-redefinir-senha')?.classList.add('hidden');
-  const cd = document.getElementById('redef-codigo');
-  const nv = document.getElementById('redef-nova-senha');
-  const cf = document.getElementById('redef-confirma-senha');
-  if (cd) cd.value = '';
-  if (nv) nv.value = '';
-  if (cf) cf.value = '';
-}
-
-async function handleSolicitarRecuperacaoMobile(e) {
-  if (e && typeof e.preventDefault === 'function') e.preventDefault();
-  const btn = document.getElementById('btn-solicitar-recup');
-  const emailInput = document.getElementById('recup-email');
-  const email = (emailInput?.value || '').trim().toLowerCase();
-
-  if (!email) {
-    alert("Informe seu e-mail cadastrado.");
-    return;
-  }
-
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Processando...`;
-  }
-
-  try {
-    const { data: usuario, error: errU } = await db
-      .from('usuarios')
-      .select('id, email')
-      .eq('email', email)
-      .maybeSingle();
-
-    if (errU || !usuario) {
-      throw new Error("E-mail não encontrado no sistema.");
-    }
-
-    const codigo = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiraEm = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-
-    const { error: errInsert } = await db.from('recuperacao_senhas').insert([{
-      usuario_id: usuario.id,
-      email: usuario.email,
-      codigo: codigo,
-      expira_em: expiraEm,
-      usado: false
-    }]);
-
-    if (errInsert) throw errInsert;
-
-    fecharModalEsqueciSenhaMobile();
-    const emailAlvo = document.getElementById('redef-email-alvo');
-    if (emailAlvo) emailAlvo.value = email;
-
-    document.getElementById('modal-redefinir-senha')?.classList.remove('hidden');
-
-    alert(`Código gerado com sucesso: ${codigo}\n\nUtilize este código para redefinir sua senha.`);
-  } catch (err) {
-    alert("Erro: " + (err.message || "Falha ao gerar código."));
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerText = `Gerar Código de Recuperação`;
-    }
-  }
-}
-
-async function handleConfirmarNovaSenhaMobile(e) {
-  if (e && typeof e.preventDefault === 'function') e.preventDefault();
-  const btn = document.getElementById('btn-redefinir');
-  const email = (document.getElementById('redef-email-alvo')?.value || '').trim().toLowerCase();
-  const codigo = (document.getElementById('redef-codigo')?.value || '').trim();
-  const novaSenha = (document.getElementById('redef-nova-senha')?.value || '').trim();
-  const confirma = (document.getElementById('redef-confirma-senha')?.value || '').trim();
-
-  if (!codigo || codigo.length < 6) {
-    alert("Informe o código de 6 dígitos enviado.");
-    return;
-  }
-
-  if (novaSenha.length < 4) {
-    alert("A nova senha deve ter no mínimo 4 caracteres.");
-    return;
-  }
-
-  if (novaSenha !== confirma) {
-    alert("⚠️ As senhas digitadas não coincidem.");
-    return;
-  }
-
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> Gravando...`;
-  }
-
-  try {
-    const agora = new Date().toISOString();
-
-    const { data: recup, error: errBusca } = await db
-      .from('recuperacao_senhas')
-      .select('*')
-      .eq('email', email)
-      .eq('codigo', codigo)
-      .eq('usado', false)
-      .gte('expira_em', agora)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (errBusca || !recup) {
-      throw new Error("Código inválido ou expirado.");
-    }
-
-    const { error: errUpdate } = await db
-      .from('usuarios')
-      .update({ senha: novaSenha })
-      .eq('id', recup.usuario_id);
-
-    if (errUpdate) throw errUpdate;
-
-    await db.from('recuperacao_senhas').update({ usado: true }).eq('id', recup.id);
-
-    fecharModalRedefinirSenhaMobile();
-    alert("✅ Senha redefinida com sucesso! Você já pode entrar com a nova senha.");
-  } catch (err) {
-    alert("Erro: " + (err.message || "Não foi possível alterar a senha."));
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerText = `Atualizar Senha`;
-    }
-  }
-}
-
 // Bindings globais no escopo window
 window.abrirModalEsqueciSenhaMobile = abrirModalEsqueciSenhaMobile;
 window.fecharModalEsqueciSenhaMobile = fecharModalEsqueciSenhaMobile;
-window.fecharModalRedefinirSenhaMobile = fecharModalRedefinirSenhaMobile;
-window.handleSolicitarRecuperacaoMobile = handleSolicitarRecuperacaoMobile;
-window.handleConfirmarNovaSenhaMobile = handleConfirmarNovaSenhaMobile;
+window.handleRedefinicaoSimplesMobile = handleRedefinicaoSimplesMobile;
 window.abrirModalTrocarSenha = abrirModalTrocarSenha;
 window.fecharModalTrocarSenha = fecharModalTrocarSenha;
 window.handleAlterarMinhaSenha = handleAlterarMinhaSenha;
@@ -2479,12 +1993,9 @@ window.handleMobileInicioRota = handleMobileInicioRota;
 window.selecionarRotaFimMobile = selecionarRotaFimMobile;
 window.calcularKmPercorridoMobile = calcularKmPercorridoMobile;
 window.handleMobileFimRota = handleMobileFimRota;
-window.abrirFinalizacaoDiretaMobile = abrirFinalizacaoDiretaMobile;
 window.obterMediaConsumoEsperada = obterMediaConsumoEsperada;
 window.exibirPopUpAlerta = exibirPopUpAlerta;
 window.aoMudarVeiculoMobile = aoMudarVeiculoMobile;
-window.setFiltroCategoriaMobile = setFiltroCategoriaMobile;
-window.filtrarHistoricoMobile = filtrarHistoricoMobile;
 window.exibirFormularioDevolucaoMobile = exibirFormularioDevolucaoMobile;
 window.manterTelaAtiva = manterTelaAtiva;
 window.liberarTelaAtiva = liberarTelaAtiva;
