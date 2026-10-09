@@ -964,7 +964,7 @@ async function validarDisponibilidadeReservaCarroMobile(veiculo, emailCondutorLo
 
 async function handleMobileInicioRota(e) {
   e.preventDefault();
-  const btn = document.getElementById('btn-m-confirmar-inicio');
+  const btn = document.getElementById('btn-m-confirmar-inicio') || document.getElementById('btn-submit-inicio');
   const selectElem = document.getElementById('m-inicio-veiculo');
   const veiculoId = selectElem?.value;
   const optSelecionada = selectElem ? selectElem.options[selectElem.selectedIndex] : null;
@@ -973,6 +973,12 @@ async function handleMobileInicioRota(e) {
   const placaVeiculo = optSelecionada?.dataset?.placa || null;
 
   const veiculo = veiculos.find(v => (uuidVeiculo && v.uuid_veiculos === uuidVeiculo) || (v.nome_frota === veiculoId || v.id === veiculoId));
+
+  if (btn) {
+  if (btn.disabled) return; // Impede execução duplicada se já estiver em andamento
+  btn.disabled = true;
+  btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Abrindo rota...`;
+  }
 
   if (!veiculo || !usuarioLogado) {
     alert("Selecione um veículo disponível.");
@@ -989,6 +995,19 @@ async function handleMobileInicioRota(e) {
     return;
   }
 
+  const rotaAbertaExistente = (rotas || []).find(r => 
+    r.status === 'Em Uso' && (r.responsavel || '').toLowerCase().trim() === emailUser
+  );
+
+  if (rotaAbertaExistente) {
+    alert(`⚠️ Você já possui a rota #${rotaAbertaExistente.id} em andamento (${rotaAbertaExistente.veiculo_id || 'Veículo'}). Finalize-a antes de iniciar uma nova.`);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-key text-base"></i> Iniciar Rota`;
+    }
+    return;
+  }
+  
   // --- TRAVA DE RESERVAS & LIBERAÇÃO TEMPORÁRIA NO MOBILE ---
   const checagem = await validarDisponibilidadeReservaCarroMobile(veiculo, emailUser);
   if (!checagem.permitido) {

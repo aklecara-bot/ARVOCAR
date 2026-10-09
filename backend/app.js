@@ -683,11 +683,26 @@ async function validarDisponibilidadeReservaCarro(veiculo, emailCondutorLogado) 
 
 async function handleInicioRota(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
-  const btn = document.getElementById('btn-submit-inicio');
+  const btn = document.getElementById('btn-m-confirmar-inicio') || document.getElementById('btn-submit-inicio');
   const veiculoId = document.getElementById('form-inicio-veiculo')?.value;
+
+  if (btn) {
+    if (btn.disabled) return; // Impede execução duplicada se já estiver em andamento
+    btn.disabled = true;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Abrindo rota...`;
+  }
+
+  // Função auxiliar interna para destravar o botão em retornos antecipados
+  const resetarBotao = () => {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check-circle text-lg"></i> Iniciar Rota`;
+    }
+  };
 
   if (!veiculoId) {
     alert("Por favor, selecione um veículo.");
+    resetarBotao();
     return;
   }
 
@@ -700,6 +715,7 @@ async function handleInicioRota(e) {
 
   if (!veiculo) {
     alert("Veículo não encontrado.");
+    resetarBotao();
     return;
   }
 
@@ -708,10 +724,24 @@ async function handleInicioRota(e) {
   try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
   const emailAtual = (sessao?.email || '').toLowerCase().trim();
 
+  // =========================================================================
+  // TRAVA DE ROTA DUPLICADA (Mesmo motorista com rota em andamento)
+  // =========================================================================
+  const rotaAbertaExistente = (rotas || []).find(r => 
+    r.status === 'Em Uso' && (r.responsavel || '').toLowerCase().trim() === emailAtual
+  );
+
+  if (rotaAbertaExistente) {
+    alert(`⚠️ Você já possui a rota #${rotaAbertaExistente.id} em andamento (${rotaAbertaExistente.veiculo_id || 'Veículo'}). Finalize-a antes de iniciar uma nova.`);
+    resetarBotao();
+    return;
+  }
+
   // Validação de Reserva com suporte à liberação temporária diária
   const checagem = await validarDisponibilidadeReservaCarro(veiculo, emailAtual);
   if (!checagem.permitido) {
     alert(checagem.mensagem);
+    resetarBotao();
     return;
   }
   if (checagem.aviso) {
@@ -724,6 +754,7 @@ async function handleInicioRota(e) {
 
   if (!origemFinal) {
     alert("Por favor, selecione ou digite a origem da saída.");
+    resetarBotao();
     return;
   }
 
@@ -733,12 +764,12 @@ async function handleInicioRota(e) {
 
   if (isNaN(kmInicial) || kmInicial < 0) {
     alert("KM Inicial inválido.");
+    resetarBotao();
     return;
   }
 
   if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Iniciando...`;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Gravando...`;
   }
 
   const dataSaidaAtual = new Date().toISOString();
@@ -795,10 +826,7 @@ async function handleInicioRota(e) {
     console.error("Erro ao iniciar rota no banco:", err);
     alert("Erro ao gravar rota no Supabase: " + (err.message || JSON.stringify(err)));
   } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="ph-bold ph-check-circle text-lg"></i> Iniciar Rota`;
-    }
+    resetarBotao();
   }
 }
 
@@ -903,10 +931,10 @@ async function handleFimRota(e) {
   // Telemetria e apuração de tempos
   let segMov = Number(rota.tempo_movimento_segundos || 0);
   let segPar = Number(rota.tempo_parado_segundos || 0);
-  if (segMov === 0 && segPar === 0 && rota.data_saida) {
-    const totalSeg = Math.max(0, (new Date(dataHoraRetornoAtual) - new Date(rota.data_saida)) / 1000);
-    segMov = Math.round(totalSeg * 0.75);
-    segPar = Math.round(totalSeg * 0.25);
+  if (segMov === 0 && segPar === 0) {
+    const segEstimadosMovimento = Math.round(deltaKm * 72); 
+    segMov = Math.min(totalSeg, segEstimadosMovimento);
+    segPar = Math.max(0, totalSeg - segMov);
   }
 
   const mediaEsperada = medConsumo;
