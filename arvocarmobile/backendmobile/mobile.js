@@ -8,7 +8,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Instanciação segura do cliente Supabase
 const db = window.db || (window.supabase && typeof window.supabase.createClient === 'function'
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
+  : (typeof supabase !== 'undefined' ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null));
 
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 const FIN_ADMIN_EMAIL = "admfin@arvo.tec.br";
@@ -36,7 +36,7 @@ let rotas = [];
 let usuarios = [];
 let listaModelosReferencia = [];
 
-// Dicionário com coordenadas padrão das bases e municípios de operação 1
+// Dicionário com coordenadas padrão das bases e municípios de operação
 const COORDENADAS_BASES = {
   "BASE CENTRAL ALEGRE": { lat: -20.761921, lng: -41.533884 },
   "ALEGRE": { lat: -20.761921, lng: -41.533884 },
@@ -50,7 +50,7 @@ const COORDENADAS_BASES = {
 };
 
 // =========================================================================
-// HELPER: FORMATAÇÃO DO NOME DO MOTORISTA (SEM RECORTE DE E-MAIL)
+// HELPER: FORMATAÇÃO DO NOME DO MOTORISTA E TEMPO
 // =========================================================================
 function obterNomeMotoristaFormatado(identificador) {
   if (!identificador) return 'Condutor';
@@ -79,6 +79,14 @@ function obterNomeMotoristaFormatado(identificador) {
     .filter(Boolean)
     .map(palavra => palavra.charAt(0).toUpperCase() + palavra.slice(1))
     .join(' ');
+}
+
+function formatarTempoSegundos(totalSegundos) {
+  if (!totalSegundos || isNaN(totalSegundos) || Number(totalSegundos) <= 0) return '0h 00m';
+  const seg = Math.round(Number(totalSegundos));
+  const h = Math.floor(seg / 3600);
+  const m = Math.floor((seg % 3600) / 60);
+  return `${h}h ${String(m).padStart(2, '0')}m`;
 }
 
 // =========================================================================
@@ -149,7 +157,6 @@ async function handleMobileLogin(e) {
       throw new Error("Sem conexão para validar novo login.");
     }
 
-    // 1. Autenticação nativa oficial no GoTrue / Supabase Auth
     const { data: authData, error: authError } = await db.auth.signInWithPassword({
       email: email,
       password: senha
@@ -157,7 +164,6 @@ async function handleMobileLogin(e) {
 
     if (authError) throw authError;
 
-    // 2. Busca perfil cadastral complementar
     const { data: perfilData, error: perfilError } = await db
       .from('usuarios')
       .select('id, nome, email, cnh, status, perfil')
@@ -261,8 +267,8 @@ function switchMobileTab(tab) {
     const emailAtual = (usuarioLogado?.email || '').toLowerCase().trim();
     const ehAdmin = GESTORES_EMAILS.includes(emailAtual);
 
-    const rotaAberta = (rotas || []).find(r => 
-      r.status === 'Em Uso' && 
+    const rotaAberta = (rotas || []).find(r =>
+      r.status === 'Em Uso' &&
       (ehAdmin || (r.responsavel && r.responsavel.toLowerCase().trim() === emailAtual))
     );
 
@@ -297,16 +303,16 @@ async function carregarDadosMobile() {
   const rotasCache = localStorage.getItem('arvo_cache_rotas');
   const usersCache = localStorage.getItem('arvo_cache_usuarios');
 
-  if (veiculosCache) try { veiculos = JSON.parse(veiculosCache); } catch(e){}
-  if (rotasCache) try { rotas = JSON.parse(rotasCache); } catch(e){}
-  if (usersCache) try { usuarios = JSON.parse(usersCache); } catch(e){}
+  if (veiculosCache) try { veiculos = JSON.parse(veiculosCache); } catch (e) { }
+  if (rotasCache) try { rotas = JSON.parse(rotasCache); } catch (e) { }
+  if (usersCache) try { usuarios = JSON.parse(usersCache); } catch (e) { }
 
   renderizarOpcoesVeiculos();
   renderizarOpcoesRotasAtivas();
   renderizarHistoricoMobile();
   atualizarKpisMotoristaMobile();
 
-  if (navigator.onLine) {
+  if (navigator.onLine && db) {
     try {
       const [resV, resR, resU, resRef] = await Promise.all([
         db.from('veiculos').select('*').neq('status', 'Fora de Uso').order('nome_frota'),
@@ -356,9 +362,9 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
       const aPlaca = (a.placa || '').trim().toUpperCase();
       const aVeicId = (a.veiculo_id ? String(a.veiculo_id) : '').trim().toUpperCase();
       const bateu = (placa && (aPlaca === placa || aVeicId === placa)) ||
-                    (vId && aVeicId === vId) ||
-                    (uuid && String(a.uuid_veiculos) === uuid) ||
-                    (nomeFrota && aVeicId === nomeFrota);
+        (vId && aVeicId === vId) ||
+        (uuid && String(a.uuid_veiculos) === uuid) ||
+        (nomeFrota && aVeicId === nomeFrota);
       return bateu && Number(a.km_atual) > 0 && Number(a.quantidade_litros) > 0;
     })
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
@@ -403,15 +409,16 @@ let acumuladorTempoMovimentoSegundos = 0;
 let acumuladorTempoParadoSegundos = 0;
 let ultimoInstanteGpsCalculado = null;
 
-const INTERVALO_LEITURA_MS = 3 * 60 * 1000;
-const DISTANCIA_MINIMA_METROS = 50;
+// INTERVALO CORRIGIDO: 15 segundos e 20 metros para não perder o desenho das curvas
+const INTERVALO_LEITURA_MS = 15 * 1000;
+const DISTANCIA_MINIMA_METROS = 20;
 
 async function manterTelaAtiva() {
   try {
     if ('wakeLock' in navigator) {
       wakeLock = await navigator.wakeLock.request('screen');
     }
-  } catch (err) {}
+  } catch (err) { }
 }
 
 function liberarTelaAtiva() {
@@ -458,6 +465,10 @@ function iniciarRastreamentoIntervaladoGPS(rotaId) {
     coordenadasEmTempoReal = [];
   }
 
+  // Restaura acumuladores se a página tiver sofrido reload
+  acumuladorTempoMovimentoSegundos = Number(localStorage.getItem(`arvo_tempo_mov_${rotaId}`) || 0);
+  acumuladorTempoParadoSegundos = Number(localStorage.getItem(`arvo_tempo_par_${rotaId}`) || 0);
+
   if (coordenadasEmTempoReal.length > 0) {
     ultimoPontoRegistrado = coordenadasEmTempoReal[coordenadasEmTempoReal.length - 1];
     ultimoTimestampSalvo = new Date(ultimoPontoRegistrado.timestamp || Date.now()).getTime();
@@ -479,17 +490,21 @@ function iniciarRastreamentoIntervaladoGPS(rotaId) {
     (pos) => {
       const agora = Date.now();
       const coords = pos.coords;
-      const velocidadeKmh = coords.speed ? coords.speed * 3.6 : 0;
+      const velocidadeKmh = coords.speed ? (coords.speed * 3.6) : 0;
 
       if (ultimoInstanteGpsCalculado) {
-      const deltaSeg = Math.floor((agora - ultimoInstanteGpsCalculado) / 1000);
-      if (deltaSeg > 0 && deltaSeg < 600) {
-        if (velocidadeKmh >= 3.0) {
-          acumuladorTempoMovimentoSegundos += deltaSeg;
-          localStorage.setItem(`arvo_tempo_mov_${idRotaRastreamentoAtiva}`, acumuladorTempoMovimentoSegundos);
-        } else {
-          acumuladorTempoParadoSegundos += deltaSeg;
-          localStorage.setItem(`arvo_tempo_par_${idRotaRastreamentoAtiva}`, acumuladorTempoParadoSegundos);
+        const deltaSeg = Math.floor((agora - ultimoInstanteGpsCalculado) / 1000);
+        if (deltaSeg > 0 && deltaSeg < 600) {
+          if (velocidadeKmh >= 3.0) {
+            acumuladorTempoMovimentoSegundos += deltaSeg;
+            if (idRotaRastreamentoAtiva) {
+              localStorage.setItem(`arvo_tempo_mov_${idRotaRastreamentoAtiva}`, acumuladorTempoMovimentoSegundos);
+            }
+          } else {
+            acumuladorTempoParadoSegundos += deltaSeg;
+            if (idRotaRastreamentoAtiva) {
+              localStorage.setItem(`arvo_tempo_par_${idRotaRastreamentoAtiva}`, acumuladorTempoParadoSegundos);
+            }
           }
         }
       }
@@ -536,7 +551,7 @@ function iniciarRastreamentoIntervaladoGPS(rotaId) {
       }
     },
     (err) => console.warn("GPS Erro:", err.message),
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 12000 }
+    { enableHighAccuracy: true, maximumAge: 3000, timeout: 12000 }
   );
 }
 
@@ -548,10 +563,7 @@ function pararRastreamentoGPS() {
   liberarTelaAtiva();
 
   const pontosFinais = [...coordenadasEmTempoReal];
-  if (idRotaRastreamentoAtiva) {
-    localStorage.removeItem(`arvo_gps_rota_${idRotaRastreamentoAtiva}`);
-    idRotaRastreamentoAtiva = null;
-  }
+  idRotaRastreamentoAtiva = null;
   return pontosFinais;
 }
 
@@ -753,6 +765,8 @@ async function validarDisponibilidadeReservaCarroMobile(veiculo, emailCondutorLo
   const nomeCarro = veiculo.nome_frota || veiculo.id;
   const placaCarro = veiculo.placa;
 
+  if (!navigator.onLine || !db) return { permitido: true };
+
   try {
     const { data: reservasCarro, error } = await db
       .from('reservas')
@@ -840,7 +854,7 @@ async function handleMobileInicioRota(e) {
     return;
   }
 
-  const rotaAbertaExistente = (rotas || []).find(r => 
+  const rotaAbertaExistente = (rotas || []).find(r =>
     r.status === 'Em Uso' && (r.responsavel || '').toLowerCase().trim() === emailUser
   );
 
@@ -916,6 +930,8 @@ async function handleMobileInicioRota(e) {
 
   acumuladorTempoMovimentoSegundos = 0;
   acumuladorTempoParadoSegundos = 0;
+  localStorage.setItem(`arvo_tempo_mov_${tempId}`, "0");
+  localStorage.setItem(`arvo_tempo_par_${tempId}`, "0");
 
   localStorage.setItem(`arvo_gps_rota_${tempId}`, JSON.stringify(pontoInicial));
   iniciarRastreamentoIntervaladoGPS(tempId);
@@ -949,7 +965,11 @@ async function handleMobileInicioRota(e) {
     if (idReal) {
       idRotaRastreamentoAtiva = idReal;
       localStorage.setItem(`arvo_gps_rota_${idReal}`, JSON.stringify(pontoInicial));
+      localStorage.setItem(`arvo_tempo_mov_${idReal}`, "0");
+      localStorage.setItem(`arvo_tempo_par_${idReal}`, "0");
       localStorage.removeItem(`arvo_gps_rota_${tempId}`);
+      localStorage.removeItem(`arvo_tempo_mov_${tempId}`);
+      localStorage.removeItem(`arvo_tempo_par_${tempId}`);
     }
 
     let veicOk = false;
@@ -1058,7 +1078,7 @@ async function handleMobileFimRota(e) {
   let pontosCache = [];
   try {
     pontosCache = JSON.parse(localStorage.getItem(`arvo_gps_rota_${rota.id}`) || '[]');
-  } catch (err) {}
+  } catch (err) { }
 
   let coordenadasFinais = [];
   if (pontosRastreamento.length >= 2) {
@@ -1069,7 +1089,7 @@ async function handleMobileFimRota(e) {
     coordenadasFinais = rota.coordenadas;
   }
 
-  // Se não coletou pontos intermediários suficientes, tenta capturar o ponto final de entrega
+  // Se não coletou pontos intermediários suficientes, tenta capturar o ponto final
   if (navigator.geolocation && coordenadasFinais.length <= 1) {
     try {
       const posFinal = await new Promise((res, rej) => {
@@ -1081,7 +1101,7 @@ async function handleMobileFimRota(e) {
         velocidade: 0,
         timestamp: new Date().toISOString()
       });
-    } catch (errGps) {}
+    } catch (errGps) { }
   }
 
   if (typeof destruirMapaMobile === 'function') {
@@ -1125,7 +1145,7 @@ async function handleMobileFimRota(e) {
   let histCache = [];
   try {
     histCache = JSON.parse(localStorage.getItem('arvo_cache_abastecimentos') || '[]');
-  } catch (err) {}
+  } catch (err) { }
 
   const medConsumo = (typeof obterMediaConsumoEsperada === 'function')
     ? obterMediaConsumoEsperada(veiculoAlvo, null, histCache)
@@ -1144,15 +1164,14 @@ async function handleMobileFimRota(e) {
   let segMov = Number(acumuladorTempoMovimentoSegundos || localStorage.getItem(`arvo_tempo_mov_${rota.id}`) || 0);
   let segPar = Number(acumuladorTempoParadoSegundos || localStorage.getItem(`arvo_tempo_par_${rota.id}`) || 0);
 
-  // Fallback caso o app tenha sido suspenso, recarregado ou os acumuladores tenham zerado
   let duracaoTotalSeg = 0;
   if (rota.data_saida) {
     duracaoTotalSeg = Math.max(0, Math.floor((new Date(dataRetornoIso).getTime() - new Date(rota.data_saida).getTime()) / 1000));
   }
 
+  // Fallback temporal caso o app tenha sido reiniciado ou suspenso durante o uso
   if (segMov === 0 && segPar === 0 && duracaoTotalSeg > 0) {
     if (kmTotal > 0) {
-      // Estima média operacional (~45 km/h -> 80 segundos por KM rodado)
       const tempoEstimadoMov = Math.round(kmTotal * 80);
       segMov = Math.min(duracaoTotalSeg, tempoEstimadoMov);
       segPar = Math.max(0, duracaoTotalSeg - segMov);
@@ -1161,7 +1180,15 @@ async function handleMobileFimRota(e) {
     }
   }
 
-  // --- 5. MONTAGEM DO PAYLOAD ---
+  // --- 5. CÁLCULO DE EFICIÊNCIA E SCORE ECO ---
+  const mediaEsperada = Number(medConsumo) || 12.3;
+  const mediaRealRota = (kmTotal > 0 && litrosConsumidos > 0)
+    ? Number((kmTotal / litrosConsumidos).toFixed(2))
+    : mediaEsperada;
+
+  const scoreEco = Number(Math.min(100, Math.max(20, Math.round((mediaRealRota / mediaEsperada) * 100))));
+
+  // --- 6. MONTAGEM DO PAYLOAD ---
   const payloadFim = {
     rota_id: rota.id,
     destino: destinoFinal,
@@ -1174,10 +1201,13 @@ async function handleMobileFimRota(e) {
     status: 'Concluida',
     anomalia: anomaliaMarcada ? (relatorioAnomalia || 'Anomalia sem detalhes') : null,
     tempo_movimento_segundos: segMov,
-    tempo_parado_segundos: segPar
+    tempo_parado_segundos: segPar,
+    media_real_apurada: mediaRealRota,
+    media_esperada_rota: mediaEsperada,
+    score_eco: scoreEco
   };
 
-  // --- 6. TRATAMENTO OFFLINE OU ROTA COM ID TEMPORÁRIO ---
+  // --- 7. TRATAMENTO OFFLINE OU ROTA COM ID TEMPORÁRIO ---
   if (!navigator.onLine || String(rota.id).startsWith('temp_')) {
     salvarNaFilaRotas({
       tipo: 'FIM',
@@ -1198,6 +1228,9 @@ async function handleMobileFimRota(e) {
     rota.coordenadas = coordenadasFinais;
     rota.tempo_movimento_segundos = segMov;
     rota.tempo_parado_segundos = segPar;
+    rota.media_real_apurada = mediaRealRota;
+    rota.media_esperada_rota = mediaEsperada;
+    rota.score_eco = scoreEco;
 
     if (veiculoAlvo) {
       veiculoAlvo.km_atual = kmRetorno;
@@ -1208,6 +1241,7 @@ async function handleMobileFimRota(e) {
 
     localStorage.removeItem(`arvo_tempo_mov_${rota.id}`);
     localStorage.removeItem(`arvo_tempo_par_${rota.id}`);
+    localStorage.removeItem(`arvo_gps_rota_${rota.id}`);
     salvarCachesLocais();
 
     alert(`📶 Rota encerrada Offline!\nConsumo: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L.`);
@@ -1226,9 +1260,8 @@ async function handleMobileFimRota(e) {
     return;
   }
 
-  // --- 7. ATUALIZAÇÃO ONLINE (SUPABASE) ---
+  // --- 8. ATUALIZAÇÃO ONLINE (SUPABASE) ---
   try {
-    // 1. Atualiza a tabela rotas
     const { error: errRota } = await db.from('rotas').update({
       destino: destinoFinal,
       km_retorno: kmRetorno,
@@ -1239,12 +1272,14 @@ async function handleMobileFimRota(e) {
       status: 'Concluida',
       anomalia: payloadFim.anomalia,
       tempo_movimento_segundos: segMov,
-      tempo_parado_segundos: segPar
+      tempo_parado_segundos: segPar,
+      media_real_apurada: mediaRealRota,
+      media_esperada_rota: mediaEsperada,
+      score_eco: scoreEco
     }).eq('id', rota.id);
 
     if (errRota) throw errRota;
 
-    // 2. Atualiza a tabela veiculos
     const payloadVeiculo = {
       km_atual: kmRetorno,
       status: 'Disponivel',
@@ -1272,7 +1307,6 @@ async function handleMobileFimRota(e) {
       await db.from('veiculos').update(payloadVeiculo).eq('id', veiculoAlvo.id);
     }
 
-    // 3. Atualiza reservas pendentes/ativas vinculadas
     try {
       const { data: reservasMotorista } = await db.from('reservas')
         .select('*')
@@ -1306,9 +1340,9 @@ async function handleMobileFimRota(e) {
       console.warn("Aviso ao encerrar reservas vinculadas:", errRes);
     }
 
-    // Limpa caches de tempo da rota finalizada
     localStorage.removeItem(`arvo_tempo_mov_${rota.id}`);
     localStorage.removeItem(`arvo_tempo_par_${rota.id}`);
+    localStorage.removeItem(`arvo_gps_rota_${rota.id}`);
 
     alert(`✅ Rota concluída!\nConsumo: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L.`);
 
@@ -1356,7 +1390,7 @@ function salvarCachesLocais() {
 }
 
 async function sincronizarFilaRotas() {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine || !db) return;
   const fila = JSON.parse(localStorage.getItem('arvo_sync_rotas_queue') || '[]');
   if (fila.length === 0) return;
 
@@ -1512,11 +1546,10 @@ function renderPreviewCardCarroMobile(veiculoId) {
       <div class="flex justify-between items-start mb-2">
         <div class="space-y-1">
           <div class="flex items-center gap-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-              isEmUso
-                ? 'bg-amber-900/60 text-amber-200 border border-amber-300/50 animate-pulse'
-                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-            }">
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${isEmUso
+      ? 'bg-amber-900/60 text-amber-200 border border-amber-300/50 animate-pulse'
+      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+    }">
               ● ${isEmUso ? 'Em Rota' : 'Disponível'}
             </span>
             <span class="text-[10px] font-bold ${isExterno ? 'bg-indigo-600 text-white' : 'bg-slate-900/80 text-slate-300 border border-white/10'} px-1.5 py-0.5 rounded">
@@ -1625,7 +1658,7 @@ function limparFiltrosDataMotorista() {
 }
 
 // =========================================================================
-// HISTÓRICO DE ROTAS
+// HISTÓRICO DE ROTAS COM VISOR DE TEMPO RODANDO / PARADO
 // =========================================================================
 function renderizarHistoricoMobile() {
   const container = document.getElementById('m-lista-historico');
@@ -1683,6 +1716,9 @@ function renderizarHistoricoMobile() {
       const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
       tempoFormatado = `${String(horas).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
     }
+
+    const tMovFmt = formatarTempoSegundos(r.tempo_movimento_segundos);
+    const tParFmt = formatarTempoSegundos(r.tempo_parado_segundos);
 
     const card = document.createElement('div');
     card.className = isEmUso
@@ -1756,6 +1792,19 @@ function renderizarHistoricoMobile() {
             <span class="visor-digital-txt">${tempoFormatado}</span>
           </div>
         </div>
+
+        ${!isEmUso ? `
+          <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-[10px]">
+            <div class="bg-emerald-50 text-emerald-800 p-1.5 rounded-lg border border-emerald-100 flex items-center justify-between">
+              <span class="font-bold">Rodando:</span>
+              <span class="font-mono font-black">${tMovFmt}</span>
+            </div>
+            <div class="bg-amber-50 text-amber-800 p-1.5 rounded-lg border border-amber-100 flex items-center justify-between">
+              <span class="font-bold">Parado:</span>
+              <span class="font-mono font-black">${tParFmt}</span>
+            </div>
+          </div>
+        ` : ''}
       </div>
 
       ${temAvaria ? `
@@ -1964,7 +2013,6 @@ async function handleRedefinicaoSimplesMobile(e) {
   }
 
   try {
-    // Invoca a mesma função RPC que acabamos de validar com extensions.crypt e extensions.gen_salt
     const { data, error } = await db.rpc('redefinir_senha_cnh', {
       p_email: email,
       p_cnh: cnhDigitada,
@@ -2036,5 +2084,6 @@ window.iniciarRastreamentoIntervaladoGPS = iniciarRastreamentoIntervaladoGPS;
 window.pararRastreamentoGPS = pararRastreamentoGPS;
 window.renderPreviewCardCarroMobile = renderPreviewCardCarroMobile;
 window.obterNomeMotoristaFormatado = obterNomeMotoristaFormatado;
+window.formatarTempoSegundos = formatarTempoSegundos;
 window.atualizarKpisMotoristaMobile = atualizarKpisMotoristaMobile;
 window.limparFiltrosDataMotorista = limparFiltrosDataMotorista;
