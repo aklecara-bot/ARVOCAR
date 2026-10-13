@@ -320,9 +320,9 @@ async function validarDisponibilidadeReservaCarro(veiculo, emailCondutorLogado) 
     const liberadoAteTs = new Date(reservaAtiva.liberado_ate).getTime();
     if (agoraTs <= liberadoAteTs) {
       // O veículo foi liberado temporariamente pelo titular até as 23:59:59 de hoje
-      return { 
-        permitido: true, 
-        aviso: `⚠️ Veículo em reserva de ${obterNomeMotoristaFormatado(reservaAtiva.responsavel)}, porém liberado temporariamente para uso até o fim do dia.` 
+      return {
+        permitido: true,
+        aviso: `⚠️ Veículo em reserva de ${obterNomeMotoristaFormatado(reservaAtiva.responsavel)}, porém liberado temporariamente para uso até o fim do dia.`
       };
     }
   }
