@@ -935,22 +935,18 @@ async function handleFimRota(e) {
   let segMov = Number(acumuladorTempoMovimentoSegundos || localStorage.getItem(`arvo_tempo_mov_${rota.id}`) || 0);
   let segPar = Number(acumuladorTempoParadoSegundos || localStorage.getItem(`arvo_tempo_par_${rota.id}`) || 0);
 
-  // 2. Fallback temporal caso os acumuladores estejam zerados
-  const dataRetornoIso = new Date().toISOString();
   let duracaoTotalSeg = 0;
-
   if (rota.data_saida) {
-    duracaoTotalSeg = Math.max(0, Math.floor((new Date(dataRetornoIso).getTime() - new Date(rota.data_saida).getTime()) / 1000));
+    duracaoTotalSeg = Math.max(0, Math.floor((new Date(dataHoraRetornoAtual).getTime() - new Date(rota.data_saida).getTime()) / 1000));
   }
 
   if (segMov === 0 && segPar === 0 && duracaoTotalSeg > 0) {
-    if (kmTotal > 0) {
-      // Estimativa operacional padrão: 80 segundos por km (~45 km/h)
-      const tempoEstimadoMov = Math.round(kmTotal * 80);
+    if (deltaKm > 0) {
+      const tempoEstimadoMov = Math.round(deltaKm * 80);
       segMov = Math.min(duracaoTotalSeg, tempoEstimadoMov);
       segPar = Math.max(0, duracaoTotalSeg - segMov);
     } else {
-      segPar = duracaoTotalSeg; // Carro ficou parado com a rota aberta
+      segPar = duracaoTotalSeg;
     }
   }
 
@@ -1017,7 +1013,6 @@ async function handleFimRota(e) {
         23, 59, 59, 999
       ).toISOString();
 
-      // Busca reservas ativas do condutor
       const { data: reservasMotorista } = await db.from('reservas')
         .select('*')
         .eq('responsavel', rota.responsavel)
@@ -1033,7 +1028,6 @@ async function handleFimRota(e) {
 
           if (isLongoPrazo && fimReserva > fimHojeTs) {
             if (querLiberarRestoDoDia) {
-              // Concede a liberação até as 23:59:59 mantendo o agendamento ativo
               await db.from('reservas').update({
                 liberado_ate: fimDoDiaHoje,
                 liberado_por: rota.responsavel,
@@ -1041,7 +1035,6 @@ async function handleFimRota(e) {
               }).eq('id', resv.id);
             }
           } else {
-            // Reserva que finaliza no dia atual é concluída
             await db.from('reservas').update({
               status: 'CONCLUIDA',
               updated_at: dataHoraRetornoAtual,
@@ -1050,7 +1043,6 @@ async function handleFimRota(e) {
           }
         }
       } else {
-        // Encerramento pontual de reserva expirando no momento
         const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
         const placaReserva = placaAlvo || rota.placa || veiculo.placa;
         const veicIdReserva = rota.veiculo_id || veiculo.nome_frota || veiculo.id;

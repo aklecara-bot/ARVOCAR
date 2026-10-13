@@ -1089,7 +1089,7 @@ async function handleMobileFimRota(e) {
     coordenadasFinais = rota.coordenadas;
   }
 
-  // Se não coletou pontos intermediários suficientes, tenta capturar o ponto final
+  // Captura o ponto final de contingência se não houver pontos suficientes
   if (navigator.geolocation && coordenadasFinais.length <= 1) {
     try {
       const posFinal = await new Promise((res, rej) => {
@@ -1169,7 +1169,6 @@ async function handleMobileFimRota(e) {
     duracaoTotalSeg = Math.max(0, Math.floor((new Date(dataRetornoIso).getTime() - new Date(rota.data_saida).getTime()) / 1000));
   }
 
-  // Fallback temporal caso o app tenha sido reiniciado ou suspenso durante o uso
   if (segMov === 0 && segPar === 0 && duracaoTotalSeg > 0) {
     if (kmTotal > 0) {
       const tempoEstimadoMov = Math.round(kmTotal * 80);
@@ -1307,7 +1306,17 @@ async function handleMobileFimRota(e) {
       await db.from('veiculos').update(payloadVeiculo).eq('id', veiculoAlvo.id);
     }
 
+    // --- 9. ATUALIZAÇÃO DE RESERVAS E LIBERAÇÃO TEMPORÁRIA DIÁRIA ---
     try {
+      const querLiberarRestoDoDia = document.getElementById('check-liberar-carro-hoje')?.checked || false;
+      const agoraData = new Date();
+      const fimDoDiaHojeIso = new Date(
+        agoraData.getFullYear(),
+        agoraData.getMonth(),
+        agoraData.getDate(),
+        23, 59, 59, 999
+      ).toISOString();
+
       const { data: reservasMotorista } = await db.from('reservas')
         .select('*')
         .eq('responsavel', rota.responsavel)
@@ -1319,14 +1328,16 @@ async function handleMobileFimRota(e) {
         for (const resv of reservasMotorista) {
           const isLongoPrazo = ['SEMANAL', 'MENSAL', 'DIAS'].includes((resv.tipo_reserva || '').toUpperCase());
           const fimReserva = new Date(resv.data_fim).getTime();
-          const fimHojeTs = new Date().setHours(23, 59, 59, 999);
+          const fimHojeTs = new Date(fimDoDiaHojeIso).getTime();
 
           if (isLongoPrazo && fimReserva > fimHojeTs) {
-            await db.from('reservas').update({
-              liberado_ate: new Date().toISOString(),
-              liberado_por: rota.responsavel,
-              updated_at: dataRetornoIso
-            }).eq('id', resv.id);
+            if (querLiberarRestoDoDia) {
+              await db.from('reservas').update({
+                liberado_ate: fimDoDiaHojeIso,
+                liberado_por: rota.responsavel,
+                updated_at: dataRetornoIso
+              }).eq('id', resv.id);
+            }
           } else {
             await db.from('reservas').update({
               status: 'CONCLUIDA',
@@ -1335,6 +1346,29 @@ async function handleMobileFimRota(e) {
             }).eq('id', resv.id);
           }
         }
+      } else {
+        const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
+        const placaReserva = placaAlvo || rota.placa || veiculoAlvo.placa;
+        const veicIdReserva = rota.veiculo_id || veiculoAlvo.nome_frota || veiculoAlvo.id;
+
+        let queryReservas = db.from('reservas')
+          .update({
+            status: 'CONCLUIDA',
+            updated_at: dataRetornoIso,
+            updated_by: rota.responsavel
+          })
+          .eq('responsavel', rota.responsavel)
+          .eq('status', 'CONFIRMADA')
+          .lte('data_inicio', dataRetornoIso)
+          .gte('data_fim', limiteToleranciaFim);
+
+        if (placaReserva) {
+          queryReservas = queryReservas.or(`placa.eq.${placaReserva},veiculo_id.eq.${placaReserva}`);
+        } else if (veicIdReserva) {
+          queryReservas = queryReservas.eq('veiculo_id', veicIdReserva);
+        }
+
+        await queryReservas;
       }
     } catch (errRes) {
       console.warn("Aviso ao encerrar reservas vinculadas:", errRes);
