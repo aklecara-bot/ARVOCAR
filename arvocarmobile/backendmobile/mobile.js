@@ -482,12 +482,14 @@ function iniciarRastreamentoIntervaladoGPS(rotaId) {
       const velocidadeKmh = coords.speed ? coords.speed * 3.6 : 0;
 
       if (ultimoInstanteGpsCalculado) {
-        const deltaSeg = Math.floor((agora - ultimoInstanteGpsCalculado) / 1000);
-        if (deltaSeg > 0 && deltaSeg < 600) {
-          if (velocidadeKmh >= 3.0) {
-            acumuladorTempoMovimentoSegundos += deltaSeg;
-          } else {
-            acumuladorTempoParadoSegundos += deltaSeg;
+      const deltaSeg = Math.floor((agora - ultimoInstanteGpsCalculado) / 1000);
+      if (deltaSeg > 0 && deltaSeg < 600) {
+        if (velocidadeKmh >= 3.0) {
+          acumuladorTempoMovimentoSegundos += deltaSeg;
+          localStorage.setItem(`arvo_tempo_mov_${idRotaRastreamentoAtiva}`, acumuladorTempoMovimentoSegundos);
+        } else {
+          acumuladorTempoParadoSegundos += deltaSeg;
+          localStorage.setItem(`arvo_tempo_par_${idRotaRastreamentoAtiva}`, acumuladorTempoParadoSegundos);
           }
         }
       }
@@ -1051,6 +1053,7 @@ async function handleMobileFimRota(e) {
     return;
   }
 
+  // --- 1. CONSOLIDAÇÃO DO GPS E PONTOS DO TRAJETO ---
   const pontosRastreamento = (typeof pararRastreamentoGPS === 'function' ? pararRastreamentoGPS() : []) || [];
   let pontosCache = [];
   try {
@@ -1066,10 +1069,11 @@ async function handleMobileFimRota(e) {
     coordenadasFinais = rota.coordenadas;
   }
 
+  // Se não coletou pontos intermediários suficientes, tenta capturar o ponto final de entrega
   if (navigator.geolocation && coordenadasFinais.length <= 1) {
     try {
       const posFinal = await new Promise((res, rej) => {
-        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 2500 });
+        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 3500 });
       });
       coordenadasFinais.push({
         lat: Number(posFinal.coords.latitude.toFixed(6)),
@@ -1084,6 +1088,7 @@ async function handleMobileFimRota(e) {
     destruirMapaMobile(rota.id);
   }
 
+  // --- 2. DESTINO E QUILOMETRAGEM ---
   const selectDestino = document.getElementById('m-fim-destino')?.value;
   const outroDestino = document.getElementById('m-fim-destino-outro')?.value?.trim();
   const destinoFinal = selectDestino === 'OUTRO' ? outroDestino : selectDestino;
@@ -1107,6 +1112,7 @@ async function handleMobileFimRota(e) {
 
   const kmTotal = Math.max(0, kmRetorno - kmSaidaNum);
 
+  // --- 3. IDENTIFICAÇÃO DO VEÍCULO E CONSUMO ---
   const veiculoAlvo = (veiculos || []).find(v =>
     (rota.uuid_veiculos && v.uuid_veiculos === rota.uuid_veiculos) ||
     String(v.id) === String(rota.veiculo_id) ||
@@ -1123,29 +1129,39 @@ async function handleMobileFimRota(e) {
 
   const medConsumo = (typeof obterMediaConsumoEsperada === 'function')
     ? obterMediaConsumoEsperada(veiculoAlvo, null, histCache)
-    : 12.3;
+    : Number((Number(veiculoAlvo.consumo_min || 10) + Number(veiculoAlvo.consumo_max || 14)) / 2).toFixed(2);
 
-  const litrosConsumidos = (kmTotal > 0 && medConsumo > 0)
-    ? Number((kmTotal / medConsumo).toFixed(2))
-    : 0;
-
-  const capTanque = Number(veiculoAlvo.tanque || 47);
+  const litrosConsumidos = Number((kmTotal / (Number(medConsumo) || 12)).toFixed(2));
+  const capacidadeTanque = Number(veiculoAlvo.tanque || 45);
   const tanqueAnterior = (veiculoAlvo.tanque_virtual !== null && veiculoAlvo.tanque_virtual !== undefined)
     ? Number(veiculoAlvo.tanque_virtual)
-    : capTanque;
+    : capacidadeTanque;
 
   const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosConsumidos).toFixed(2));
   const dataRetornoIso = new Date().toISOString();
 
-  const agoraData = new Date();
-  const fimDoDiaHojeIso = new Date(
-    agoraData.getFullYear(),
-    agoraData.getMonth(),
-    agoraData.getDate(),
-    23, 59, 59, 999
-  ).toISOString();
-  const querLiberarRestoDoDia = document.getElementById('check-liberar-carro-hoje')?.checked || false;
+  // --- 4. CÁLCULO E CONTINGÊNCIA DE TEMPOS (RODAGEM E PARADO) ---
+  let segMov = Number(acumuladorTempoMovimentoSegundos || localStorage.getItem(`arvo_tempo_mov_${rota.id}`) || 0);
+  let segPar = Number(acumuladorTempoParadoSegundos || localStorage.getItem(`arvo_tempo_par_${rota.id}`) || 0);
 
+  // Fallback caso o app tenha sido suspenso, recarregado ou os acumuladores tenham zerado
+  let duracaoTotalSeg = 0;
+  if (rota.data_saida) {
+    duracaoTotalSeg = Math.max(0, Math.floor((new Date(dataRetornoIso).getTime() - new Date(rota.data_saida).getTime()) / 1000));
+  }
+
+  if (segMov === 0 && segPar === 0 && duracaoTotalSeg > 0) {
+    if (kmTotal > 0) {
+      // Estima média operacional (~45 km/h -> 80 segundos por KM rodado)
+      const tempoEstimadoMov = Math.round(kmTotal * 80);
+      segMov = Math.min(duracaoTotalSeg, tempoEstimadoMov);
+      segPar = Math.max(0, duracaoTotalSeg - segMov);
+    } else {
+      segPar = duracaoTotalSeg;
+    }
+  }
+
+  // --- 5. MONTAGEM DO PAYLOAD ---
   const payloadFim = {
     rota_id: rota.id,
     destino: destinoFinal,
@@ -1157,10 +1173,11 @@ async function handleMobileFimRota(e) {
     data_retorno: dataRetornoIso,
     status: 'Concluida',
     anomalia: anomaliaMarcada ? (relatorioAnomalia || 'Anomalia sem detalhes') : null,
-    tempo_movimento_segundos: acumuladorTempoMovimentoSegundos,
-    tempo_parado_segundos: acumuladorTempoParadoSegundos
+    tempo_movimento_segundos: segMov,
+    tempo_parado_segundos: segPar
   };
 
+  // --- 6. TRATAMENTO OFFLINE OU ROTA COM ID TEMPORÁRIO ---
   if (!navigator.onLine || String(rota.id).startsWith('temp_')) {
     salvarNaFilaRotas({
       tipo: 'FIM',
@@ -1179,8 +1196,8 @@ async function handleMobileFimRota(e) {
     rota.data_retorno = payloadFim.data_retorno;
     rota.destino = destinoFinal;
     rota.coordenadas = coordenadasFinais;
-    rota.tempo_movimento_segundos = acumuladorTempoMovimentoSegundos;
-    rota.tempo_parado_segundos = acumuladorTempoParadoSegundos;
+    rota.tempo_movimento_segundos = segMov;
+    rota.tempo_parado_segundos = segPar;
 
     if (veiculoAlvo) {
       veiculoAlvo.km_atual = kmRetorno;
@@ -1189,7 +1206,10 @@ async function handleMobileFimRota(e) {
       if (payloadFim.anomalia) veiculoAlvo.anomalias = payloadFim.anomalia;
     }
 
+    localStorage.removeItem(`arvo_tempo_mov_${rota.id}`);
+    localStorage.removeItem(`arvo_tempo_par_${rota.id}`);
     salvarCachesLocais();
+
     alert(`📶 Rota encerrada Offline!\nConsumo: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L.`);
 
     e.target.reset();
@@ -1206,7 +1226,9 @@ async function handleMobileFimRota(e) {
     return;
   }
 
+  // --- 7. ATUALIZAÇÃO ONLINE (SUPABASE) ---
   try {
+    // 1. Atualiza a tabela rotas
     const { error: errRota } = await db.from('rotas').update({
       destino: destinoFinal,
       km_retorno: kmRetorno,
@@ -1216,12 +1238,13 @@ async function handleMobileFimRota(e) {
       data_retorno: payloadFim.data_retorno,
       status: 'Concluida',
       anomalia: payloadFim.anomalia,
-      tempo_movimento_segundos: acumuladorTempoMovimentoSegundos,
-      tempo_parado_segundos: acumuladorTempoParadoSegundos
+      tempo_movimento_segundos: segMov,
+      tempo_parado_segundos: segPar
     }).eq('id', rota.id);
 
     if (errRota) throw errRota;
 
+    // 2. Atualiza a tabela veiculos
     const payloadVeiculo = {
       km_atual: kmRetorno,
       status: 'Disponivel',
@@ -1249,6 +1272,7 @@ async function handleMobileFimRota(e) {
       await db.from('veiculos').update(payloadVeiculo).eq('id', veiculoAlvo.id);
     }
 
+    // 3. Atualiza reservas pendentes/ativas vinculadas
     try {
       const { data: reservasMotorista } = await db.from('reservas')
         .select('*')
@@ -1261,16 +1285,14 @@ async function handleMobileFimRota(e) {
         for (const resv of reservasMotorista) {
           const isLongoPrazo = ['SEMANAL', 'MENSAL', 'DIAS'].includes((resv.tipo_reserva || '').toUpperCase());
           const fimReserva = new Date(resv.data_fim).getTime();
-          const fimHojeTs = new Date(fimDoDiaHojeIso).getTime();
+          const fimHojeTs = new Date().setHours(23, 59, 59, 999);
 
           if (isLongoPrazo && fimReserva > fimHojeTs) {
-            if (querLiberarRestoDoDia) {
-              await db.from('reservas').update({
-                liberado_ate: fimDoDiaHojeIso,
-                liberado_por: rota.responsavel,
-                updated_at: dataRetornoIso
-              }).eq('id', resv.id);
-            }
+            await db.from('reservas').update({
+              liberado_ate: new Date().toISOString(),
+              liberado_por: rota.responsavel,
+              updated_at: dataRetornoIso
+            }).eq('id', resv.id);
           } else {
             await db.from('reservas').update({
               status: 'CONCLUIDA',
@@ -1280,14 +1302,25 @@ async function handleMobileFimRota(e) {
           }
         }
       }
-    } catch (errRes) {}
+    } catch (errRes) {
+      console.warn("Aviso ao encerrar reservas vinculadas:", errRes);
+    }
+
+    // Limpa caches de tempo da rota finalizada
+    localStorage.removeItem(`arvo_tempo_mov_${rota.id}`);
+    localStorage.removeItem(`arvo_tempo_par_${rota.id}`);
 
     alert(`✅ Rota concluída!\nConsumo: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L.`);
 
     e.target.reset();
+    if (typeof toggleOutroDestinoMobile === 'function') toggleOutroDestinoMobile('');
+    if (typeof toggleAnomaliaMobile === 'function') toggleAnomaliaMobile(false);
+    document.getElementById('m-detalhes-viagem')?.classList.add('hidden');
     await carregarDadosMobile();
     switchMobileTab('historico');
+
   } catch (err) {
+    console.warn("Falha online, salvando na fila offline:", err);
     salvarNaFilaRotas({
       tipo: 'FIM',
       payload: payloadFim,

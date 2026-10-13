@@ -932,12 +932,26 @@ async function handleFimRota(e) {
   const dataHoraRetornoAtual = new Date().toISOString();
 
   // Telemetria e apuração de tempos
-  let segMov = Number(rota.tempo_movimento_segundos || 0);
-  let segPar = Number(rota.tempo_parado_segundos || 0);
-  if (segMov === 0 && segPar === 0) {
-    const segEstimadosMovimento = Math.round(deltaKm * 72); 
-    segMov = Math.min(totalSeg, segEstimadosMovimento);
-    segPar = Math.max(0, totalSeg - segMov);
+  let segMov = Number(acumuladorTempoMovimentoSegundos || localStorage.getItem(`arvo_tempo_mov_${rota.id}`) || 0);
+  let segPar = Number(acumuladorTempoParadoSegundos || localStorage.getItem(`arvo_tempo_par_${rota.id}`) || 0);
+
+  // 2. Fallback temporal caso os acumuladores estejam zerados
+  const dataRetornoIso = new Date().toISOString();
+  let duracaoTotalSeg = 0;
+
+  if (rota.data_saida) {
+    duracaoTotalSeg = Math.max(0, Math.floor((new Date(dataRetornoIso).getTime() - new Date(rota.data_saida).getTime()) / 1000));
+  }
+
+  if (segMov === 0 && segPar === 0 && duracaoTotalSeg > 0) {
+    if (kmTotal > 0) {
+      // Estimativa operacional padrão: 80 segundos por km (~45 km/h)
+      const tempoEstimadoMov = Math.round(kmTotal * 80);
+      segMov = Math.min(duracaoTotalSeg, tempoEstimadoMov);
+      segPar = Math.max(0, duracaoTotalSeg - segMov);
+    } else {
+      segPar = duracaoTotalSeg; // Carro ficou parado com a rota aberta
+    }
   }
 
   const mediaEsperada = medConsumo;
