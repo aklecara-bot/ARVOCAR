@@ -580,7 +580,7 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   const uuid = veiculo?.uuid_veiculos ? String(veiculo.uuid_veiculos).trim() : null;
   const nomeFrota = (veiculo?.nome_frota || '').trim().toUpperCase();
 
-  // 1. Filtrar abastecimentos válidos do veículo ordenados do mais recente para o mais antigo
+  // 1. Filtrar histórico do carro
   const abastsCarro = (listaAbastecimentos || [])
     .filter(a => {
       const aPlaca = (a.placa || '').trim().toUpperCase();
@@ -593,73 +593,66 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
     })
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
 
-  // Combustível em uso
-  const combAtual = (tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum').toUpperCase();
+  const combAtual = (tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum').trim().toUpperCase();
   const ehEtanol = combAtual.includes('ETANOL') || combAtual.includes('ÁLCOOL');
 
-  // 2. Cálculo da Média de Fábrica (Inmetro / modelos_referencia)
+  // 2. Média Nominal de Fábrica (tabela modelos_referencia ou cadastro do carro)
   let mediaFabrica = 0;
-  const modeloRefId = veiculo?.modelo_referencia_id;
-  const ref = (listaModelosRef || []).find(m => String(m.id) === String(modeloRefId)) || {};
+  const refId = veiculo?.modelo_referencia_id;
+  const ref = (listaModelosRef || []).find(m => String(m.id) === String(refId)) || {};
 
-  const cUrb = Number(ehEtanol ? (ref.consumo_etanol_urbano || veiculo?.consumo_etanol_urbano) 
+  const cUrb = Number(ehEtanol ? (ref.consumo_etanol_urbano || veiculo?.consumo_etanol_urbano)
                                : (ref.consumo_gasolina_urbano || veiculo?.consumo_gasolina_urbano)) || 0;
-  const cRod = Number(ehEtanol ? (ref.consumo_etanol_rodoviario || veiculo?.consumo_etanol_rodoviario) 
+  const cRod = Number(ehEtanol ? (ref.consumo_etanol_rodoviario || veiculo?.consumo_etanol_rodoviario)
                                : (ref.consumo_gasolina_rodoviario || veiculo?.consumo_gasolina_rodoviario)) || 0;
 
   if (cUrb > 0 && cRod > 0) {
     mediaFabrica = (cUrb + cRod) / 2;
   } else {
-    // Fallback caso não tenha tabela de referência vinculada
     const cMin = Number(veiculo?.consumo_min || 10);
     const cMax = Number(veiculo?.consumo_max || 14);
     mediaFabrica = (cMin + cMax) / 2;
     if (ehEtanol) mediaFabrica *= 0.7;
   }
 
-  // 3. Média Real via Complementagem de Tanque (KM rodado / L abastecidos)
-  // Filtra abastecimentos do mesmo tipo de combustível
-  const abastsTipo = abastsCarro.filter(a => 
-    (a.tipo_combustivel || '').toUpperCase().includes(ehEtanol ? 'ETANOL' : 'GASOLINA')
-  );
+  // 3. Média Real apurada por completagem com o MESMO combustível
+  const abastsTipo = abastsCarro.filter(a => {
+    const c = (a.tipo_combustivel || '').toUpperCase();
+    return ehEtanol ? (c.includes('ETANOL') || c.includes('ÁLCOOL')) : c.includes('GASOLINA');
+  });
 
   let mediaRealApurada = null;
 
   if (abastsTipo.length >= 2) {
-    let somaMedias = 0;
-    let contMedias = 0;
+    let somaRendimentos = 0;
+    let ciclosValidos = 0;
+    const maxAmostras = Math.min(3, abastsTipo.length - 1);
 
-    // Percorre até os últimos 3 pares consecutivos de abastecimento
-    const ciclos = Math.min(3, abastsTipo.length - 1);
-    for (let i = 0; i < ciclos; i++) {
-      const kmAtual = Number(abastsTipo[i].km_atual);
-      const kmAnterior = Number(abastsTipo[i + 1].km_atual);
-      const litrosComplementados = Number(abastsTipo[i].quantidade_litros);
-      const deltaKm = kmAtual - kmAnterior;
+    for (let i = 0; i < maxAmostras; i++) {
+      const deltaKm = Number(abastsTipo[i].km_atual) - Number(abastsTipo[i + 1].km_atual);
+      const litros = Number(abastsTipo[i].quantidade_litros);
 
-      if (deltaKm > 0 && litrosComplementados > 0) {
-        const rendimento = deltaKm / litrosComplementados;
-        // Trava de sanidade para expurgar anomalias de preenchimento
+      if (deltaKm > 0 && litros > 0) {
+        const rendimento = deltaKm / litros;
         if (rendimento >= 3.5 && rendimento <= 30.0) {
-          somaMedias += rendimento;
-          contMedias++;
+          somaRendimentos += rendimento;
+          ciclosValidos++;
         }
       }
     }
 
-    if (contMedias > 0) {
-      mediaRealApurada = somaMedias / contMedias;
+    if (ciclosValidos > 0) {
+      mediaRealApurada = somaRendimentos / ciclosValidos;
     }
   }
 
-  // 4. Composição Híbrida Ponderada
+  // 4. Fusão Híbrida Ponderada (70% Real Operacional / 30% Ficha Técnica)
   if (mediaRealApurada !== null) {
-    // 70% Real da Frota + 30% Referência de Fábrica
     const mediaHibrida = (mediaRealApurada * 0.70) + (mediaFabrica * 0.30);
     return Number(mediaHibrida.toFixed(2));
   }
 
-  // Sem histórico suficiente: 100% Fábrica
+  // Sem histórico consecutivo válido: adota 100% da referência de fábrica
   return Number(mediaFabrica.toFixed(2));
 }
 
