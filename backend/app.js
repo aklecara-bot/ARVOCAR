@@ -574,51 +574,93 @@ function toggleOutroDestino(valor) {
   }
 }
 
-function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos = []) {
-  const placa = veiculo?.placa;
-  const vId = veiculo?.id;
-  const uuid = veiculo?.uuid_veiculos;
-  const nomeFrota = veiculo?.nome_frota;
+function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos = [], listaModelosRef = []) {
+  const placa = (veiculo?.placa || '').trim().toUpperCase();
+  const vId = veiculo?.id ? String(veiculo.id).trim().toUpperCase() : null;
+  const uuid = veiculo?.uuid_veiculos ? String(veiculo.uuid_veiculos).trim() : null;
+  const nomeFrota = (veiculo?.nome_frota || '').trim().toUpperCase();
 
+  // 1. Filtrar abastecimentos válidos do veículo ordenados do mais recente para o mais antigo
   const abastsCarro = (listaAbastecimentos || [])
     .filter(a => {
-      const bateuVeiculo = (placa && String(a.placa) === String(placa)) ||
-        (vId && String(a.veiculo_id) === String(vId)) ||
-        (uuid && String(a.uuid_veiculos) === String(uuid)) ||
-        (nomeFrota && String(a.veiculo_id) === String(nomeFrota));
-      return bateuVeiculo && Number(a.km_atual) > 0 && Number(a.quantidade_litros) > 0;
+      const aPlaca = (a.placa || '').trim().toUpperCase();
+      const aVeicId = (a.veiculo_id ? String(a.veiculo_id) : '').trim().toUpperCase();
+      const bateu = (placa && (aPlaca === placa || aVeicId === placa)) ||
+                    (vId && aVeicId === vId) ||
+                    (uuid && String(a.uuid_veiculos) === uuid) ||
+                    (nomeFrota && aVeicId === nomeFrota);
+      return bateu && Number(a.km_atual) > 0 && Number(a.quantidade_litros) > 0;
     })
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
 
-  const combAtual = tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum';
+  // Combustível em uso
+  const combAtual = (tipoCombustivel || abastsCarro[0]?.tipo_combustivel || 'Gasolina Comum').toUpperCase();
+  const ehEtanol = combAtual.includes('ETANOL') || combAtual.includes('ÁLCOOL');
 
-  const abastsTipo = abastsCarro.filter(a =>
-    (a.tipo_combustivel || '').toUpperCase() === combAtual.toUpperCase()
+  // 2. Cálculo da Média de Fábrica (Inmetro / modelos_referencia)
+  let mediaFabrica = 0;
+  const modeloRefId = veiculo?.modelo_referencia_id;
+  const ref = (listaModelosRef || []).find(m => String(m.id) === String(modeloRefId)) || {};
+
+  const cUrb = Number(ehEtanol ? (ref.consumo_etanol_urbano || veiculo?.consumo_etanol_urbano) 
+                               : (ref.consumo_gasolina_urbano || veiculo?.consumo_gasolina_urbano)) || 0;
+  const cRod = Number(ehEtanol ? (ref.consumo_etanol_rodoviario || veiculo?.consumo_etanol_rodoviario) 
+                               : (ref.consumo_gasolina_rodoviario || veiculo?.consumo_gasolina_rodoviario)) || 0;
+
+  if (cUrb > 0 && cRod > 0) {
+    mediaFabrica = (cUrb + cRod) / 2;
+  } else {
+    // Fallback caso não tenha tabela de referência vinculada
+    const cMin = Number(veiculo?.consumo_min || 10);
+    const cMax = Number(veiculo?.consumo_max || 14);
+    mediaFabrica = (cMin + cMax) / 2;
+    if (ehEtanol) mediaFabrica *= 0.7;
+  }
+
+  // 3. Média Real via Complementagem de Tanque (KM rodado / L abastecidos)
+  // Filtra abastecimentos do mesmo tipo de combustível
+  const abastsTipo = abastsCarro.filter(a => 
+    (a.tipo_combustivel || '').toUpperCase().includes(ehEtanol ? 'ETANOL' : 'GASOLINA')
   );
 
-  if (abastsTipo.length >= 2) {
-    const kmRecente = Number(abastsTipo[0].km_atual);
-    const kmAnterior = Number(abastsTipo[1].km_atual);
-    const litros = Number(abastsTipo[0].quantidade_litros);
-    const deltaKm = kmRecente - kmAnterior;
+  let mediaRealApurada = null;
 
-    if (deltaKm > 0 && litros > 0) {
-      const mediaCalculada = deltaKm / litros;
-      if (mediaCalculada >= 3 && mediaCalculada <= 35) {
-        return Number(mediaCalculada.toFixed(2));
+  if (abastsTipo.length >= 2) {
+    let somaMedias = 0;
+    let contMedias = 0;
+
+    // Percorre até os últimos 3 pares consecutivos de abastecimento
+    const ciclos = Math.min(3, abastsTipo.length - 1);
+    for (let i = 0; i < ciclos; i++) {
+      const kmAtual = Number(abastsTipo[i].km_atual);
+      const kmAnterior = Number(abastsTipo[i + 1].km_atual);
+      const litrosComplementados = Number(abastsTipo[i].quantidade_litros);
+      const deltaKm = kmAtual - kmAnterior;
+
+      if (deltaKm > 0 && litrosComplementados > 0) {
+        const rendimento = deltaKm / litrosComplementados;
+        // Trava de sanidade para expurgar anomalias de preenchimento
+        if (rendimento >= 3.5 && rendimento <= 30.0) {
+          somaMedias += rendimento;
+          contMedias++;
+        }
       }
+    }
+
+    if (contMedias > 0) {
+      mediaRealApurada = somaMedias / contMedias;
     }
   }
 
-  const cMin = Number(veiculo?.consumo_min || 10);
-  const cMax = Number(veiculo?.consumo_max || 14);
-  let mediaFabricante = (cMin + cMax) / 2;
-
-  if (combAtual.toUpperCase().includes('ETANOL') || combAtual.toUpperCase().includes('ÁLCOOL')) {
-    mediaFabricante *= 0.7;
+  // 4. Composição Híbrida Ponderada
+  if (mediaRealApurada !== null) {
+    // 70% Real da Frota + 30% Referência de Fábrica
+    const mediaHibrida = (mediaRealApurada * 0.70) + (mediaFabrica * 0.30);
+    return Number(mediaHibrida.toFixed(2));
   }
 
-  return Number(mediaFabricante.toFixed(2));
+  // Sem histórico suficiente: 100% Fábrica
+  return Number(mediaFabrica.toFixed(2));
 }
 
 async function validarDisponibilidadeReservaCarro(veiculo, emailCondutorLogado) {
