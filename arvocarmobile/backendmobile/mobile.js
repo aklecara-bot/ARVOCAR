@@ -859,6 +859,13 @@ async function handleMobileInicioRota(e) {
 
   const veiculo = veiculos.find(v => (uuidVeiculo && v.uuid_veiculos === uuidVeiculo) || (v.nome_frota === veiculoId || v.id === veiculoId));
 
+  const resetarBotao = () => {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-key text-base"></i> Iniciar Rota`;
+    }
+  };
+
   if (btn) {
     if (btn.disabled) return;
     btn.disabled = true;
@@ -867,18 +874,20 @@ async function handleMobileInicioRota(e) {
 
   if (!veiculo || !usuarioLogado) {
     alert("Selecione um veículo disponível.");
-    if (btn) btn.disabled = false;
+    resetarBotao();
     return;
   }
 
   const emailUser = (usuarioLogado.email || '').toLowerCase().trim();
   const isAdmin = GESTORES_EMAILS.includes(emailUser);
-  const isExterno = (veiculo.tipo_frota || '').toUpperCase() === 'EXTERNO' || (veiculo.proprietario || '').toUpperCase() === 'EXTERNO';
+  const tipoFrota = (veiculo.tipo_frota || '').toUpperCase().trim();
+  const proprietario = (veiculo.proprietario || '').toUpperCase().trim();
+  const isExterno = tipoFrota.includes('EXTERN') || proprietario.includes('EXTERN');
   const condutorExclusivo = (veiculo.motorista_autorizado || '').toLowerCase().trim();
 
   if (isExterno && condutorExclusivo !== emailUser && !isAdmin) {
     alert("⚠️ Este veículo é de uso exclusivo de outro condutor.");
-    if (btn) btn.disabled = false;
+    resetarBotao();
     return;
   }
 
@@ -888,17 +897,14 @@ async function handleMobileInicioRota(e) {
 
   if (rotaAbertaExistente) {
     alert(`⚠️ Você já possui a rota #${rotaAbertaExistente.id} em andamento (${rotaAbertaExistente.veiculo_id || 'Veículo'}). Finalize-a antes de iniciar uma nova.`);
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="ph-bold ph-key text-base"></i> Iniciar Rota`;
-    }
+    resetarBotao();
     return;
   }
 
   const checagem = await validarDisponibilidadeReservaCarroMobile(veiculo, emailUser);
   if (!checagem.permitido) {
     alert(checagem.mensagem);
-    if (btn) btn.disabled = false;
+    resetarBotao();
     return;
   }
 
@@ -908,9 +914,15 @@ async function handleMobileInicioRota(e) {
   const finalidade = document.getElementById('m-inicio-finalidade')?.value || 'DEMANDAS INTERNAS';
   const kmSaida = Number(document.getElementById('m-inicio-km')?.value || veiculo.km_atual || 0);
 
+  if (isNaN(kmSaida) || kmSaida < 0) {
+    alert("Por favor, informe uma quilometragem inicial válida.");
+    resetarBotao();
+    return;
+  }
+
   if (!origemFinal) {
     alert("Por favor, informe a origem da rota.");
-    if (btn) btn.disabled = false;
+    resetarBotao();
     return;
   }
 
@@ -919,7 +931,7 @@ async function handleMobileInicioRota(e) {
     posGps = await solicitarPermissaoGPSObrigatoria();
   } catch (errGps) {
     alert(errGps.message);
-    if (btn) btn.disabled = false;
+    resetarBotao();
     return;
   }
 
@@ -964,10 +976,20 @@ async function handleMobileInicioRota(e) {
   localStorage.setItem(`arvo_gps_rota_${tempId}`, JSON.stringify(pontoInicial));
   iniciarRastreamentoIntervaladoGPS(tempId);
 
+  // Montagem do payload de atualização do veículo
+  const payloadUpdateVeiculo = { status: 'Em Uso' };
+  if (isExterno) {
+    payloadUpdateVeiculo.km_atual = kmSaida;
+  }
+
+  // --- TRATAMENTO MODO OFFLINE ---
   if (!navigator.onLine) {
     salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadRota });
     rotas.unshift(payloadRota);
     veiculo.status = 'Em Uso';
+    if (isExterno) {
+      veiculo.km_atual = kmSaida;
+    }
     salvarCachesLocais();
     alert(`📶 Rota iniciada em Modo Offline com GPS! Sincronização pendente.`);
     e.target.reset();
@@ -975,13 +997,11 @@ async function handleMobileInicioRota(e) {
     renderizarOpcoesRotasAtivas();
     renderizarHistoricoMobile();
     switchMobileTab('finalizar');
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="ph-bold ph-key text-base"></i> Iniciar Rota`;
-    }
+    resetarBotao();
     return;
   }
 
+  // --- TRATAMENTO MODO ONLINE ---
   try {
     delete payloadRota.id;
     delete payloadRota.offline_sync;
@@ -1002,16 +1022,16 @@ async function handleMobileInicioRota(e) {
 
     let veicOk = false;
     if (uuidVeiculo && isUUID(uuidVeiculo)) {
-      const { error: errU } = await db.from('veiculos').update({ status: 'Em Uso' }).eq('uuid_veiculos', uuidVeiculo);
+      const { error: errU } = await db.from('veiculos').update(payloadUpdateVeiculo).eq('uuid_veiculos', uuidVeiculo);
       if (!errU) veicOk = true;
     }
     if (!veicOk && (placaVeiculo || veiculo.placa)) {
       const p = placaVeiculo || veiculo.placa;
-      const { error: errP } = await db.from('veiculos').update({ status: 'Em Uso' }).eq('placa', p);
+      const { error: errP } = await db.from('veiculos').update(payloadUpdateVeiculo).eq('placa', p);
       if (!errP) veicOk = true;
     }
     if (!veicOk && veiculo.id) {
-      await db.from('veiculos').update({ status: 'Em Uso' }).eq('id', veiculo.id);
+      await db.from('veiculos').update(payloadUpdateVeiculo).eq('id', veiculo.id);
     }
 
     alert(`✅ Rota iniciada com sucesso com o veículo ${veiculo.nome_frota || veiculoId}!`);
@@ -1025,6 +1045,9 @@ async function handleMobileInicioRota(e) {
     salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadRota });
     rotas.unshift(payloadRota);
     veiculo.status = 'Em Uso';
+    if (isExterno) {
+      veiculo.km_atual = kmSaida;
+    }
     salvarCachesLocais();
     alert(`📶 Rota salva localmente! Sincronização automática agendada.`);
     e.target.reset();
@@ -1033,10 +1056,7 @@ async function handleMobileInicioRota(e) {
     renderizarHistoricoMobile();
     switchMobileTab('finalizar');
   } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="ph-bold ph-key text-base"></i> Iniciar Rota`;
-    }
+    resetarBotao();
   }
 }
 
