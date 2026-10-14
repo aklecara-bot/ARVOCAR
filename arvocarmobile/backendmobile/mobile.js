@@ -712,9 +712,37 @@ function atualizarKmVeiculoMobile() {
   const opt = select?.options[select.selectedIndex];
   const uuid = opt?.dataset?.uuid;
 
-  const v = veiculos.find(item => (uuid && item.uuid_veiculos === uuid) || (item.nome_frota === vId || item.id === vId));
+  const v = veiculos.find(item => 
+    (uuid && item.uuid_veiculos === uuid) || 
+    (item.nome_frota === vId || item.id === vId)
+  );
+
   const inputKm = document.getElementById('m-inicio-km');
-  if (inputKm) inputKm.value = v ? v.km_atual : '';
+  if (!inputKm) return;
+
+  if (v) {
+    inputKm.value = v.km_atual ?? '';
+
+    // Verifica se o veículo é da frota externa ou de proprietário externo
+    const tipoFrota = (v.tipo_frota || '').toUpperCase().trim();
+    const proprietario = (v.proprietario || '').toUpperCase().trim();
+    const isExterno = tipoFrota.includes('EXTERN') || proprietario.includes('EXTERN');
+
+    if (isExterno) {
+      inputKm.readOnly = false;
+      inputKm.classList.remove('bg-[#EFECE6]', 'text-slate-700', 'cursor-not-allowed');
+      inputKm.classList.add('bg-white', 'text-slate-900', 'cursor-text');
+    } else {
+      inputKm.readOnly = true;
+      inputKm.classList.remove('bg-white', 'text-slate-900', 'cursor-text');
+      inputKm.classList.add('bg-[#EFECE6]', 'text-slate-700', 'cursor-not-allowed');
+    }
+  } else {
+    inputKm.value = '';
+    inputKm.readOnly = true;
+    inputKm.classList.remove('bg-white', 'text-slate-900', 'cursor-text');
+    inputKm.classList.add('bg-[#EFECE6]', 'text-slate-700', 'cursor-not-allowed');
+  }
 }
 
 function toggleOutroOrigemMobile(valor) {
