@@ -1,7 +1,7 @@
 // =========================================================================
 // SERVICE WORKER - PWA OFFLINE CACHE
 // =========================================================================
-const CACHE_NAME = 'arvo-mobile-v1.28';
+const CACHE_NAME = 'arvo-mobile-v1.30';
 
 const ASSETS_TO_CACHE = [
   '/arvocarmobile/frontendmobile/mobile.html',
@@ -46,18 +46,33 @@ self.addEventListener('fetch', (event) => {
   // Ignora requisições de API para o Supabase
   if (event.request.url.includes('supabase.co')) return;
 
+  // 1. Para páginas HTML/navegação: busca primeiro na rede, cai no cache se offline (Network-First)
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Grava a versão mais recente da página no cache
+          const copia = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copia));
+          return response;
+        })
+        .catch(() => {
+          // Se não houver rede, entrega o HTML do cache
+          return caches.match(event.request).then((res) => {
+            return res || caches.match('/arvocarmobile/frontendmobile/mobile.html');
+          });
+        })
+    );
+    return;
+  }
+
+  // 2. Para arquivos estáticos (ícones, logos, bibliotecas CDN): Cache-First
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Retorna imediatamente do cache local para resposta offline instantânea
         return cachedResponse;
       }
-      return fetch(event.request).catch(() => {
-        // Fallback caso falhe e seja navegação de página
-        if (event.request.mode === 'navigate') {
-          return caches.match('/arvocarmobile/frontendmobile/mobile.html');
-        }
-      });
+      return fetch(event.request);
     })
   );
 });
