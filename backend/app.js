@@ -966,8 +966,8 @@ async function handleFimRota(e) {
       status: 'Concluida',
       anomalia: anomaliaTexto,
       data_retorno: dataHoraRetornoAtual,
-      tempo_movimento_segundos: segMov,
-      tempo_parado_segundos: segPar,
+      tempo_movimento_segundos: typeof acumuladorTempoMovimentoSegundos !== 'undefined' ? acumuladorTempoMovimentoSegundos : 0,
+      tempo_parado_segundos: typeof acumuladorTempoParadoSegundos !== 'undefined' ? acumuladorTempoParadoSegundos : 0,
       media_real_apurada: mediaRealRota,
       media_esperada_rota: mediaEsperada,
       score_eco: scoreEco
@@ -1351,6 +1351,25 @@ function mapearImagemCarro(carro) {
   if (ref.includes('ARGO')) return '/imagens/argo.png';
   if (ref.includes('HB20')) return '/imagens/hb20.png';
   if (ref.includes('POLO')) return '/imagens/polo.png';
+  if (ref.includes('208')) return '/imagens/pg.png';
+  if (ref.includes('KWID')) return '/imagens/kwid.png';
+  if (ref.includes('ONIX')) return '/imagens/onix.png';
+  if (ref.includes('ARGO')) return '/imagens/argo.png';
+  if (ref.includes('C3')) return '/imagens/c3.png';
+  if (ref.includes('CRONOS')) return '/imagens/pg.png';
+  if (ref.includes('VIRTUS')) return '/imagens/virtus.png';
+  if (ref.includes('VOYAGE')) return '/imagens/voyage.png';
+  if (ref.includes('LOGAN')) return '/imagens/logan.png';
+  if (ref.includes('STRADA')) return '/imagens/strada.png';
+  if (ref.includes('SAVEIRO')) return '/imagens/saveiro.png';
+  if (ref.includes('OROCH')) return '/imagens/oroch.png';
+  if (ref.includes('RENEGADE')) return '/imagens/renegade.png';
+  if (ref.includes('T-CROSS')) return '/imagens/tcross.png';
+  if (ref.includes('TRACKER')) return '/imagens/tracker.png';
+  if (ref.includes('CRETA')) return '/imagens/creta.png';
+  if (ref.includes('PULSE')) return '/imagens/pulse.png';
+  if (ref.includes('FIORINO')) return '/imagens/fiorino.png';
+
 
   return '/imagens/mobi.png';
 }
@@ -1692,28 +1711,72 @@ function veiculoVisivelParaUsuario(v, user) {
 
 async function handleCadVeiculo(e) {
   e.preventDefault();
-  if (!ehAdminMaster()) {
+
+  if (typeof ehAdminMaster === 'function' && !ehAdminMaster()) {
     alert("Permissão negada: Apenas o administrador geral pode cadastrar veículos.");
     return;
   }
 
-  const placa = document.getElementById('cad-v-placa').value.toUpperCase().trim();
-  const idInformado = document.getElementById('cad-v-id')?.value?.toUpperCase().trim();
+  // Identificação e Placa
+  const placa = (document.getElementById('cad-v-placa')?.value || '').toUpperCase().trim();
+  const idInformado = (document.getElementById('cad-v-id')?.value || '').toUpperCase().trim();
+  const marca = (document.getElementById('cad-v-marca')?.value || '').trim();
+  const modeloRef = document.getElementById('cad-v-referencia')?.value || null;
+  const ano = parseInt(document.getElementById('cad-v-ano')?.value, 10) || null;
+
+  // Capacidade e KM Inicial
+  const tanque = parseFloat(document.getElementById('cad-v-tanque')?.value) || 0;
+  const kmInicial = parseFloat(document.getElementById('cad-v-kminicial')?.value) || 0;
+
+  // Revisões
+  const kmRevisao = parseFloat(document.getElementById('cad-v-kmrevisao')?.value) || 0;
+  const intervaloRevisao = parseFloat(document.getElementById('cad-v-intervalorevisao')?.value) || 10000;
+
+  // Consumos (com suporte aos novos inputs do HTML e fallback para os legados)
+  const gasUrb = parseFloat(document.getElementById('cad-v-gas-urb')?.value);
+  const gasRod = parseFloat(document.getElementById('cad-v-gas-rod')?.value);
+  const etaUrb = parseFloat(document.getElementById('cad-v-eta-urb')?.value);
+  const etaRod = parseFloat(document.getElementById('cad-v-eta-rod')?.value);
+
+  // Mínimo e Máximo de consumo apurados
+  const consumosInformados = [gasUrb, gasRod, etaUrb, etaRod].filter(v => !isNaN(v) && v > 0);
+  const consumoMin = consumosInformados.length > 0 
+    ? Math.min(...consumosInformados) 
+    : (parseFloat(document.getElementById('cad-v-consumomin')?.value) || 0);
+  const consumoMax = consumosInformados.length > 0 
+    ? Math.max(...consumosInformados) 
+    : (parseFloat(document.getElementById('cad-v-consumomax')?.value) || 0);
+
+  // Tipo de Frota e Motorista Exclusivo
+  const tipoFrota = document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO';
+  const motoristaAutorizado = (document.getElementById('cad-v-motorista')?.value || '').trim().toLowerCase();
+
+  if (!placa) {
+    alert("Informe a placa do veículo.");
+    return;
+  }
 
   const novoCarro = {
     nome_frota: idInformado || placa,
     placa: placa,
-    marca: document.getElementById('cad-v-marca').value.trim(),
-    tanque: parseFloat(document.getElementById('cad-v-tanque').value) || 0,
-    consumo_min: parseFloat(document.getElementById('cad-v-consumomin').value) || 0,
-    consumo_max: parseFloat(document.getElementById('cad-v-consumomax').value) || 0,
-    km_atual: parseFloat(document.getElementById('cad-v-kminicial').value) || 0,
-    km_ultima_revisao: parseFloat(document.getElementById('cad-v-kmrevisao')?.value) || 0,
-    km_intervalo_revisao: parseFloat(document.getElementById('cad-v-intervalorevisao')?.value) || 10000,
-    tipo_frota: document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO',
+    marca: marca,
+    tanque: tanque,
+    consumo_min: consumoMin,
+    consumo_max: consumoMax,
+    km_atual: kmInicial,
+    km_ultima_revisao: kmRevisao,
+    km_intervalo_revisao: intervaloRevisao,
+    tipo_frota: tipoFrota,
     status: 'Disponivel',
     anomalias: ''
   };
+
+  // Atribui propriedades complementares se existirem na modelagem
+  if (ano) novoCarro.ano = ano;
+  if (modeloRef) novoCarro.modelo_referencia_id = modeloRef;
+  if (motoristaAutorizado && tipoFrota === 'EXTERNO') {
+    novoCarro.motorista_autorizado = motoristaAutorizado;
+  }
 
   try {
     const { error } = await db.from('veiculos').insert([novoCarro]);
