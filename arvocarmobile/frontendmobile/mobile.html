@@ -22,21 +22,47 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCpneTztAKsrV6oT6JR5b3eLVEzx2A9Sik"></script>
   <script>
-    if ('serviceWorker' in navigator) {
+      if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then((registration) => {
-        // Força checagem de nova versão no servidor toda vez que o app é aberto
-        registration.update();
+      // 1. Checagem inicial ao abrir a página
+      registration.update();
+
+      // 2. Checagem periódica a cada 15 minutos (ajuste o tempo se desejar)
+      const INTERVALO_MS = 15 * 60 * 1000;
+      setInterval(() => {
+       registration.update();
+      }, INTERVALO_MS);
+
+      // 3. Checa sempre que o motorista desbloqueia a tela ou volta para o app
+      document.addEventListener('visibilitychange', () => {
+       if (document.visibilityState === 'visible') {
+         registration.update();
+       }
       });
 
-      // Quando o novo Service Worker assumir o controle, recarrega a página automaticamente
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          refreshing = true;
-          window.location.reload();
+       // 4. Se detectar nova versão instalando, manda ativar imediatamente
+      registration.addEventListener('updatefound', () => {
+       const installingWorker = registration.installing;
+       if (installingWorker) {
+         installingWorker.addEventListener('statechange', () => {
+           if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+             // Dispara a mensagem que seu sw.js já escuta
+              installingWorker.postMessage({ action: 'skipWaiting' });
+           }
+         });
         }
       });
-    }
+    });
+
+   // 5. Quando o novo Service Worker assumir o controle, recarrega a tela
+   let refreshing = false;
+   navigator.serviceWorker.addEventListener('controllerchange', () => {
+     if (!refreshing) {
+       refreshing = true;
+       window.location.reload();
+     }
+   });
+  }
   </script>
 
   <style>

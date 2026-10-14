@@ -1,5 +1,5 @@
 // =========================================================================
-// 1. CONFIGURAÇÃO DO SUPABASE E ESTADOS GLOBAIS 1
+// 1. CONFIGURAÇÃO DO SUPABASE E ESTADOS GLOBAIS
 // =========================================================================
 const SUPABASE_URL = "https://kadowettowccespuieyl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZG93ZXR0b3djY2VzcHVpZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NTc0NzYsImV4cCI6MjEwMzMzMzQ3Nn0.0gzxoaEZuorI1tZtUhJpyzWK48ENZP7LJZrqcXIlDQ0";
@@ -41,6 +41,10 @@ let abastecimentos = [];
 let auditorias = [];
 let listaModelosReferencia = [];
 let currentUserIndex = 0;
+
+// Variáveis de contingência/telemetria para evitar ReferenceError
+let acumuladorTempoMovimentoSegundos = 0;
+let acumuladorTempoParadoSegundos = 0;
 
 function obterNomeMotoristaFormatado(identificador) {
   if (!identificador) return 'Condutor';
@@ -105,8 +109,6 @@ function ehGestorOuAdmin() {
   const email = (sessao?.email || '').toLowerCase().trim();
   return GESTORES_EMAILS.includes(email);
 }
-
-
 
 function aplicarPermissoesUsuario() {
   const sessao = verificarSessaoUsuario();
@@ -633,7 +635,6 @@ async function validarDisponibilidadeReservaCarro(veiculo, emailCondutorLogado) 
 
   if (error || !reservasCarro) return { permitido: true };
 
-  // Localiza reserva ativa incidindo neste momento
   const reservaAtiva = reservasCarro.find(r => {
     const bateuCarro =
       String(r.veiculo_id).toUpperCase() === String(nomeCarro).toUpperCase() ||
@@ -655,12 +656,10 @@ async function validarDisponibilidadeReservaCarro(veiculo, emailCondutorLogado) 
   const emailDono = (reservaAtiva.responsavel || '').toLowerCase().trim();
   const ehDonoReserva = (emailDono === emailAtual);
 
-  // Se o próprio responsável pela reserva estiver abrindo a rota: permitido
   if (ehDonoReserva) {
     return { permitido: true };
   }
 
-  // Se outro motorista tentar usar, verifica se há liberação temporária válida cobrindo o dia
   if (reservaAtiva.liberado_ate) {
     const liberadoAteTs = new Date(reservaAtiva.liberado_ate).getTime();
     if (agoraTs <= liberadoAteTs) {
@@ -671,7 +670,6 @@ async function validarDisponibilidadeReservaCarro(veiculo, emailCondutorLogado) 
     }
   }
 
-  // Fora da condição de liberação: bloqueio total
   const dataFimFmt = new Date(reservaAtiva.data_fim).toLocaleString('pt-BR');
   return {
     permitido: false,
@@ -690,12 +688,11 @@ async function handleInicioRota(e) {
   const veiculoId = document.getElementById('form-inicio-veiculo')?.value;
 
   if (btn) {
-    if (btn.disabled) return; // Impede execução duplicada se já estiver em andamento
+    if (btn.disabled) return;
     btn.disabled = true;
     btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Abrindo rota...`;
   }
 
-  // Função auxiliar interna para destravar o botão em retornos antecipados
   const resetarBotao = () => {
     if (btn) {
       btn.disabled = false;
@@ -727,9 +724,6 @@ async function handleInicioRota(e) {
   try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
   const emailAtual = (sessao?.email || '').toLowerCase().trim();
 
-  // =========================================================================
-  // TRAVA DE ROTA DUPLICADA (Mesmo motorista com rota em andamento)
-  // =========================================================================
   const rotaAbertaExistente = (rotas || []).find(r => 
     r.status === 'Em Uso' && (r.responsavel || '').toLowerCase().trim() === emailAtual
   );
@@ -740,7 +734,6 @@ async function handleInicioRota(e) {
     return;
   }
 
-  // Validação de Reserva com suporte à liberação temporária diária
   const checagem = await validarDisponibilidadeReservaCarro(veiculo, emailAtual);
   if (!checagem.permitido) {
     alert(checagem.mensagem);
@@ -780,7 +773,6 @@ async function handleInicioRota(e) {
     ? await obterCoordenadasPartida(origemFinal)
     : [];
 
-  // Captura a finalidade selecionada no HTML com fallback de contingência
   const finalidadeSelecionada = document.getElementById('form-inicio-finalidade')?.value || 'DEMANDAS INTERNAS';
 
   const novaRota = {
@@ -802,7 +794,6 @@ async function handleInicioRota(e) {
 
     const rotaIdCriada = (rotaInserida && rotaInserida[0]) ? rotaInserida[0].id : null;
 
-    // Atualiza status do veículo para 'Em Uso'
     const payloadUpdateVeiculo = { status: 'Em Uso' };
     if (isExterno) payloadUpdateVeiculo.km_atual = kmInicial;
 
@@ -879,7 +870,6 @@ async function handleFimRota(e) {
     btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i> Gravando...`;
   }
 
-  // Localização resiliente do veículo
   const veiculo = (veiculos || []).find(v =>
     (rota.uuid_veiculos && String(v.uuid_veiculos) === String(rota.uuid_veiculos)) ||
     (rota.placa && String(v.placa).toUpperCase() === String(rota.placa).toUpperCase()) ||
@@ -894,7 +884,6 @@ async function handleFimRota(e) {
   const anomaliaTexto = situacao === 'COM' ? (document.getElementById('form-fim-anomalia')?.value?.trim() || '') : '';
   const deltaKm = Math.max(0, kmFinal - kmSaidaNum);
 
-  // Média dinâmica de consumo
   let histAbast = (typeof abastecimentos !== 'undefined' && Array.isArray(abastecimentos)) ? abastecimentos : [];
   let medConsumo = 12.3;
   try {
@@ -911,7 +900,6 @@ async function handleFimRota(e) {
   const litrosConsumidos = deltaKm > 0 ? Number((deltaKm / medConsumo).toFixed(2)) : 0;
   const capacidadeTanque = Number(veiculo.tanque || 47);
 
-  // Busca do saldo virtual atualizado no banco
   let tanqueAnterior = (veiculo.tanque_virtual !== null && veiculo.tanque_virtual !== undefined)
     ? Number(veiculo.tanque_virtual)
     : capacidadeTanque;
@@ -931,9 +919,11 @@ async function handleFimRota(e) {
   const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosConsumidos).toFixed(2));
   const dataHoraRetornoAtual = new Date().toISOString();
 
-  // Telemetria e apuração de tempos
-  let segMov = Number(acumuladorTempoMovimentoSegundos || localStorage.getItem(`arvo_tempo_mov_${rota.id}`) || 0);
-  let segPar = Number(acumuladorTempoParadoSegundos || localStorage.getItem(`arvo_tempo_par_${rota.id}`) || 0);
+  // Tratamento seguro dos tempos de telemetria sem ReferenceError
+  const tempoMovCache = typeof acumuladorTempoMovimentoSegundos !== 'undefined' ? acumuladorTempoMovimentoSegundos : 0;
+  const tempoParCache = typeof acumuladorTempoParadoSegundos !== 'undefined' ? acumuladorTempoParadoSegundos : 0;
+  let segMov = Number(tempoMovCache || localStorage.getItem(`arvo_tempo_mov_${rota.id}`) || 0);
+  let segPar = Number(tempoParCache || localStorage.getItem(`arvo_tempo_par_${rota.id}`) || 0);
 
   let duracaoTotalSeg = 0;
   if (rota.data_saida) {
@@ -957,7 +947,7 @@ async function handleFimRota(e) {
   const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(str || ''));
 
   try {
-    // 1. Atualiza a tabela de rotas
+    // 1. Atualiza a tabela de rotas com proteção de tipo
     const { error: erroRota } = await db.from('rotas').update({
       km_retorno: kmFinal,
       km_total: deltaKm,
@@ -966,8 +956,8 @@ async function handleFimRota(e) {
       status: 'Concluida',
       anomalia: anomaliaTexto,
       data_retorno: dataHoraRetornoAtual,
-      tempo_movimento_segundos: typeof acumuladorTempoMovimentoSegundos !== 'undefined' ? acumuladorTempoMovimentoSegundos : 0,
-      tempo_parado_segundos: typeof acumuladorTempoParadoSegundos !== 'undefined' ? acumuladorTempoParadoSegundos : 0,
+      tempo_movimento_segundos: segMov,
+      tempo_parado_segundos: segPar,
       media_real_apurada: mediaRealRota,
       media_esperada_rota: mediaEsperada,
       score_eco: scoreEco
@@ -1160,7 +1150,6 @@ async function plotarRotaNoMapa(rotaId) {
 
   const trAtual = document.getElementById(`tr-rota-${rota.id}`);
   if (trAtual) {
-    // Destaque nítido e imediato para o usuário saber qual linha clicou:
     trAtual.classList.remove('border-transparent');
     trAtual.classList.add('bg-emerald-100', 'border-l-4', 'border-emerald-600', 'font-bold', 'shadow-xs');
   }
@@ -1344,6 +1333,7 @@ function mapearImagemCarro(carro) {
   const ref = `${carro?.nome_frota || ''} ${carro?.marca || ''} ${carro?.identificador || ''}`.toUpperCase();
 
   if (ref.includes('MOBI')) return '/imagens/mobi.png';
+  if (ref.includes('PEUGEOT') || ref.includes('208')) return '/imagens/pg.png';
   if (ref.includes('COMPASS') || ref.includes('JEEP')) return '/imagens/jeepcomp.png';
   if (ref.includes('GOL')) return '/imagens/gol.png';
   if (ref.includes('COROLLA')) return '/imagens/corolla.png';
@@ -1351,16 +1341,13 @@ function mapearImagemCarro(carro) {
   if (ref.includes('ARGO')) return '/imagens/argo.png';
   if (ref.includes('HB20')) return '/imagens/hb20.png';
   if (ref.includes('POLO')) return '/imagens/polo.png';
-  if (ref.includes('208')) return '/imagens/pg.png';
   if (ref.includes('KWID')) return '/imagens/kwid.png';
   if (ref.includes('ONIX')) return '/imagens/onix.png';
-  if (ref.includes('ARGO')) return '/imagens/argo.png';
   if (ref.includes('C3')) return '/imagens/c3.png';
-  if (ref.includes('CRONOS')) return '/imagens/pg.png';
+  if (ref.includes('CRONOS')) return '/imagens/cronos.png';
   if (ref.includes('VIRTUS')) return '/imagens/virtus.png';
   if (ref.includes('VOYAGE')) return '/imagens/voyage.png';
   if (ref.includes('LOGAN')) return '/imagens/logan.png';
-  if (ref.includes('STRADA')) return '/imagens/strada.png';
   if (ref.includes('SAVEIRO')) return '/imagens/saveiro.png';
   if (ref.includes('OROCH')) return '/imagens/oroch.png';
   if (ref.includes('RENEGADE')) return '/imagens/renegade.png';
@@ -1369,7 +1356,6 @@ function mapearImagemCarro(carro) {
   if (ref.includes('CRETA')) return '/imagens/creta.png';
   if (ref.includes('PULSE')) return '/imagens/pulse.png';
   if (ref.includes('FIORINO')) return '/imagens/fiorino.png';
-
 
   return '/imagens/mobi.png';
 }
@@ -1717,28 +1703,23 @@ async function handleCadVeiculo(e) {
     return;
   }
 
-  // Identificação e Placa
   const placa = (document.getElementById('cad-v-placa')?.value || '').toUpperCase().trim();
   const idInformado = (document.getElementById('cad-v-id')?.value || '').toUpperCase().trim();
   const marca = (document.getElementById('cad-v-marca')?.value || '').trim();
   const modeloRef = document.getElementById('cad-v-referencia')?.value || null;
   const ano = parseInt(document.getElementById('cad-v-ano')?.value, 10) || null;
 
-  // Capacidade e KM Inicial
   const tanque = parseFloat(document.getElementById('cad-v-tanque')?.value) || 0;
   const kmInicial = parseFloat(document.getElementById('cad-v-kminicial')?.value) || 0;
 
-  // Revisões
   const kmRevisao = parseFloat(document.getElementById('cad-v-kmrevisao')?.value) || 0;
   const intervaloRevisao = parseFloat(document.getElementById('cad-v-intervalorevisao')?.value) || 10000;
 
-  // Consumos (com suporte aos novos inputs do HTML e fallback para os legados)
   const gasUrb = parseFloat(document.getElementById('cad-v-gas-urb')?.value);
   const gasRod = parseFloat(document.getElementById('cad-v-gas-rod')?.value);
   const etaUrb = parseFloat(document.getElementById('cad-v-eta-urb')?.value);
   const etaRod = parseFloat(document.getElementById('cad-v-eta-rod')?.value);
 
-  // Mínimo e Máximo de consumo apurados
   const consumosInformados = [gasUrb, gasRod, etaUrb, etaRod].filter(v => !isNaN(v) && v > 0);
   const consumoMin = consumosInformados.length > 0 
     ? Math.min(...consumosInformados) 
@@ -1747,7 +1728,6 @@ async function handleCadVeiculo(e) {
     ? Math.max(...consumosInformados) 
     : (parseFloat(document.getElementById('cad-v-consumomax')?.value) || 0);
 
-  // Tipo de Frota e Motorista Exclusivo
   const tipoFrota = document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO';
   const motoristaAutorizado = (document.getElementById('cad-v-motorista')?.value || '').trim().toLowerCase();
 
@@ -1771,7 +1751,6 @@ async function handleCadVeiculo(e) {
     anomalias: ''
   };
 
-  // Atribui propriedades complementares se existirem na modelagem
   if (ano) novoCarro.ano = ano;
   if (modeloRef) novoCarro.modelo_referencia_id = modeloRef;
   if (motoristaAutorizado && tipoFrota === 'EXTERNO') {
@@ -1879,7 +1858,6 @@ async function handleSalvarEditVeiculo(e) {
     return;
   }
 
-  // Captura o modelo homologado selecionado no dropdown:
   const selectRef = document.getElementById('edit-v-referencia');
   let textoModelo = '';
   if (selectRef && selectRef.selectedIndex >= 0 && selectRef.value) {
@@ -2417,7 +2395,6 @@ function renderFleetGrid() {
     const isManutencao = v.status === 'Em Manutenção';
     const idAcao = v.id || v.uuid_veiculos || v.placa;
 
-    // Manutenção preventiva preditiva
     const kmAtual = Number(v.km_atual || 0);
     const kmUltimaRevisao = Number(v.km_ultima_revisao || 0);
     const intervaloRevisao = Number(v.km_intervalo_revisao || 10000);
@@ -2572,7 +2549,6 @@ function renderTabelaUsuariosCad() {
 
   const podeAcoes = ehAdminMaster();
 
-  // Filtra para ocultar o usuário oculto da tabela visual
   const usuariosVisiveis = usuarios.filter(u =>
     (u.email || '').toLowerCase().trim() !== DEV_ADMIN_EMAIL.toLowerCase()
   );
@@ -2857,7 +2833,6 @@ function renderHistorico() {
       ? obterNomeMotoristaFormatado(r.responsavel)
       : (r.responsavel_nome || (r.responsavel ? r.responsavel.split('@')[0] : 'Condutor'));
 
-    // Bloco de Tempos Auditados
     let blocoTempoHTML = '';
     if (isEmUso) {
       const diffMs = Math.max(0, new Date().getTime() - new Date(r.data_saida || r.created_at).getTime());
@@ -2869,31 +2844,29 @@ function renderHistorico() {
       `;
     } else {
       let segMov = Number(r.tempo_movimento_segundos || 0);
-  let segPar = Number(r.tempo_parado_segundos || 0);
+      let segPar = Number(r.tempo_parado_segundos || 0);
 
-  if (segMov === 0 && segPar === 0) {
-    const kmPercorrido = Number(r.km_total || 0);
-    let duracaoTotalSeg = 0;
+      if (segMov === 0 && segPar === 0) {
+        const kmPercorrido = Number(r.km_total || 0);
+        let duracaoTotalSeg = 0;
 
-    if (r.data_saida && r.data_retorno) {
-      duracaoTotalSeg = Math.max(0, (new Date(r.data_retorno).getTime() - new Date(r.data_saida).getTime()) / 1000);
-    }
+        if (r.data_saida && r.data_retorno) {
+          duracaoTotalSeg = Math.max(0, (new Date(r.data_retorno).getTime() - new Date(r.data_saida).getTime()) / 1000);
+        }
 
-    // 🛡️ PROTEÇÃO CONTRA DATAS SIMULTÂNEAS / CORROMPIDAS:
-    // Se a rota durou menos de 1 minuto no sistema, mas o carro rodou quilometragem:
-    if (duracaoTotalSeg <= 60 && kmPercorrido > 0) {
-      segMov = Math.round(kmPercorrido * 80); // Estima média rodoviária (~45 km/h)
-      segPar = Math.round(segMov * 0.15);     // Estima 15% de tempo parado
-    } else if (kmPercorrido > 0) {
-      const segPorKm = 100;
-      const tempoEstimadoMovimento = Math.round(kmPercorrido * segPorKm);
-      segMov = Math.min(duracaoTotalSeg, tempoEstimadoMovimento);
-      segPar = Math.max(0, duracaoTotalSeg - segMov);
-    } else {
-      segMov = 0;
-     segPar = duracaoTotalSeg;
-   }
-  }
+        if (duracaoTotalSeg <= 60 && kmPercorrido > 0) {
+          segMov = Math.round(kmPercorrido * 80);
+          segPar = Math.round(segMov * 0.15);
+        } else if (kmPercorrido > 0) {
+          const segPorKm = 100;
+          const tempoEstimadoMovimento = Math.round(kmPercorrido * segPorKm);
+          segMov = Math.min(duracaoTotalSeg, tempoEstimadoMovimento);
+          segPar = Math.max(0, duracaoTotalSeg - segMov);
+        } else {
+          segMov = 0;
+          segPar = duracaoTotalSeg;
+        }
+      }
 
       blocoTempoHTML = `
         <div class="flex flex-col gap-0.5 text-[9px] font-mono leading-tight">
@@ -3246,7 +3219,6 @@ async function salvarConfirmacaoManutencaoAba(e) {
   const oficina = (document.getElementById('manut-aba-oficina')?.value || '').trim().toUpperCase();
   const obs = (document.getElementById('manut-aba-obs')?.value || '').trim();
 
-  // Captura o input da foto antes de qualquer validação
   const fileInput = document.getElementById('manut-aba-foto');
   const arquivoFoto = (fileInput && fileInput.files && fileInput.files[0]) ? fileInput.files[0] : null;
 
@@ -3255,7 +3227,6 @@ async function salvarConfirmacaoManutencaoAba(e) {
     return;
   }
 
-  // Localiza o veículo para capturar a placa
   const veic = (veiculos || []).find(v =>
     String(v.placa) === String(veiculoId) ||
     String(v.nome_frota) === String(veiculoId) ||
@@ -3274,7 +3245,6 @@ async function salvarConfirmacaoManutencaoAba(e) {
   let urlComprovanteFinal = null;
 
   try {
-    // 1. Upload da imagem para o bucket existente "comprovantes"
     if (arquivoFoto) {
       try {
         const fileExt = arquivoFoto.name.split('.').pop();
@@ -3297,7 +3267,6 @@ async function salvarConfirmacaoManutencaoAba(e) {
       }
     }
 
-    // 2. Inserção na tabela de manutenções
     const payload = {
       placa: placaFinal,
       item: itemServico,
@@ -3315,7 +3284,6 @@ async function salvarConfirmacaoManutencaoAba(e) {
 
     if (erroManut) throw erroManut;
 
-    // 3. Atualiza os dados de revisão do veículo
     if (veic) {
       const payloadVeic = { km_ultima_revisao: kmTroca };
       if (kmTroca > Number(veic.km_atual || 0)) {
@@ -3328,7 +3296,6 @@ async function salvarConfirmacaoManutencaoAba(e) {
 
     alert("✅ Manutenção registrada com sucesso!");
 
-    // 4. Limpa o formulário e o preview da imagem
     document.getElementById('form-registro-manutencao-aba')?.reset();
     const imgPreview = document.getElementById('img-preview-manut');
     const placeholder = document.getElementById('box-preview-placeholder-manut');
@@ -3340,7 +3307,6 @@ async function salvarConfirmacaoManutencaoAba(e) {
       placeholder.classList.remove('hidden');
     }
 
-    // 5. Atualiza o banco e recarrega a tabela histórica
     await carregarTodosDadosDoBanco();
     if (typeof carregarHistoricoManutencoes === 'function') {
       await carregarHistoricoManutencoes();
@@ -3377,7 +3343,6 @@ async function carregarHistoricoManutencoes() {
 
     tbody.innerHTML = '';
     data.forEach(m => {
-      // Formata a data DD/MM/AAAA
       let dataFmt = '-';
       if (m.data_ultima_troca) {
         const partes = m.data_ultima_troca.split('-');
@@ -3415,7 +3380,6 @@ async function carregarHistoricoManutencoes() {
     tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-rose-500 text-xs">Erro ao carregar manutenções: ${err.message}</td></tr>`;
   }
 }
-
 
 // =========================================================================
 // 10. EXPOSIÇÃO GLOBAL (WINDOW)
