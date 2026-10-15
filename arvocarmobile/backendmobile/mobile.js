@@ -884,216 +884,358 @@ async function validarDisponibilidadeReservaCarroMobile(veiculo, emailCondutorLo
   }
 }
 
-async function handleMobileInicioRota(e) {
-  e.preventDefault();
-  const btn = document.getElementById('btn-m-confirmar-inicio') || document.getElementById('btn-submit-inicio');
-  const selectElem = document.getElementById('m-inicio-veiculo');
-  const veiculoId = selectElem?.value;
-  const optSelecionada = selectElem ? selectElem.options[selectElem.selectedIndex] : null;
+async function handleMobileFimRota(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
 
-  const uuidVeiculo = optSelecionada?.dataset?.uuid || null;
-  const placaVeiculo = optSelecionada?.dataset?.placa || null;
+  const btn = document.getElementById('btn-m-confirmar-fim');
+  const rotaId = document.getElementById('m-fim-rota-select')?.value;
+  const rota = (rotas || []).find(r => String(r.id) === String(rotaId));
 
-  const veiculo = veiculos.find(v => (uuidVeiculo && v.uuid_veiculos === uuidVeiculo) || (v.nome_frota === veiculoId || v.id === veiculoId));
+  if (!rota) {
+    alert("Selecione uma rota ativa.");
+    return;
+  }
 
-  const resetarBotao = () => {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="ph-bold ph-key text-base"></i> Iniciar Rota`;
-    }
-  };
+  // --- 1. CONSOLIDAÇÃO DO GPS E PONTOS DO TRAJETO ---
+  const pontosRastreamento = (typeof pararRastreamentoGPS === 'function' ? pararRastreamentoGPS() : []) || [];
+  let pontosCache = [];
+  try {
+    pontosCache = JSON.parse(localStorage.getItem(`arvo_gps_rota_${rota.id}`) || '[]');
+  } catch (err) { }
+
+  let coordenadasFinais = [];
+  if (pontosRastreamento.length >= 2) {
+    coordenadasFinais = pontosRastreamento;
+  } else if (pontosCache.length >= 2) {
+    coordenadasFinais = pontosCache;
+  } else if (Array.isArray(rota.coordenadas) && rota.coordenadas.length > 0) {
+    coordenadasFinais = rota.coordenadas;
+  }
+
+  // Captura o ponto final de contingência se não houver pontos suficientes
+  if (navigator.geolocation && coordenadasFinais.length <= 1) {
+    try {
+      const posFinal = await new Promise((res, rej) => {
+        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 3500 });
+      });
+      coordenadasFinais.push({
+        lat: Number(posFinal.coords.latitude.toFixed(6)),
+        lng: Number(posFinal.coords.longitude.toFixed(6)),
+        velocidade: 0,
+        timestamp: new Date().toISOString()
+      });
+    } catch (errGps) { }
+  }
+
+  if (typeof destruirMapaMobile === 'function') {
+    destruirMapaMobile(rota.id);
+  }
+
+  // --- 2. DESTINO E QUILOMETRAGEM ---
+  const selectDestino = document.getElementById('m-fim-destino')?.value;
+  const outroDestino = document.getElementById('m-fim-destino-outro')?.value?.trim();
+  const destinoFinal = selectDestino === 'OUTRO' ? outroDestino : selectDestino;
+
+  const kmRetornoInput = document.getElementById('m-fim-km')?.value;
+  const kmRetorno = Number(kmRetornoInput || 0);
+  const kmSaidaNum = Number(rota.km_saida || 0);
+
+  const anomaliaMarcada = document.getElementById('m-fim-check-anomalia')?.checked;
+  const relatorioAnomalia = document.getElementById('m-fim-anomalia')?.value?.trim() || null;
+
+  if (isNaN(kmRetorno) || kmRetorno < kmSaidaNum) {
+    alert(`O KM final (${kmRetorno}) não pode ser menor que o KM inicial (${kmSaidaNum}).`);
+    return;
+  }
 
   if (btn) {
-    if (btn.disabled) return;
     btn.disabled = true;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Abrindo rota...`;
+    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-base"></i> Finalizando...`;
   }
 
-  if (!veiculo || !usuarioLogado) {
-    alert("Selecione um veículo disponível.");
-    resetarBotao();
-    return;
-  }
+  // Definição correta da quilometragem percorrida (deltaKm)
+  const kmTotal = Math.max(0, kmRetorno - kmSaidaNum);
+  const deltaKm = kmTotal;
 
-  const emailUser = (usuarioLogado.email || '').toLowerCase().trim();
-  const isAdmin = GESTORES_EMAILS.includes(emailUser);
-  const tipoFrota = (veiculo.tipo_frota || '').toUpperCase().trim();
-  const proprietario = (veiculo.proprietario || '').toUpperCase().trim();
-  const isExterno = tipoFrota.includes('EXTERN') || proprietario.includes('EXTERN');
-  const condutorExclusivo = (veiculo.motorista_autorizado || '').toLowerCase().trim();
+  // --- 3. IDENTIFICAÇÃO DO VEÍCULO E CONSUMO ---
+  const veiculoAlvo = (veiculos || []).find(v =>
+    (rota.uuid_veiculos && v.uuid_veiculos === rota.uuid_veiculos) ||
+    String(v.id) === String(rota.veiculo_id) ||
+    String(v.nome_frota) === String(rota.veiculo_id) ||
+    (rota.placa && String(v.placa).toUpperCase() === String(rota.placa).toUpperCase())
+  ) || {};
 
-  if (isExterno && condutorExclusivo !== emailUser && !isAdmin) {
-    alert("⚠️ Este veículo é de uso exclusivo de outro condutor.");
-    resetarBotao();
-    return;
-  }
+  const placaAlvo = rota.placa || veiculoAlvo.placa || null;
 
-  const rotaAbertaExistente = (rotas || []).find(r =>
-    r.status === 'Em Uso' && (r.responsavel || '').toLowerCase().trim() === emailUser
-  );
-
-  if (rotaAbertaExistente) {
-    alert(`⚠️ Você já possui a rota #${rotaAbertaExistente.id} em andamento (${rotaAbertaExistente.veiculo_id || 'Veículo'}). Finalize-a antes de iniciar uma nova.`);
-    resetarBotao();
-    return;
-  }
-
-  const checagem = await validarDisponibilidadeReservaCarroMobile(veiculo, emailUser);
-  if (!checagem.permitido) {
-    alert(checagem.mensagem);
-    resetarBotao();
-    return;
-  }
-
-  const selectOrigem = document.getElementById('m-inicio-origem')?.value;
-  const outroOrigem = document.getElementById('m-inicio-origem-outro')?.value?.trim();
-  const origemFinal = selectOrigem === 'OUTRO' ? outroOrigem : selectOrigem;
-  const finalidade = document.getElementById('m-inicio-finalidade')?.value || 'DEMANDAS INTERNAS';
-  const kmSaida = Number(document.getElementById('m-inicio-km')?.value || veiculo.km_atual || 0);
-
-  if (isNaN(kmSaida) || kmSaida < 0) {
-    alert("Por favor, informe uma quilometragem inicial válida.");
-    resetarBotao();
-    return;
-  }
-
-  if (!origemFinal) {
-    alert("Por favor, informe a origem da rota.");
-    resetarBotao();
-    return;
-  }
-
-  let posGps;
+  let histCache = [];
   try {
-    posGps = await solicitarPermissaoGPSObrigatoria();
-  } catch (errGps) {
-    alert(errGps.message);
-    resetarBotao();
-    return;
+    histCache = JSON.parse(localStorage.getItem('arvo_cache_abastecimentos') || '[]');
+  } catch (err) { }
+
+  const medConsumo = (typeof obterMediaConsumoEsperada === 'function')
+    ? obterMediaConsumoEsperada(
+        veiculoAlvo, 
+        null, 
+        typeof abastecimentos !== 'undefined' ? abastecimentos : histCache,
+        typeof listaModelosReferencia !== 'undefined' ? listaModelosReferencia : []
+      )
+    : 12.0;
+
+  // Cálculo seguro do consumo sem referência inválida
+  const litrosConsumidos = deltaKm > 0 && medConsumo > 0 ? Number((deltaKm / medConsumo).toFixed(2)) : 0;
+  const capacidadeTanque = Number(veiculoAlvo.tanque || 45);
+  const tanqueAnterior = (veiculoAlvo.tanque_virtual !== null && veiculoAlvo.tanque_virtual !== undefined)
+    ? Number(veiculoAlvo.tanque_virtual)
+    : capacidadeTanque;
+
+  const novoTanqueVirtual = Number(Math.max(0, tanqueAnterior - litrosConsumidos).toFixed(2));
+  const dataRetornoIso = new Date().toISOString();
+
+  // --- 4. CÁLCULO E CONTINGÊNCIA DE TEMPOS (RODAGEM E PARADO) ---
+  let segMov = Number(acumuladorTempoMovimentoSegundos || localStorage.getItem(`arvo_tempo_mov_${rota.id}`) || 0);
+  let segPar = Number(acumuladorTempoParadoSegundos || localStorage.getItem(`arvo_tempo_par_${rota.id}`) || 0);
+
+  let duracaoTotalSeg = 0;
+  if (rota.data_saida) {
+    duracaoTotalSeg = Math.max(0, Math.floor((new Date(dataRetornoIso).getTime() - new Date(rota.data_saida).getTime()) / 1000));
   }
 
-  const tempId = `temp_${Date.now()}`;
-  const dataSaidaAtual = new Date().toISOString();
-  const coordsPartida = {
-    lat: Number(posGps.coords.latitude.toFixed(6)),
-    lng: Number(posGps.coords.longitude.toFixed(6)),
-    tipo: 'GPS_REAL'
-  };
-
-  const pontoInicial = [{
-    lat: coordsPartida.lat,
-    lng: coordsPartida.lng,
-    velocidade: 0,
-    timestamp: dataSaidaAtual
-  }];
-
-  const payloadRota = {
-    id: tempId,
-    veiculo_id: veiculo.nome_frota || veiculoId,
-    uuid_veiculos: uuidVeiculo || veiculo.uuid_veiculos || null,
-    placa: placaVeiculo || veiculo.placa || null,
-    responsavel: usuarioLogado.email,
-    origem: origemFinal,
-    finalidade: finalidade,
-    km_saida: kmSaida,
-    data_saida: dataSaidaAtual,
-    status: 'Em Uso',
-    offline_sync: !navigator.onLine,
-    coords_origem: coordsPartida,
-    coordenadas: pontoInicial,
-    tempo_movimento_segundos: 0,
-    tempo_parado_segundos: 0
-  };
-
-  acumuladorTempoMovimentoSegundos = 0;
-  acumuladorTempoParadoSegundos = 0;
-  localStorage.setItem(`arvo_tempo_mov_${tempId}`, "0");
-  localStorage.setItem(`arvo_tempo_par_${tempId}`, "0");
-
-  localStorage.setItem(`arvo_gps_rota_${tempId}`, JSON.stringify(pontoInicial));
-  iniciarRastreamentoIntervaladoGPS(tempId);
-
-  // Montagem do payload de atualização do veículo
-  const payloadUpdateVeiculo = { status: 'Em Uso' };
-  if (isExterno) {
-    payloadUpdateVeiculo.km_atual = kmSaida;
-  }
-
-  // --- TRATAMENTO MODO OFFLINE ---
-  if (!navigator.onLine) {
-    salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadRota });
-    rotas.unshift(payloadRota);
-    veiculo.status = 'Em Uso';
-    if (isExterno) {
-      veiculo.km_atual = kmSaida;
+  if (segMov === 0 && segPar === 0 && duracaoTotalSeg > 0) {
+    if (kmTotal > 0) {
+      const tempoEstimadoMov = Math.round(kmTotal * 80);
+      segMov = Math.min(duracaoTotalSeg, tempoEstimadoMov);
+      segPar = Math.max(0, duracaoTotalSeg - segMov);
+    } else {
+      segPar = duracaoTotalSeg;
     }
+  }
+
+  // --- 5. CÁLCULO DE EFICIÊNCIA E SCORE ECO ---
+  const mediaEsperada = Number(medConsumo) || 12.3;
+  const mediaRealRota = (kmTotal > 0 && litrosConsumidos > 0)
+    ? Number((kmTotal / litrosConsumidos).toFixed(2))
+    : mediaEsperada;
+
+  const scoreEco = Number(Math.min(100, Math.max(20, Math.round((mediaRealRota / mediaEsperada) * 100))));
+
+  // --- 6. MONTAGEM DO PAYLOAD ---
+  const payloadFim = {
+    rota_id: rota.id,
+    destino: destinoFinal,
+    km_retorno: kmRetorno,
+    km_total: kmTotal,
+    coordenadas: coordenadasFinais,
+    consumo_litros: litrosConsumidos,
+    tanque_virtual: novoTanqueVirtual,
+    data_retorno: dataRetornoIso,
+    status: 'Concluida',
+    anomalia: anomaliaMarcada ? (relatorioAnomalia || 'Anomalia sem detalhes') : null,
+    tempo_movimento_segundos: segMov,
+    tempo_parado_segundos: segPar,
+    media_real_apurada: mediaRealRota,
+    media_esperada_rota: mediaEsperada,
+    score_eco: scoreEco
+  };
+
+  // --- 7. TRATAMENTO OFFLINE OU ROTA COM ID TEMPORÁRIO ---
+  if (!navigator.onLine || String(rota.id).startsWith('temp_')) {
+    salvarNaFilaRotas({
+      tipo: 'FIM',
+      payload: payloadFim,
+      placa: placaAlvo,
+      veiculo_id: rota.veiculo_id,
+      uuid_veiculos: rota.uuid_veiculos,
+      tanque_virtual: novoTanqueVirtual,
+      anomalia: payloadFim.anomalia
+    });
+
+    rota.status = 'Concluida';
+    rota.km_total = kmTotal;
+    rota.km_retorno = kmRetorno;
+    rota.consumo_litros = litrosConsumidos;
+    rota.data_retorno = payloadFim.data_retorno;
+    rota.destino = destinoFinal;
+    rota.coordenadas = coordenadasFinais;
+    rota.tempo_movimento_segundos = segMov;
+    rota.tempo_parado_segundos = segPar;
+    rota.media_real_apurada = mediaRealRota;
+    rota.media_esperada_rota = mediaEsperada;
+    rota.score_eco = scoreEco;
+
+    if (veiculoAlvo) {
+      veiculoAlvo.km_atual = kmRetorno;
+      veiculoAlvo.status = 'Disponivel';
+      veiculoAlvo.tanque_virtual = novoTanqueVirtual;
+      if (payloadFim.anomalia) veiculoAlvo.anomalias = payloadFim.anomalia;
+    }
+
+    localStorage.removeItem(`arvo_tempo_mov_${rota.id}`);
+    localStorage.removeItem(`arvo_tempo_par_${rota.id}`);
+    localStorage.removeItem(`arvo_gps_rota_${rota.id}`);
     salvarCachesLocais();
-    alert(`📶 Rota iniciada em Modo Offline com GPS! Sincronização pendente.`);
+
+    alert(`📶 Rota encerrada Offline!\nConsumo: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L.`);
+
     e.target.reset();
-    renderizarOpcoesVeiculos();
-    renderizarOpcoesRotasAtivas();
     renderizarHistoricoMobile();
-    switchMobileTab('finalizar');
-    resetarBotao();
+    renderizarOpcoesRotasAtivas();
+    renderizarOpcoesVeiculos();
+    if (typeof atualizarKpisMotoristaMobile === 'function') atualizarKpisMotoristaMobile();
+    switchMobileTab('historico');
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check text-base"></i> Finalizar Rota`;
+    }
     return;
   }
 
-  // --- TRATAMENTO MODO ONLINE ---
+  // --- 8. ATUALIZAÇÃO ONLINE (SUPABASE) ---
   try {
-    delete payloadRota.id;
-    delete payloadRota.offline_sync;
+    const { error: errRota } = await db.from('rotas').update({
+      destino: destinoFinal,
+      km_retorno: kmRetorno,
+      km_total: kmTotal,
+      coordenadas: coordenadasFinais,
+      consumo_litros: litrosConsumidos,
+      data_retorno: payloadFim.data_retorno,
+      status: 'Concluida',
+      anomalia: payloadFim.anomalia,
+      tempo_movimento_segundos: segMov,
+      tempo_parado_segundos: segPar,
+      media_real_apurada: mediaRealRota,
+      media_esperada_rota: mediaEsperada,
+      score_eco: scoreEco
+    }).eq('id', rota.id);
 
-    const { data: rotaInserida, error: insertErr } = await db.from('rotas').insert([payloadRota]).select('id');
-    if (insertErr) throw insertErr;
+    if (errRota) throw errRota;
 
-    const idReal = (rotaInserida && rotaInserida[0]) ? rotaInserida[0].id : null;
-    if (idReal) {
-      idRotaRastreamentoAtiva = idReal;
-      localStorage.setItem(`arvo_gps_rota_${idReal}`, JSON.stringify(pontoInicial));
-      localStorage.setItem(`arvo_tempo_mov_${idReal}`, "0");
-      localStorage.setItem(`arvo_tempo_par_${idReal}`, "0");
-      localStorage.removeItem(`arvo_gps_rota_${tempId}`);
-      localStorage.removeItem(`arvo_tempo_mov_${tempId}`);
-      localStorage.removeItem(`arvo_tempo_par_${tempId}`);
+    const payloadVeiculo = {
+      km_atual: kmRetorno,
+      status: 'Disponivel',
+      tanque_virtual: novoTanqueVirtual
+    };
+    if (payloadFim.anomalia || veiculoAlvo.anomalias) {
+      payloadVeiculo.anomalias = payloadFim.anomalia || veiculoAlvo.anomalias;
     }
 
-    let veicOk = false;
-    if (uuidVeiculo && isUUID(uuidVeiculo)) {
-      const { error: errU } = await db.from('veiculos').update(payloadUpdateVeiculo).eq('uuid_veiculos', uuidVeiculo);
-      if (!errU) veicOk = true;
+    let veicAtualizado = false;
+    if (veiculoAlvo.uuid_veiculos && isUUID(veiculoAlvo.uuid_veiculos)) {
+      const { error: errU } = await db.from('veiculos').update(payloadVeiculo).eq('uuid_veiculos', veiculoAlvo.uuid_veiculos);
+      if (!errU) veicAtualizado = true;
     }
-    if (!veicOk && (placaVeiculo || veiculo.placa)) {
-      const p = placaVeiculo || veiculo.placa;
-      const { error: errP } = await db.from('veiculos').update(payloadUpdateVeiculo).eq('placa', p);
-      if (!errP) veicOk = true;
+    if (!veicAtualizado && placaAlvo) {
+      const { error: errP } = await db.from('veiculos').update(payloadVeiculo).eq('placa', placaAlvo);
+      if (!errP) veicAtualizado = true;
     }
-    if (!veicOk && veiculo.id) {
-      await db.from('veiculos').update(payloadUpdateVeiculo).eq('id', veiculo.id);
+    if (!veicAtualizado && (veiculoAlvo.nome_frota || rota.veiculo_id)) {
+      const nomeIdent = veiculoAlvo.nome_frota || rota.veiculo_id;
+      const { error: errN } = await db.from('veiculos').update(payloadVeiculo).eq('nome_frota', nomeIdent);
+      if (!errN) veicAtualizado = true;
+    }
+    if (!veicAtualizado && veiculoAlvo.id) {
+      await db.from('veiculos').update(payloadVeiculo).eq('id', veiculoAlvo.id);
     }
 
-    alert(`✅ Rota iniciada com sucesso com o veículo ${veiculo.nome_frota || veiculoId}!`);
+    // --- 9. ATUALIZAÇÃO DE RESERVAS E LIBERAÇÃO TEMPORÁRIA DIÁRIA ---
+    try {
+      const querLiberarRestoDoDia = document.getElementById('check-liberar-carro-hoje')?.checked || false;
+      const agoraData = new Date();
+      const fimDoDiaHojeIso = new Date(
+        agoraData.getFullYear(),
+        agoraData.getMonth(),
+        agoraData.getDate(),
+        23, 59, 59, 999
+      ).toISOString();
+
+      const { data: reservasMotorista } = await db.from('reservas')
+        .select('*')
+        .eq('responsavel', rota.responsavel)
+        .eq('status', 'CONFIRMADA')
+        .lte('data_inicio', dataRetornoIso)
+        .gt('data_fim', dataRetornoIso);
+
+      if (reservasMotorista && reservasMotorista.length > 0) {
+        for (const resv of reservasMotorista) {
+          const isLongoPrazo = ['SEMANAL', 'MENSAL', 'DIAS'].includes((resv.tipo_reserva || '').toUpperCase());
+          const fimReserva = new Date(resv.data_fim).getTime();
+          const fimHojeTs = new Date(fimDoDiaHojeIso).getTime();
+
+          if (isLongoPrazo && fimReserva > fimHojeTs) {
+            if (querLiberarRestoDoDia) {
+              await db.from('reservas').update({
+                liberado_ate: fimDoDiaHojeIso,
+                liberado_por: rota.responsavel,
+                updated_at: dataRetornoIso
+              }).eq('id', resv.id);
+            }
+          } else {
+            await db.from('reservas').update({
+              status: 'CONCLUIDA',
+              updated_at: dataRetornoIso,
+              updated_by: rota.responsavel
+            }).eq('id', resv.id);
+          }
+        }
+      } else {
+        const limiteToleranciaFim = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
+        const placaReserva = placaAlvo || rota.placa || veiculoAlvo.placa;
+        const veicIdReserva = rota.veiculo_id || veiculoAlvo.nome_frota || veiculoAlvo.id;
+
+        let queryReservas = db.from('reservas')
+          .update({
+            status: 'CONCLUIDA',
+            updated_at: dataRetornoIso,
+            updated_by: rota.responsavel
+          })
+          .eq('responsavel', rota.responsavel)
+          .eq('status', 'CONFIRMADA')
+          .lte('data_inicio', dataRetornoIso)
+          .gte('data_fim', limiteToleranciaFim);
+
+        if (placaReserva) {
+          queryReservas = queryReservas.or(`placa.eq.${placaReserva},veiculo_id.eq.${placaReserva}`);
+        } else if (veicIdReserva) {
+          queryReservas = queryReservas.eq('veiculo_id', veicIdReserva);
+        }
+
+        await queryReservas;
+      }
+    } catch (errRes) {
+      console.warn("Aviso ao encerrar reservas vinculadas:", errRes);
+    }
+
+    localStorage.removeItem(`arvo_tempo_mov_${rota.id}`);
+    localStorage.removeItem(`arvo_tempo_par_${rota.id}`);
+    localStorage.removeItem(`arvo_gps_rota_${rota.id}`);
+
+    alert(`✅ Rota concluída!\nConsumo: ~${litrosConsumidos} L (Média: ${medConsumo} km/L)\nTanque restante: ~${novoTanqueVirtual} L.`);
+
     e.target.reset();
-    toggleOutroOrigemMobile('');
+    if (typeof toggleOutroDestinoMobile === 'function') toggleOutroDestinoMobile('');
+    if (typeof toggleAnomaliaMobile === 'function') toggleAnomaliaMobile(false);
+    document.getElementById('m-detalhes-viagem')?.classList.add('hidden');
     await carregarDadosMobile();
-    switchMobileTab('finalizar');
+    switchMobileTab('historico');
+
   } catch (err) {
-    console.warn("Falha de rede, salvando na fila offline:", err);
-    payloadRota.id = tempId;
-    salvarNaFilaRotas({ tipo: 'INICIO', payload: payloadRota });
-    rotas.unshift(payloadRota);
-    veiculo.status = 'Em Uso';
-    if (isExterno) {
-      veiculo.km_atual = kmSaida;
-    }
-    salvarCachesLocais();
-    alert(`📶 Rota salva localmente! Sincronização automática agendada.`);
-    e.target.reset();
-    renderizarOpcoesVeiculos();
-    renderizarOpcoesRotasAtivas();
-    renderizarHistoricoMobile();
-    switchMobileTab('finalizar');
+    console.warn("Falha online, salvando na fila offline:", err);
+    salvarNaFilaRotas({
+      tipo: 'FIM',
+      payload: payloadFim,
+      placa: placaAlvo,
+      veiculo_id: rota.veiculo_id,
+      uuid_veiculos: rota.uuid_veiculos,
+      tanque_virtual: novoTanqueVirtual,
+      anomalia: payloadFim.anomalia
+    });
+    alert(`📶 Conexão instável. Finalização salva localmente.`);
+    switchMobileTab('historico');
   } finally {
-    resetarBotao();
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="ph-bold ph-check text-base"></i> Finalizar Rota`;
+    }
   }
 }
 
