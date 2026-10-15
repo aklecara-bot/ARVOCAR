@@ -749,6 +749,7 @@ function atualizarKmVeiculoMobile() {
   const opt = select?.options[select.selectedIndex];
   const uuid = opt?.dataset?.uuid;
 
+  const v = veiculos.find(item =>
     (uuid && item.uuid_veiculos === uuid) ||
     (item.nome_frota === vId || item.id === vId)
   );
