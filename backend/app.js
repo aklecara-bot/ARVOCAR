@@ -10,7 +10,7 @@ const db = (window.supabase && typeof window.supabase.createClient === 'function
 
 const ADMIN_EMAIL = "admin@arvo.tec.br";
 const FIN_ADMIN_EMAIL = "admfin@arvo.tec.br";
-const DEV_ADMIN_EMAIL = "desv@arvo.tec.br"; 
+const DEV_ADMIN_EMAIL = "desv@arvo.tec.br";
 const DAYANE_ADMIN_EMAIL = "dayane@arvo.tec.br";
 
 // Lista com privilégios de Admin Master (gerenciamento total)
@@ -586,9 +586,9 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
       const aPlaca = (a.placa || '').trim().toUpperCase();
       const aVeicId = (a.veiculo_id ? String(a.veiculo_id) : '').trim().toUpperCase();
       const bateu = (placa && (aPlaca === placa || aVeicId === placa)) ||
-                    (vId && aVeicId === vId) ||
-                    (uuid && String(a.uuid_veiculos) === uuid) ||
-                    (nomeFrota && aVeicId === nomeFrota);
+        (vId && aVeicId === vId) ||
+        (uuid && String(a.uuid_veiculos) === uuid) ||
+        (nomeFrota && aVeicId === nomeFrota);
       return bateu && Number(a.km_atual) > 0 && Number(a.quantidade_litros) > 0;
     })
     .sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
@@ -602,9 +602,9 @@ function obterMediaConsumoEsperada(veiculo, tipoCombustivel, listaAbastecimentos
   const ref = (listaModelosRef || []).find(m => String(m.id) === String(refId)) || {};
 
   const cUrb = Number(ehEtanol ? (ref.consumo_etanol_urbano || veiculo?.consumo_etanol_urbano)
-                               : (ref.consumo_gasolina_urbano || veiculo?.consumo_gasolina_urbano)) || 0;
+    : (ref.consumo_gasolina_urbano || veiculo?.consumo_gasolina_urbano)) || 0;
   const cRod = Number(ehEtanol ? (ref.consumo_etanol_rodoviario || veiculo?.consumo_etanol_rodoviario)
-                               : (ref.consumo_gasolina_rodoviario || veiculo?.consumo_gasolina_rodoviario)) || 0;
+    : (ref.consumo_gasolina_rodoviario || veiculo?.consumo_gasolina_rodoviario)) || 0;
 
   if (cUrb > 0 && cRod > 0) {
     mediaFabrica = (cUrb + cRod) / 2;
@@ -759,7 +759,7 @@ async function handleInicioRota(e) {
   try { sessao = JSON.parse(rawSessao); } catch { sessao = { email: rawSessao }; }
   const emailAtual = (sessao?.email || '').toLowerCase().trim();
 
-  const rotaAbertaExistente = (rotas || []).find(r => 
+  const rotaAbertaExistente = (rotas || []).find(r =>
     r.status === 'Em Uso' && (r.responsavel || '').toLowerCase().trim() === emailAtual
   );
 
@@ -1705,6 +1705,41 @@ function aoMudarRotaFim() {
   renderPreviewCardRetorno();
 }
 
+function toggleMotoristaExterno(prefixo) {
+  const selectTipo = document.getElementById(`${prefixo}-v-tipofrota`);
+  const box = document.getElementById(`box-${prefixo}-motorista-externo`);
+  if (!box || !selectTipo) return;
+
+  const tipo = (selectTipo.value || '').toUpperCase();
+  if (tipo === 'EXTERNO') {
+    box.classList.remove('hidden');
+    box.style.display = 'block';
+    popularSelectMotoristas(`${prefixo}-v-motorista`);
+  } else {
+    box.classList.add('hidden');
+    box.style.display = 'none';
+    const sel = document.getElementById(`${prefixo}-v-motorista`);
+    if (sel) sel.value = '';
+  }
+}
+
+function popularSelectMotoristas(selectId, valorSelecionado = '') {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Selecione o condutor autorizado...</option>';
+
+  const lista = (typeof usuarios !== 'undefined' && Array.isArray(usuarios)) ? usuarios : [];
+  lista.forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = (u.email || '').toLowerCase().trim();
+    opt.textContent = `${u.nome || u.email} (${u.email})`;
+    if (valorSelecionado && opt.value === valorSelecionado.toLowerCase().trim()) {
+      opt.selected = true;
+    }
+    sel.appendChild(opt);
+  });
+}
+
 // =========================================================================
 // 6. GESTÃO DE VEÍCULOS (EXCLUSIVO ADMIN MASTER)
 // =========================================================================
@@ -1756,15 +1791,22 @@ async function handleCadVeiculo(e) {
   const etaRod = parseFloat(document.getElementById('cad-v-eta-rod')?.value);
 
   const consumosInformados = [gasUrb, gasRod, etaUrb, etaRod].filter(v => !isNaN(v) && v > 0);
-  const consumoMin = consumosInformados.length > 0 
-    ? Math.min(...consumosInformados) 
+  const consumoMin = consumosInformados.length > 0
+    ? Math.min(...consumosInformados)
     : (parseFloat(document.getElementById('cad-v-consumomin')?.value) || 0);
-  const consumoMax = consumosInformados.length > 0 
-    ? Math.max(...consumosInformados) 
+  const consumoMax = consumosInformados.length > 0
+    ? Math.max(...consumosInformados)
     : (parseFloat(document.getElementById('cad-v-consumomax')?.value) || 0);
 
   const tipoFrota = document.getElementById('cad-v-tipofrota')?.value || 'PROPRIO';
-  const motoristaAutorizado = (document.getElementById('cad-v-motorista')?.value || '').trim().toLowerCase();
+  const motoristaAutorizado = tipoFrota === 'EXTERNO'
+    ? document.getElementById('cad-v-motorista')?.value?.trim().toLowerCase()
+    : null;
+
+  if (tipoFrota === 'EXTERNO' && !motoristaAutorizado) {
+    alert("Por favor, selecione o motorista autorizado para este carro externo.");
+    return;
+  }
 
   if (!placa) {
     alert("Informe a placa do veículo.");
@@ -1782,15 +1824,16 @@ async function handleCadVeiculo(e) {
     km_ultima_revisao: kmRevisao,
     km_intervalo_revisao: intervaloRevisao,
     tipo_frota: tipoFrota,
+    motorista_autorizado: motoristaAutorizado || null,
     status: 'Disponivel',
     anomalias: ''
   };
 
   if (ano) novoCarro.ano = ano;
   if (modeloRef) novoCarro.modelo_referencia_id = modeloRef;
-  if (motoristaAutorizado && tipoFrota === 'EXTERNO') {
+  /*if (motoristaAutorizado && tipoFrota === 'EXTERNO') {
     novoCarro.motorista_autorizado = motoristaAutorizado;
-  }
+  }*/
 
   try {
     const { error } = await db.from('veiculos').insert([novoCarro]);
@@ -1847,14 +1890,16 @@ function abrirModalEditVeiculo(veiculoId) {
 
   const selectTipo = document.getElementById('edit-v-tipofrota');
   if (selectTipo) {
-    selectTipo.value = (v.tipo_frota || 'PROPRIO').toUpperCase();
+    const tipo = (v.tipo_frota || 'PROPRIO').toUpperCase();
+    selectTipo.value = tipo;
+    toggleMotoristaExterno('edit');
+    if (tipo === 'EXTERNO') {
+      popularSelectMotoristas('edit-v-motorista', v.motorista_autorizado || '');
+    }
   }
-  setVal('edit-v-referencia', v.modelo_referencia_id || '');
 
-  const modal = document.getElementById('modal-edit-veiculo');
-  if (modal) {
-    modal.classList.remove('hidden');
-  }
+  document.getElementById('edit-v-anomalias').value = v.anomalias || '';
+  document.getElementById('modal-edit-veiculo').classList.remove('hidden');
 }
 
 function fecharModalEditVeiculo() {
@@ -1898,7 +1943,7 @@ async function handleSalvarEditVeiculo(e) {
   if (selectRef && selectRef.selectedIndex >= 0 && selectRef.value) {
     textoModelo = selectRef.options[selectRef.selectedIndex].text.split('(')[0].trim();
   }
-  
+
   const dadosAtualizados = {
     placa: placaVal,
     marca: getVal('edit-v-marca'),
