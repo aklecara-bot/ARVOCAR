@@ -102,6 +102,28 @@ async function carregarMetricasFinanceiras() {
 // 2. POVOAMENTO DOS SELETORES
 // =========================================================================
 function povoarOpcoesFiltrosDinamicos() {
+  // 1. Povoamento do filtro de Carro / Veículo
+  const selCarro = document.getElementById('filtro-veiculo');
+  if (selCarro) {
+    const valorAtual = selCarro.value || 'TODOS';
+    selCarro.innerHTML = '<option value="TODOS">Todos os Veículos</option>';
+
+    // Lista e ordena os veículos por nome da frota / identificador
+    const carrosOrdenados = [...(dadosBrutosVeiculos || [])].sort((a, b) => {
+      const nomeA = (a.nome_frota || a.id || '').toUpperCase();
+      const nomeB = (b.nome_frota || b.id || '').toUpperCase();
+      return nomeA.localeCompare(nomeB);
+    });
+
+    carrosOrdenados.forEach(v => {
+      const identificador = v.nome_frota || v.id;
+      const placa = v.placa ? ` [${v.placa}]` : '';
+      selCarro.innerHTML += `<option value="${identificador}">${identificador}${placa}</option>`;
+    });
+
+    selCarro.value = valorAtual;
+  }
+  // 2. Motoristas únicos com base nas rotas e abastecimentos
   const motoristasSet = new Set();
   dadosBrutosRotas.forEach(r => { if (r.responsavel) motoristasSet.add(r.responsavel.trim().toLowerCase()); });
   dadosBrutosAbastecimentos.forEach(a => { if (a.responsavel) motoristasSet.add(a.responsavel.trim().toLowerCase()); });
@@ -199,6 +221,7 @@ function limparFiltrosFinanceiro() {
   const selMot = document.getElementById('filtro-motorista');
   const selFin = document.getElementById('filtro-finalidade');
   const selStatus = document.getElementById('filtro-status-carro');
+  const selCarro = document.getElementById('filtro-veiculo'); // <-- Adicionado
 
   if (dtIni) dtIni.value = '';
   if (dtFim) dtFim.value = '';
@@ -206,6 +229,7 @@ function limparFiltrosFinanceiro() {
   if (selMot) selMot.value = 'TODOS';
   if (selFin) selFin.value = 'TODOS';
   if (selStatus) selStatus.value = 'ATIVOS';
+  if (selCarro) selCarro.value = 'TODOS'; // <-- Adicionado
 
   setPeriodoFinanceiro('mes');
 }
@@ -231,18 +255,39 @@ function aplicarFiltrosEAtualizarFinanceiro() {
   const filtroMotorista = (document.getElementById('filtro-motorista')?.value || 'TODOS').toLowerCase().trim();
   const filtroFinalidade = (document.getElementById('filtro-finalidade')?.value || 'TODOS').toUpperCase().trim();
   const filtroStatusCarro = document.getElementById('filtro-status-carro')?.value || 'ATIVOS';
+  
+  // Captura o valor do filtro de Carro / Veículo adicionado ao HTML
+  const filtroCarro = (document.getElementById('filtro-veiculo')?.value || 'TODOS').toUpperCase().trim();
 
   const dFiltroIni = dtIni ? new Date(`${dtIni}T00:00:00`) : null;
   const dFiltroFim = dtFim ? new Date(`${dtFim}T23:59:59`) : null;
   const diasFiltro = obterDiasDoIntervalo(dFiltroIni, dFiltroFim);
 
-  // 1. Veículos filtrados por Status Operacional
+  // 1. Veículos filtrados por Status Operacional e pelo Seletor de Carro Específico
   const veiculosFiltrados = dadosBrutosVeiculos.filter(v => {
+    // Filtro por Status
     const status = (v.status || '').toUpperCase().trim();
     const isForaUso = status === 'FORA DE USO' || status.includes('INATIVO');
 
-    if (filtroStatusCarro === 'ATIVOS') return !isForaUso;
-    if (filtroStatusCarro === 'INATIVOS') return isForaUso;
+    if (filtroStatusCarro === 'ATIVOS' && isForaUso) return false;
+    if (filtroStatusCarro === 'INATIVOS' && !isForaUso) return false;
+
+    // Filtro por Carro / Veículo selecionado
+    if (filtroCarro !== 'TODOS') {
+      const vId = String(v.id || '').toUpperCase().trim();
+      const vNome = String(v.nome_frota || '').toUpperCase().trim();
+      const vPlaca = limparPlaca(v.placa);
+      const vUuid = String(v.uuid_veiculos || '').toUpperCase().trim();
+      const filtroLimpo = limparPlaca(filtroCarro);
+
+      const bateuCarro = vId === filtroCarro ||
+                         vNome === filtroCarro ||
+                         (filtroLimpo && vPlaca === filtroLimpo) ||
+                         vUuid === filtroCarro;
+
+      if (!bateuCarro) return false;
+    }
+
     return true;
   });
 
